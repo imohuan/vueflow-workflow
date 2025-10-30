@@ -1,0 +1,204 @@
+<template>
+  <NodeWrapper v-bind="props" :custom-get-handle-style="customGetHandleStyle">
+    <div class="flex flex-col gap-2 py-1.5">
+      <!-- 条件预览列表 -->
+      <div
+        v-for="(condition, condIndex) in conditions"
+        :key="condIndex"
+        class="p-2 bg-slate-50 border border-slate-200 rounded-md transition-all duration-200 hover:bg-slate-100"
+        :ref="(el) => setConditionRef(el as HTMLElement, condIndex)"
+      >
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <span
+            class="text-[10px] font-semibold text-slate-600 uppercase tracking-wide"
+          >
+            条件{{ condIndex + 1 }}
+          </span>
+          <span
+            v-if="(condition.subConditions?.length ?? 0) > 1"
+            class="py-0.5 px-1.5 text-[10px] font-medium bg-violet-200 text-violet-600 rounded"
+          >
+            {{ condition.logic === "and" ? "且" : "或" }}
+          </span>
+        </div>
+        <div class="text-[11px] text-slate-500 leading-snug wrap-break-word">
+          {{ getConditionSummary(condition) }}
+        </div>
+      </div>
+
+      <!-- else 预览 -->
+      <div
+        class="p-2 bg-orange-50 border border-orange-200 rounded-md transition-all duration-200 hover:bg-orange-100"
+        ref="elsePreviewRef"
+      >
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <span
+            class="text-[10px] font-semibold text-slate-600 uppercase tracking-wide"
+          >
+            否则
+          </span>
+        </div>
+        <div class="text-[11px] text-slate-500 leading-snug wrap-break-word">
+          所有条件都不满足时执行
+        </div>
+      </div>
+
+      <div
+        class="hidden mt-1 py-1.5 px-2 text-[10px] text-slate-400 text-center bg-slate-50 border border-dashed border-slate-300 rounded-md"
+      >
+        点击节点打开配置面板进行编辑
+      </div>
+    </div>
+  </NodeWrapper>
+</template>
+
+<script setup lang="ts">
+import { computed, ref } from "vue";
+import type { NodeData } from "@/typings/nodeEditor";
+import type { Condition, IfConfig } from "@/core/nodes/flow/IfNode";
+import { OPERATOR_LABELS } from "@/core/nodes/flow/IfNode";
+import NodeWrapper from "./NodeWrapper.vue";
+
+interface Props {
+  id: string;
+  data: NodeData;
+  selected?: boolean;
+}
+
+const props = defineProps<Props>();
+
+const conditions = computed(() => {
+  const config = props.data.config as IfConfig | undefined;
+  return config?.conditions || [];
+});
+
+// 存储每个条件预览框的引用
+const conditionRefs = ref<(HTMLElement | null)[]>([]);
+const elsePreviewRef = ref<HTMLElement | null>(null);
+
+function setConditionRef(el: HTMLElement | null, index: number) {
+  if (el) {
+    conditionRefs.value[index] = el;
+  }
+}
+
+// 计算每个端口的位置
+function customGetHandleStyle(
+  index: number,
+  total: number,
+  portType: "input" | "output"
+): Record<string, string> {
+  // 输入端口使用默认居中
+  if (portType === "input") {
+    return {};
+  }
+
+  // 输出端口对齐对应的条件预览框
+  const conditionsCount = conditions.value.length;
+
+  // 如果是 else 端口（最后一个）
+  if (index === conditionsCount) {
+    const elseEl = elsePreviewRef.value;
+    if (elseEl && elseEl.offsetParent) {
+      // 计算 else 预览框中心点相对于父容器的位置
+      const offsetTop = elseEl.offsetTop + elseEl.offsetHeight / 2;
+      return {
+        top: `${offsetTop}px !important`,
+      };
+    }
+  } else {
+    // 条件端口
+    const conditionEl = conditionRefs.value[index];
+    if (conditionEl && conditionEl.offsetParent) {
+      // 计算条件预览框中心点相对于父容器的位置
+      const offsetTop = conditionEl.offsetTop + conditionEl.offsetHeight / 2;
+      return {
+        top: `${offsetTop}px !important`,
+      };
+    }
+  }
+
+  // 降级方案：均匀分布
+  const parentEl = document.getElementById(props.id);
+  if (parentEl) {
+    const parentHeight = parentEl.offsetHeight;
+    const step = parentHeight / (total + 1);
+    const top = (index + 1) * step;
+    return {
+      top: `${top}px !important`,
+    };
+  }
+
+  return {
+    top: `50% !important`,
+  };
+}
+
+function getConditionSummary(condition: Condition): string {
+  const subConditions = condition.subConditions || [];
+
+  if (subConditions.length === 0) {
+    return "未配置子条件";
+  }
+
+  if (subConditions.length === 1) {
+    const sub = subConditions[0];
+    if (!sub) return "未配置子条件";
+
+    const field = sub.field || "输入值";
+    const operator = OPERATOR_LABELS[sub.operator] || sub.operator;
+    const value = sub.value || "''";
+
+    // 不需要值的操作符
+    if (
+      [
+        "exists",
+        "does not exist",
+        "is empty",
+        "is not empty",
+        "is true",
+        "is false",
+      ].includes(sub.operator)
+    ) {
+      return `${field} ${operator}`;
+    }
+
+    return `${field} ${operator} ${truncate(value, 20)}`;
+  }
+
+  const logicText = condition.logic === "and" ? " 且 " : " 或 ";
+  const summaries = subConditions
+    .map((sub) => {
+      if (!sub) return "";
+
+      const field = sub.field || "输入值";
+      const operator = OPERATOR_LABELS[sub.operator] || sub.operator;
+      const value = sub.value || "''";
+
+      if (
+        [
+          "exists",
+          "does not exist",
+          "is empty",
+          "is not empty",
+          "is true",
+          "is false",
+        ].includes(sub.operator)
+      ) {
+        return `${field} ${operator}`;
+      }
+
+      return `${field} ${operator} ${truncate(value, 15)}`;
+    })
+    .filter(Boolean);
+
+  const result = summaries.join(logicText);
+  return truncate(result, 60);
+}
+
+function truncate(text: string, maxLength: number): string {
+  if (!text) return "";
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength - 1) + "…";
+}
+</script>

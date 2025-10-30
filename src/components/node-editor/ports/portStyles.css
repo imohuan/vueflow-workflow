@@ -1,0 +1,89 @@
+/* ============================================
+   节点编辑器端口样式
+   ============================================ */
+
+/* 主要端口样式（椭圆形） */
+.node-port--ellipse {
+  position: absolute !important;
+  width: 10px !important;
+  height: 24px !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  border: 2px solid #939496 !important;
+  /* box-shadow: 0 2px 4px rgba(148, 163, 184, 0.25) !important; */
+  transition: all 0.2s ease !important;
+  cursor: crosshair !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+/* 输入端口（左侧） */
+.node-port--ellipse.port-input,
+.node-port--ellipse[type="target"] {
+  left: -5px !important;
+}
+
+/* 输出端口（右侧） */
+.node-port--ellipse.port-output,
+.node-port--ellipse[type="source"] {
+  right: -5px !important;
+}
+
+/* Hover 效果 */
+.node-port--ellipse:hover {
+  box-shadow: 0 0 0 4px rgba(182, 182, 182, 0.3) !important;
+  /* transform: translateY(-50%) scale(1) !important; */
+}
+
+/* 连接中效果 */
+.node-port--ellipse.vue-flow__handle-connecting {
+  box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.3) !important;
+  transform: translateY(-50%) scale(1) !important;
+}
+
+/* 有效连接目标 */
+.node-port--ellipse.port-valid-target {
+  border-color: #059669 !important;
+  background: #d1fae5 !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.35) !important;
+  transform: translateY(-50%) scale(1) !important;
+}
+
+/* 无效连接目标 */
+.node-port--ellipse.port-invalid-target {
+  border-color: #dc2626 !important;
+  background: #fee2e2 !important;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.35) !important;
+  transform: translateY(-50%) scale(1) !important;
+  opacity: 0.9 !important;
+}
+
+/* 循环端口（圆形） */
+.node-port--circle {
+  position: absolute !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 9999px !important;
+  background: #6366f1 !important;
+  border: 2px solid #eef2ff !important;
+  box-shadow: 0 2px 4px rgba(148, 163, 184, 0.25) !important;
+}
+
+.node-port--circle.port-valid-target {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.35) !important;
+}
+
+.node-port--circle.port-invalid-target {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.35) !important;
+}
+
+/* ForNode 循环端口定位 */
+.for-node-loop {
+  bottom: -7px !important;
+  top: auto !important;
+  left: 50% !important;
+  transform: translate(-50%, 0) !important;
+  pointer-events: none !important;
+}
