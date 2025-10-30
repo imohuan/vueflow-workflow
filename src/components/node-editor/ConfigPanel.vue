@@ -128,6 +128,7 @@ import IconReset from "@/icons/IconReset.vue";
 import IconEdgeStyle from "@/icons/IconEdgeStyle.vue";
 import IconCanvas from "@/icons/IconCanvas.vue";
 import IconWidget from "@/icons/IconWidget.vue";
+import IconLayout from "@/icons/IconLayout.vue";
 import IconZoomRange from "@/icons/IconZoomRange.vue";
 
 const configStore = useEditorConfigStore();
@@ -138,6 +139,7 @@ const sectionIconMap: Record<ConfigSectionIcon, Component> = {
   "edge-style": IconEdgeStyle,
   canvas: IconCanvas,
   widget: IconWidget,
+  layout: IconLayout,
   "zoom-range": IconZoomRange,
 };
 

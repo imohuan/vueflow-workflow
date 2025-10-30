@@ -20,10 +20,17 @@ export const useEditorConfigStore = defineStore("editorConfig", () => {
   }
 
   // 使用 localStorage 持久化配置
+  const defaults = getDefaultConfig();
+
   const config = useLocalStorage<Record<string, any>>(
     "editorConfig:settings",
-    getDefaultConfig()
+    defaults
   );
+
+  config.value = {
+    ...defaults,
+    ...config.value,
+  };
 
   /**
    * 更新配置项

@@ -38,6 +38,7 @@ export type ConfigSectionIcon =
   | "edge-style"
   | "canvas"
   | "widget"
+  | "layout"
   | "zoom-range";
 
 /**
@@ -167,6 +168,52 @@ export const editorConfigSchema: ConfigSection[] = [
         type: "checkbox",
         defaultValue: true,
         description: "节点移动时自动对齐网格",
+      },
+    ],
+  },
+  {
+    title: "自动布局",
+    icon: "layout",
+    items: [
+      {
+        key: "autoLayoutDirection",
+        label: "布局方向",
+        type: "select",
+        defaultValue: "LR",
+        options: [
+          { label: "水平（左 ➝ 右）", value: "LR" },
+          { label: "水平（右 ➝ 左）", value: "RL" },
+          { label: "垂直（上 ➝ 下）", value: "TB" },
+          { label: "垂直（下 ➝ 上）", value: "BT" },
+        ],
+        description: "控制自动布局的主方向",
+      },
+      {
+        key: "autoLayoutNodeSpacing",
+        label: "节点纵向间距",
+        type: "range",
+        defaultValue: 160,
+        range: { min: 10, max: 320, step: 10 },
+        unit: "px",
+        description: "同一列节点之间的垂直间距",
+      },
+      {
+        key: "autoLayoutRankSpacing",
+        label: "节点横向间距",
+        type: "range",
+        defaultValue: 240,
+        range: { min: 10, max: 480, step: 10 },
+        unit: "px",
+        description: "不同列节点之间的水平间距",
+      },
+      {
+        key: "autoLayoutPadding",
+        label: "画布边距",
+        type: "range",
+        defaultValue: 120,
+        range: { min: 0, max: 300, step: 10 },
+        unit: "px",
+        description: "整体布局与画布边缘的距离",
       },
     ],
   },

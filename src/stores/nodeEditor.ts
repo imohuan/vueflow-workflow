@@ -4,6 +4,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useDebounceFn } from "@vueuse/core";
+import dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@vue-flow/core";
 import type {
   NodeData,
@@ -27,6 +28,21 @@ const CONTAINER_DEFAULT_WIDTH = containerDefaults.width;
 const CONTAINER_DEFAULT_HEIGHT = containerDefaults.height;
 const CONTAINER_HEADER_HEIGHT = containerDefaults.headerHeight;
 type PaddingValues = Record<keyof ContainerPaddingConfig, number>;
+
+type DagreLayoutDirection = "TB" | "BT" | "LR" | "RL";
+
+interface AutoLayoutOptions {
+  /** 布局方向，默认自上而下 */
+  direction?: DagreLayoutDirection;
+  /** 节点水平间距 */
+  nodesep?: number;
+  /** 层级垂直间距 */
+  ranksep?: number;
+  /** 布局后整体额外边距 */
+  padding?: number;
+  /** For 容器与 For 节点的垂直间距 */
+  loopContainerGap?: number;
+}
 
 const DEFAULT_CONTAINER_PADDING: PaddingValues = {
   top: containerDefaults.padding.top,
@@ -90,6 +106,90 @@ function normalizePadding(padding?: unknown): PaddingValues {
   return base;
 }
 
+export interface NodeClipboardNode {
+  sourceId: string;
+  node: Node<NodeData>;
+  absolutePosition: { x: number; y: number };
+}
+
+export interface NodeClipboardData {
+  nodes: NodeClipboardNode[];
+  edges: Edge[];
+  anchor: { x: number; y: number };
+}
+
+function cloneDeep<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function cleanupClonedNode(node: Node<NodeData>) {
+  delete (node as any).selected;
+  delete (node as any).dragging;
+  delete (node as any).positionAbsolute;
+  delete (node as any).extent;
+}
+
+function deriveNodeTypeKey(node: Node<NodeData>): string {
+  if (node.type === "loopContainer") {
+    return "loopContainer";
+  }
+  if (node.data?.variant) {
+    return String(node.data.variant);
+  }
+  const prefix = node.id.split("_")[0];
+  return prefix || "node";
+}
+
+function generateCopiedNodeId(node: Node<NodeData>): string {
+  return `${deriveNodeTypeKey(node)}_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 9)}`;
+}
+
+function getClipboardNodeDepth(
+  node: Node<NodeData>,
+  selectionMap: Map<string, Node<NodeData>>
+): number {
+  let depth = 0;
+  let currentParentId = node.parentNode;
+  while (currentParentId) {
+    const parentNode = selectionMap.get(currentParentId);
+    if (!parentNode) {
+      break;
+    }
+    depth += 1;
+    currentParentId = parentNode.parentNode;
+  }
+  return depth;
+}
+
+function getNodeAbsolutePosition(
+  node: Node<NodeData>,
+  nodeMap: Map<string, Node<NodeData>>,
+  cache: Map<string, { x: number; y: number }>
+): { x: number; y: number } {
+  const cached = cache.get(node.id);
+  if (cached) {
+    return cached;
+  }
+
+  const baseX = node.position?.x ?? 0;
+  const baseY = node.position?.y ?? 0;
+  const result = { x: baseX, y: baseY };
+
+  if (node.parentNode) {
+    const parent = nodeMap.get(node.parentNode);
+    if (parent) {
+      const parentPosition = getNodeAbsolutePosition(parent, nodeMap, cache);
+      result.x += parentPosition.x;
+      result.y += parentPosition.y;
+    }
+  }
+
+  cache.set(node.id, result);
+  return result;
+}
+
 const NODE_LAYER_CLASS_CONTAINER = "node-layer-container";
 const NODE_LAYER_CLASS_CHILD = "node-layer-child";
 const EDGE_LAYER_CLASS_CONTAINER = "edge-layer-container";
@@ -144,6 +244,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
   const selectedNodeId = ref<string | null>(null);
   const renamingNodeId = ref<string | null>(null);
   const isNodeEditorVisible = ref(false);
+  const clipboard = ref<NodeClipboardData | null>(null);
 
   let persistTimer: number | null = null;
   let stateDirty = false;
@@ -1224,6 +1325,165 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     });
   }
 
+  function autoLayout(options: AutoLayoutOptions = {}) {
+    const topLevelNodes = nodes.value.filter((node) => !node.parentNode);
+
+    if (topLevelNodes.length === 0) {
+      return;
+    }
+
+    const direction = options.direction ?? "LR";
+    const nodesep = options.nodesep ?? 160;
+    const ranksep = options.ranksep ?? 240;
+    const padding = options.padding ?? 120;
+    const loopContainerGap = options.loopContainerGap ?? nodesep;
+
+    const layoutCandidates = topLevelNodes.filter(
+      (node) => node.type !== "loopContainer"
+    );
+
+    if (layoutCandidates.length === 0) {
+      return;
+    }
+
+    const graph = new dagre.graphlib.Graph();
+    graph.setDefaultEdgeLabel(() => ({}));
+    graph.setGraph({
+      rankdir: direction,
+      nodesep,
+      ranksep,
+      marginx: 0,
+      marginy: 0,
+    });
+
+    const layoutCandidateIds = new Set(layoutCandidates.map((node) => node.id));
+
+    layoutCandidates.forEach((node) => {
+      const width = getNodeApproxWidth(node);
+      const height = getNodeApproxHeight(node);
+      graph.setNode(node.id, { width, height });
+    });
+
+    edges.value.forEach((edge) => {
+      if (
+        !layoutCandidateIds.has(edge.source) ||
+        !layoutCandidateIds.has(edge.target)
+      ) {
+        return;
+      }
+
+      graph.setEdge(edge.source, edge.target);
+    });
+
+    dagre.layout(graph);
+
+    type PositionedNode = {
+      node: Node<NodeData>;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+
+    const positionedNodes: PositionedNode[] = [];
+    const forNodeLayout = new Map<string, PositionedNode>();
+
+    layoutCandidates.forEach((node) => {
+      const metadata = graph.node(node.id) as
+        | { x: number; y: number }
+        | undefined;
+
+      if (!metadata) {
+        return;
+      }
+
+      const width = getNodeApproxWidth(node);
+      const height = getNodeApproxHeight(node);
+
+      const rawX = metadata.x - width / 2;
+      const rawY = metadata.y - height / 2;
+
+      const entry: PositionedNode = {
+        node,
+        x: rawX,
+        y: rawY,
+        width,
+        height,
+      };
+
+      positionedNodes.push(entry);
+
+      if (node.data?.variant === "for") {
+        forNodeLayout.set(node.id, entry);
+      }
+    });
+
+    const loopContainers = topLevelNodes.filter(
+      (node) => node.type === "loopContainer"
+    );
+
+    loopContainers.forEach((container) => {
+      const width = getNodeApproxWidth(container);
+      const height = getNodeApproxHeight(container);
+
+      let rawX = container.position?.x ?? 0;
+      let rawY = container.position?.y ?? 0;
+
+      const forNodeId = (container.data?.config as any)?.forNodeId as
+        | string
+        | undefined;
+      const forEntry = forNodeLayout.get(forNodeId ?? "");
+
+      if (forEntry) {
+        rawX = forEntry.x + (forEntry.width - width) / 2;
+        rawY = forEntry.y + forEntry.height + loopContainerGap;
+      }
+
+      positionedNodes.push({
+        node: container,
+        x: rawX,
+        y: rawY,
+        width,
+        height,
+      });
+    });
+
+    if (positionedNodes.length === 0) {
+      return;
+    }
+
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+
+    positionedNodes.forEach(({ x, y }) => {
+      if (x < minX) {
+        minX = x;
+      }
+      if (y < minY) {
+        minY = y;
+      }
+    });
+
+    const baseX = Number.isFinite(minX) ? minX : 0;
+    const baseY = Number.isFinite(minY) ? minY : 0;
+
+    batchStart();
+
+    positionedNodes.forEach(({ node, x, y }) => {
+      const nextPosition = {
+        x: x - baseX + padding,
+        y: y - baseY + padding,
+      };
+
+      moveNodeInternal(node.id, nextPosition, {
+        isDragging: false,
+        recordHistory: false,
+      });
+    });
+
+    batchEnd();
+  }
+
   function updateNodeDimensions(
     nodeId: string,
     dimensions: { width: number; height: number }
@@ -1532,6 +1792,247 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
 
     // 通知容器内部更新
     notifyContainerInternals(containerId);
+  }
+
+  function clearClipboard() {
+    clipboard.value = null;
+  }
+
+  function copyNodesToClipboard(nodeIds: string[]) {
+    if (!Array.isArray(nodeIds) || nodeIds.length === 0) {
+      clearClipboard();
+      return;
+    }
+
+    const idSet = new Set(nodeIds.filter(Boolean));
+    if (idSet.size === 0) {
+      clearClipboard();
+      return;
+    }
+
+    const selectedNodes = nodes.value.filter((node) => idSet.has(node.id));
+    if (selectedNodes.length === 0) {
+      clearClipboard();
+      return;
+    }
+
+    const nodeMap = new Map(nodes.value.map((node) => [node.id, node]));
+    const cache = new Map<string, { x: number; y: number }>();
+
+    const clipboardNodes: NodeClipboardNode[] = selectedNodes.map((node) => {
+      const absolutePosition = getNodeAbsolutePosition(node, nodeMap, cache);
+      const clonedNode = cloneDeep(node);
+      cleanupClonedNode(clonedNode);
+      return {
+        sourceId: node.id,
+        node: clonedNode,
+        absolutePosition,
+      };
+    });
+
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+
+    clipboardNodes.forEach(({ absolutePosition }) => {
+      minX = Math.min(minX, absolutePosition.x);
+      minY = Math.min(minY, absolutePosition.y);
+    });
+
+    const anchor = {
+      x: Number.isFinite(minX) ? minX : 0,
+      y: Number.isFinite(minY) ? minY : 0,
+    };
+
+    const clipboardEdges = edges.value
+      .filter((edge) => idSet.has(edge.source) && idSet.has(edge.target))
+      .map((edge) => cloneDeep(edge));
+
+    clipboard.value = {
+      nodes: clipboardNodes,
+      edges: clipboardEdges,
+      anchor,
+    };
+  }
+
+  function hasClipboardData(): boolean {
+    return Boolean(clipboard.value && clipboard.value.nodes.length > 0);
+  }
+
+  function pasteClipboardNodes(targetPosition: {
+    x: number;
+    y: number;
+  }): string[] {
+    const data = clipboard.value;
+    if (!data || data.nodes.length === 0) {
+      return [];
+    }
+
+    const offset = {
+      x: targetPosition.x - data.anchor.x,
+      y: targetPosition.y - data.anchor.y,
+    };
+
+    const idMap = new Map<string, string>();
+    const absolutePositionMap = new Map<string, { x: number; y: number }>();
+    const selectionMap = new Map<string, Node<NodeData>>();
+
+    data.nodes.forEach((item) => {
+      const newId = generateCopiedNodeId(item.node);
+      idMap.set(item.sourceId, newId);
+      absolutePositionMap.set(item.sourceId, {
+        x: item.absolutePosition.x + offset.x,
+        y: item.absolutePosition.y + offset.y,
+      });
+      selectionMap.set(item.sourceId, item.node);
+    });
+
+    const sortedNodes = [...data.nodes].sort(
+      (a, b) =>
+        getClipboardNodeDepth(a.node, selectionMap) -
+        getClipboardNodeDepth(b.node, selectionMap)
+    );
+
+    const affectedContainers = new Set<string>();
+    const newNodeIds: string[] = [];
+
+    batchStart();
+    try {
+      nodes.value.forEach((node) => {
+        const selectableNode = node as Node<NodeData> & { selected?: boolean };
+        if (selectableNode.selected) {
+          selectableNode.selected = false;
+        }
+      });
+
+      sortedNodes.forEach((item) => {
+        const originalNode = item.node;
+        const newNode = cloneDeep(originalNode);
+        cleanupClonedNode(newNode);
+
+        const newId = idMap.get(item.sourceId);
+        if (!newId) {
+          return;
+        }
+        newNode.id = newId;
+
+        const absolutePosition = absolutePositionMap.get(item.sourceId);
+        if (!absolutePosition) {
+          return;
+        }
+
+        const parentOldId = originalNode.parentNode;
+        if (parentOldId && idMap.has(parentOldId)) {
+          const parentNewId = idMap.get(parentOldId)!;
+          newNode.parentNode = parentNewId;
+          const parentAbs = absolutePositionMap.get(parentOldId);
+          if (parentAbs) {
+            newNode.position = {
+              x: absolutePosition.x - parentAbs.x,
+              y: absolutePosition.y - parentAbs.y,
+            };
+          } else {
+            newNode.position = { ...absolutePosition };
+          }
+          affectedContainers.add(parentNewId);
+        } else {
+          if (newNode.parentNode) {
+            delete newNode.parentNode;
+          }
+          newNode.position = { ...absolutePosition };
+        }
+
+        if (newNode.data) {
+          newNode.data = { ...newNode.data };
+
+          if (newNode.data.config) {
+            newNode.data.config = cloneDeep(newNode.data.config);
+            const configObj = newNode.data.config as Record<string, any>;
+            ["containerId", "forNodeId"].forEach((key) => {
+              const value = configObj[key];
+              if (typeof value === "string") {
+                if (idMap.has(value)) {
+                  configObj[key] = idMap.get(value);
+                } else {
+                  delete configObj[key];
+                }
+              }
+            });
+          }
+
+          if (newNode.data.inputs) {
+            newNode.data.inputs = cloneDeep(newNode.data.inputs);
+          }
+
+          if (newNode.data.outputs) {
+            newNode.data.outputs = cloneDeep(newNode.data.outputs);
+          }
+
+          if ("result" in newNode.data) {
+            delete (newNode.data as any).result;
+          }
+          if ("resultExpanded" in newNode.data) {
+            delete (newNode.data as any).resultExpanded;
+          }
+
+          if (typeof newNode.data.label === "string" && newNode.data.label) {
+            newNode.data.label = generateUniqueName(newNode.data.label);
+          }
+        }
+
+        (newNode as Node<NodeData> & { selected?: boolean }).selected = true;
+        applyNodeLayerClass(newNode);
+        nodes.value.push(newNode);
+        newNodeIds.push(newNode.id);
+
+        if (newNode.type === "loopContainer") {
+          affectedContainers.add(newNode.id);
+        }
+
+        notifyContainerInternals(newNode.id);
+      });
+
+      const edgeTimestamp = Date.now();
+      data.edges.forEach((edge, index) => {
+        const newSource = idMap.get(edge.source);
+        const newTarget = idMap.get(edge.target);
+        if (!newSource || !newTarget) {
+          return;
+        }
+
+        const newEdge = cloneDeep(edge);
+        newEdge.id = `edge_${edgeTimestamp + index}_${Math.random()
+          .toString(36)
+          .slice(2, 9)}`;
+        newEdge.source = newSource;
+        newEdge.target = newTarget;
+        (newEdge as Edge & { selected?: boolean }).selected = false;
+
+        edges.value.push(newEdge);
+        applyEdgeLayerClass(newEdge);
+      });
+
+      affectedContainers.forEach((containerId) => {
+        const containerNode = nodes.value.find(
+          (node) => node.id === containerId
+        );
+        if (containerNode) {
+          updateContainerBounds(containerNode);
+          notifyContainerInternals(containerNode.id);
+        }
+      });
+
+      if (newNodeIds.length > 0) {
+        const lastNodeId = newNodeIds[newNodeIds.length - 1];
+        if (lastNodeId) {
+          selectedNodeId.value = lastNodeId;
+        }
+      }
+    } finally {
+      batchEnd();
+      refreshEdgeLayerClasses();
+    }
+
+    return newNodeIds;
   }
 
   /**
@@ -2090,6 +2591,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     handleNodeDrag,
     handleNodeDragStop,
     updateNodePosition,
+    autoLayout,
     updateNodeDimensions,
     addEdge,
     removeEdge,
@@ -2102,6 +2604,10 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     beginNodeDetachFromContainer,
     finalizeNodeDetachFromContainer,
     moveNodeIntoContainer,
+    clearClipboard,
+    copyNodesToClipboard,
+    hasClipboardData,
+    pasteClipboardNodes,
     selectNode,
     openNodeEditor,
     closeNodeEditor,

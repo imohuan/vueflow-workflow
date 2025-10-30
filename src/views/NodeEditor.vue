@@ -164,6 +164,24 @@
           <IconMap />
         </Button>
         <Button
+          variant="outlined"
+          icon-only
+          :disabled="nodes.length === 0"
+          @click="handleFitView"
+          title="自适应视图"
+        >
+          <IconFit />
+        </Button>
+        <Button
+          variant="outlined"
+          icon-only
+          :disabled="nodes.length === 0"
+          @click="handleAutoLayout"
+          title="自动布局"
+        >
+          <IconLayout />
+        </Button>
+        <Button
           :variant="showConfigPanel ? undefined : 'outlined'"
           icon-only
           @click="toggleConfigPanel"
@@ -225,6 +243,10 @@ import IconMap from "@/icons/IconMap.vue";
 import IconConfig from "@/icons/IconConfig.vue";
 import IconUndo from "@/icons/IconUndo.vue";
 import IconRedo from "@/icons/IconRedo.vue";
+import IconLayout from "@/icons/IconLayout.vue";
+import IconFit from "@/icons/IconFit.vue";
+
+type DagreLayoutDirection = "TB" | "BT" | "LR" | "RL";
 
 // 引入 VueFlow 样式
 import "@vue-flow/core/dist/style.css";
@@ -264,6 +286,7 @@ type HighlightVariant = "normal" | "warning";
 
 const highlightedContainers = new Map<string, HighlightVariant>();
 const lastDragPositions = new Map<string, { x: number; y: number }>();
+const lastPointerPosition = ref<{ x: number; y: number } | null>(null);
 
 function isEditableElement(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -285,6 +308,14 @@ function isEditableElement(target: EventTarget | null): boolean {
   }
 
   return Boolean(target.closest('[contenteditable="true"]'));
+}
+
+function isShortcutAvailable(): boolean {
+  const activeElement = document.activeElement;
+  if (!activeElement) {
+    return true;
+  }
+  return !isEditableElement(activeElement);
 }
 
 function setContainerHighlightState(
@@ -367,6 +398,28 @@ useEventListener(window, "keydown", (event: KeyboardEvent) => {
   }
   if (event.key === "Control" || event.ctrlKey) {
     isCtrlPressed.value = true;
+  }
+});
+
+useEventListener(window, "mousemove", (event: MouseEvent) => {
+  const instance = vueFlowRef.value as any;
+  if (!instance) {
+    return;
+  }
+
+  const element = instance.$el as HTMLElement | undefined;
+  if (!element) {
+    return;
+  }
+
+  const target = event.target as HTMLElement | null;
+  if (!target || !element.contains(target)) {
+    return;
+  }
+
+  const projected = instance.project?.({ x: event.clientX, y: event.clientY });
+  if (projected) {
+    lastPointerPosition.value = projected;
   }
 });
 
@@ -681,6 +734,8 @@ const keys = useMagicKeys();
 const ctrlZ = keys["Ctrl+Z"] as any;
 const ctrlY = keys["Ctrl+Y"] as any;
 const ctrlShiftZ = keys["Ctrl+Shift+Z"] as any;
+const ctrlC = keys["Ctrl+C"] as any;
+const ctrlV = keys["Ctrl+V"] as any;
 
 // 撤销
 whenever(ctrlZ, () => {
@@ -701,6 +756,53 @@ whenever(ctrlShiftZ, () => {
   if (store.canRedo) {
     handleRedo();
   }
+});
+
+function getFallbackPastePosition(): { x: number; y: number } {
+  const instance = vueFlowRef.value as any;
+  if (!instance) {
+    return { x: 0, y: 0 };
+  }
+
+  const element = instance.$el as HTMLElement | undefined;
+  if (element) {
+    const rect = element.getBoundingClientRect();
+    return instance.project({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    });
+  }
+
+  return instance.project({
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+  });
+}
+
+whenever(ctrlC, () => {
+  if (!isShortcutAvailable()) {
+    return;
+  }
+
+  const selectedNodes = (getSelectedNodes.value ?? []) as Node<NodeData>[];
+  if (!selectedNodes.length) {
+    return;
+  }
+
+  store.copyNodesToClipboard(selectedNodes.map((node) => node.id));
+});
+
+whenever(ctrlV, () => {
+  if (!isShortcutAvailable()) {
+    return;
+  }
+
+  if (!store.hasClipboardData()) {
+    return;
+  }
+
+  const position = lastPointerPosition.value ?? getFallbackPastePosition();
+  store.pasteClipboardNodes(position);
 });
 
 /**
@@ -1111,6 +1213,54 @@ function getNodeColor(node: Node<NodeData>): string {
 function toggleMiniMap() {
   config.value.showMiniMap = !config.value.showMiniMap;
   showMiniMapToggle.value = config.value.showMiniMap;
+}
+
+function handleFitView() {
+  if (nodes.value.length === 0) {
+    return;
+  }
+
+  if (typeof vueFlowApi.fitView === "function") {
+    vueFlowApi.fitView({
+      padding: 0.2,
+      duration: 400,
+    });
+  }
+}
+
+async function handleAutoLayout() {
+  if (nodes.value.length === 0) {
+    return;
+  }
+
+  const toNumber = (value: unknown, fallback: number) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+  const direction =
+    (config.value.autoLayoutDirection as DagreLayoutDirection | undefined) ??
+    "LR";
+  const nodesep = toNumber(config.value.autoLayoutNodeSpacing, 160);
+  const ranksep = toNumber(config.value.autoLayoutRankSpacing, 240);
+  const padding = toNumber(config.value.autoLayoutPadding, 120);
+
+  store.autoLayout({
+    direction,
+    nodesep,
+    ranksep,
+    padding,
+    loopContainerGap: nodesep,
+  });
+
+  await nextTick();
+
+  if (typeof vueFlowApi.fitView === "function") {
+    vueFlowApi.fitView({
+      padding: 0.2,
+      duration: 400,
+    });
+  }
 }
 
 // useEventListener(window, "mousemove", (event) => {
