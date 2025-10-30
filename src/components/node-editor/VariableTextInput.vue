@@ -1,145 +1,206 @@
 <template>
   <div class="space-y-2">
     <!-- 顶部预览 -->
-    <VariablePreview v-if="previewMode === 'top'" :value="internalValue" />
+    <VariablePreview
+      v-if="previewMode === 'top' && isFocused"
+      :value="internalValue"
+    />
 
     <!-- 编辑器容器 -->
-    <div class="relative">
-      <div
-        class="pointer-events-none absolute flex items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500 shadow-sm"
-        :class="fxIconPositionClass"
-      >
-        fx
-      </div>
-      <span
-        v-if="showPlaceholder"
-        class="pointer-events-none absolute select-none text-slate-400"
-        :class="placeholderPositionClass"
-      >
-        {{ placeholder }}
-      </span>
-      <!-- 编辑器 - 使用 contenteditable -->
-      <div
-        ref="editorRef"
-        contenteditable="true"
-        :class="[
-          baseEditorClass,
-          multiline ? multilineClass : singleLineClass,
-          editorPaddingClass,
-        ]"
-        @input="handleInput"
-        @drop="handleDrop"
-        @dragover.prevent
-        @paste="handlePaste"
-        @keydown="handleKeyDown"
-        @focus="handleFocus"
-        @blur="handleBlur"
-      ></div>
+    <Dropdown
+      v-model="showDropdown"
+      :width-mode="previewMode === 'dropdown' ? 'trigger' : 'auto'"
+      placement="bottom-start"
+      :offset="4"
+    >
+      <!-- 触发器插槽 -->
+      <template #trigger>
+        <div
+          :class="[
+            'relative flex items-stretch h-full rounded-md border transition-all duration-200',
+            isFocused
+              ? 'border-slate-400 ring-2 ring-slate-200'
+              : 'border-slate-200',
+          ]"
+        >
+          <!-- FX 图标 - 左侧铺满整个输入框高度 -->
+          <div
+            class="pointer-events-none flex items-center justify-center w-7 text-gray-600 rounded-l-md shrink-0 border-r border-gray-200"
+            style="background-color: #f1f3f9"
+          >
+            <IconFx class="w-4 h-4" />
+          </div>
 
-      <!-- 下拉预览按钮 -->
-      <button
-        v-if="previewMode === 'dropdown'"
-        type="button"
-        class="absolute right-2 flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-700"
-        :class="[dropdownButtonPositionClass, dropdownButtonSizeClass]"
-        @click.stop="toggleDropdown"
-      >
-        <IconChevronDown
-          class="h-4 w-4 transition-transform"
-          :class="{ 'rotate-180': showDropdown }"
-        />
-      </button>
+          <!-- 编辑器包裹容器 -->
+          <div class="relative flex-1 min-w-0">
+            <!-- Placeholder -->
+            <span
+              v-if="showPlaceholder"
+              :class="[
+                'pointer-events-none absolute select-none text-slate-400',
+                density === 'compact'
+                  ? 'left-2 top-1 text-xs'
+                  : 'left-2 top-2 text-sm',
+              ]"
+            >
+              {{ placeholder }}
+            </span>
+
+            <!-- 编辑器 - 使用 contenteditable -->
+            <div
+              ref="editorRef"
+              contenteditable="true"
+              :class="[
+                'w-full cursor-text font-mono text-slate-700 bg-white outline-none wrap-break-word',
+                // 字体大小
+                density === 'compact' ? 'text-xs' : 'text-sm',
+                // 左右 padding
+                'px-2',
+                // 上下 padding 和高度
+                multiline
+                  ? density === 'compact'
+                    ? 'py-1 min-h-12 max-h-52 overflow-y-auto whitespace-pre-wrap resize-y'
+                    : 'py-2 min-h-16 max-h-60 overflow-y-auto whitespace-pre-wrap resize-y'
+                  : density === 'compact'
+                  ? 'h-7 flex items-center overflow-hidden whitespace-nowrap resize-none'
+                  : 'h-8 flex items-center overflow-hidden whitespace-nowrap resize-none',
+              ]"
+              @input="handleInput"
+              @variable-drop="handleVariableDrop"
+              @paste="handlePaste"
+              @keydown="handleKeyDown"
+              @focus="handleFocus"
+              @blur="handleBlur"
+              @mousedown="handleMouseDown"
+              @mouseup="handleMouseUp"
+            ></div>
+          </div>
+
+          <!-- 打开变量编辑器按钮 - 右侧紧贴 -->
+          <div class="w-5 h-8 pt-3">
+            <button
+              type="button"
+              class="flex items-center justify-center w-full h-full border-l rounded-tl-md border-t border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-700 hover:bg-slate-100 rounded-r-md shrink-0"
+              @click.stop="openVariableEditor"
+              title="打开变量编辑器"
+            >
+              <IconExternalLink class="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      </template>
 
       <!-- 下拉预览面板 -->
-      <div
-        v-if="previewMode === 'dropdown' && showDropdown"
-        class="absolute top-full z-10 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
-        @mousedown.prevent
-      >
-        <div
-          class="flex items-center justify-between border-b border-slate-100 bg-slate-50/90 px-3 py-2"
-        >
+      <template #default>
+        <div v-if="previewMode === 'dropdown'" class="overflow-hidden">
+          <!-- 标题栏 -->
           <div
-            class="text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+            class="flex items-center justify-between border-b border-slate-100 bg-slate-50/90 px-2 py-1.5"
           >
-            Result
+            <div
+              class="text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+            >
+              Result
+            </div>
+            <div class="flex items-center gap-1 text-[10px] text-slate-500">
+              <span class="font-medium">Page</span>
+              <input
+                :value="pageInput"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                placeholder="0"
+                :disabled="!previewItems.length"
+                class="h-5 w-7 rounded bg-white px-1 text-center text-[10px] font-medium text-slate-600 shadow-inner ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-slate-100 disabled:text-slate-400"
+                @input="handlePageInputChange"
+                @blur="handlePageInputCommit"
+                @keydown="handlePageInputKeydown"
+              />
+              <span>/ {{ previewItems.length || 0 }}</span>
+              <button
+                type="button"
+                class="flex h-5 w-5 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
+                :disabled="!canNavigatePrev"
+                aria-label="上一页"
+                @click.stop="goPrevItem"
+              >
+                <IconChevronRight class="h-3 w-3 -rotate-180" />
+              </button>
+              <button
+                type="button"
+                class="flex h-5 w-5 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
+                :disabled="!canNavigateNext"
+                aria-label="下一页"
+                @click.stop="goNextItem"
+              >
+                <IconChevronRight class="h-3 w-3" />
+              </button>
+            </div>
           </div>
-          <div class="flex items-center gap-1.5 text-[10px] text-slate-500">
-            <span class="font-medium">Page</span>
-            <input
-              :value="pageInput"
-              type="text"
-              inputmode="numeric"
-              pattern="[0-9]*"
-              placeholder="0"
-              :disabled="!previewItems.length"
-              class="h-6 w-12 rounded-md bg-white px-1 text-center text-[10px] font-medium text-slate-600 shadow-inner ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-slate-100 disabled:text-slate-400"
-              @input="handlePageInputChange"
-              @blur="handlePageInputCommit"
-              @keydown="handlePageInputKeydown"
+
+          <!-- 预览内容 -->
+          <div class="max-h-56 overflow-y-auto px-2 py-2">
+            <VariablePreview
+              v-if="previewItems.length"
+              :value="internalValue"
+              :current-item-index="currentPreviewIndex"
+              inline
             />
-            <span>/ {{ previewItems.length || 0 }}</span>
-            <button
-              type="button"
-              class="flex h-6 w-6 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
-              :disabled="!canNavigatePrev"
-              aria-label="上一页"
-              @click.stop="goPrevItem"
-            >
-              <IconChevronRight class="h-3.5 w-3.5 -rotate-180" />
-            </button>
-            <button
-              type="button"
-              class="flex h-6 w-6 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
-              :disabled="!canNavigateNext"
-              aria-label="下一页"
-              @click.stop="goNextItem"
-            >
-              <IconChevronRight class="h-3.5 w-3.5" />
-            </button>
+            <p v-else class="text-xs text-slate-400">
+              <span class="font-mono bg-gray-100">[empty]</span>
+              <!-- 暂无可预览数据 -->
+            </p>
+          </div>
+
+          <!-- 提示信息 -->
+          <div class="border-t border-slate-100 bg-slate-50 px-2 py-1.5">
+            <p class="text-[10px] leading-tight text-slate-400">
+              Tip: 支持拖拽变量插入，变量以
+              <span class="font-mono text-emerald-600"
+                >&#123;&#123; 节点名.字段 &#125;&#125;</span
+              >
+              形式表示
+            </p>
           </div>
         </div>
-        <div class="max-h-56 overflow-y-auto px-3 py-3">
-          <div
-            v-if="previewItems.length"
-            class="whitespace-pre-wrap font-mono text-xs leading-5 text-slate-700"
-            v-html="currentPreviewItemHtml"
-          ></div>
-          <p v-else class="text-xs text-slate-400">暂无可预览数据</p>
-        </div>
-        <div class="border-t border-slate-100 bg-slate-50 px-3 py-2">
-          <p class="text-[10px] leading-tight text-slate-400">
-            Tip: 支持拖拽变量插入，变量以
-            <span class="font-mono text-emerald-600"
-              >&#123;&#123; $path &#125;&#125;</span
-            >
-            形式表示
-          </p>
-        </div>
-      </div>
-    </div>
+      </template>
+    </Dropdown>
 
-    <!-- 底部预览（保留原有的位置，作为默认） -->
-    <VariablePreview v-if="previewMode === 'bottom'" :value="internalValue" />
+    <!-- 底部预览 -->
+    <VariablePreview
+      v-if="previewMode === 'bottom' && isFocused"
+      :value="internalValue"
+    />
 
+    <!-- 提示文本 -->
     <p
-      v-if="previewMode !== 'dropdown'"
-      class="text-[10px] leading-tight text-slate-400"
+      v-if="previewMode !== 'dropdown' && isFocused"
+      class="text-[10px] leading-tight text-slate-400 px-1"
     >
       Tip: 支持拖拽变量插入，变量以
       <span class="font-mono text-emerald-600"
-        >&#123;&#123; $path &#125;&#125;</span
+        >&#123;&#123; 节点名.字段 &#125;&#125;</span
       >
       形式表示
     </p>
   </div>
+
+  <!-- 变量编辑器弹窗 -->
+  <VariableEditorModal
+    v-model="showVariableEditor"
+    :value="internalValue"
+    @save="handleVariableEditorSave"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import IconChevronDown from "@/icons/IconChevronDown.vue";
 import IconChevronRight from "@/icons/IconChevronRight.vue";
+import IconFx from "@/icons/IconFx.vue";
+import IconExternalLink from "@/icons/IconExternalLink.vue";
+import Dropdown from "@/components/common/Dropdown.vue";
 import VariablePreview from "./VariablePreview.vue";
+import VariableEditorModal from "./VariableEditorModal.vue";
 import { useNodeEditorStore } from "@/stores/nodeEditor";
 import {
   buildVariableContext,
@@ -173,109 +234,26 @@ const emit = defineEmits<{
 const editorRef = ref<HTMLDivElement | null>(null);
 const internalValue = ref(normalizeValue(props.modelValue));
 const showDropdown = ref(false);
+const showVariableEditor = ref(false);
 const currentPreviewIndex = ref(0);
 const pageInput = ref("0");
+const isFocused = ref(false);
 let isUpdating = false; // 防止重复触发
+const shouldForceCursorToEnd = ref(false);
+
+const CURSOR_PLACEHOLDER = "\u200B";
+const CURSOR_PLACEHOLDER_REGEX = new RegExp(CURSOR_PLACEHOLDER, "g");
+const VARIABLE_TOKEN_PATTERN = "\\{\\{\\s*[^{}]+?\\s*\\}\\}";
+const VARIABLE_TOKEN_LEADING_REGEX = new RegExp(`^${VARIABLE_TOKEN_PATTERN}`);
+const VARIABLE_TOKEN_TRAILING_REGEX = new RegExp(`${VARIABLE_TOKEN_PATTERN}$`);
+const CURSOR_PLACEHOLDER_HTML =
+  '<span data-cursor-anchor="true" style="display:inline-block;width:1px;">&#8203;</span>';
 
 const store = useNodeEditorStore();
-
-const baseEditorClass = computed(() => {
-  const classes = [
-    "w-full",
-    "cursor-text",
-    "border",
-    "border-slate-200",
-    "rounded-md",
-    "font-mono",
-    "text-slate-700",
-    "bg-white",
-    "shadow-sm",
-    "transition-all",
-    "duration-200",
-    "outline-none",
-    "focus-visible:border-slate-400",
-    "focus-visible:ring-2",
-    "focus-visible:ring-slate-200",
-    "break-words",
-  ];
-
-  if (props.density === "compact") {
-    classes.push("text-xs");
-  } else {
-    classes.push("text-sm");
-  }
-
-  return classes.join(" ");
-});
-
-const singleLineClass = computed(() => {
-  if (props.multiline) return "";
-  return props.density === "compact"
-    ? "h-8 overflow-hidden whitespace-nowrap resize-none"
-    : "h-9 overflow-hidden whitespace-nowrap resize-none";
-});
-
-const multilineClass = computed(() => {
-  return props.density === "compact"
-    ? "min-h-[3.5rem] max-h-52 overflow-y-auto whitespace-pre-wrap resize-y"
-    : "min-h-[4.5rem] max-h-60 overflow-y-auto whitespace-pre-wrap resize-y";
-});
-
-const editorPaddingClass = computed(() => {
-  const left = props.density === "compact" ? "pl-10" : "pl-12";
-  const right =
-    props.previewMode === "dropdown"
-      ? props.density === "compact"
-        ? "pr-12"
-        : "pr-14"
-      : props.density === "compact"
-      ? "pr-4"
-      : "pr-5";
-  const top = props.density === "compact" ? "pt-1.5" : "pt-2.5";
-  const bottom =
-    props.previewMode === "dropdown"
-      ? props.density === "compact"
-        ? "pb-4"
-        : "pb-5"
-      : props.density === "compact"
-      ? "pb-2"
-      : "pb-3";
-
-  return [left, right, top, bottom].join(" ");
-});
-
-const dropdownButtonPositionClass = computed(() => {
-  if (props.multiline) {
-    return props.density === "compact" ? "bottom-2.5" : "bottom-3";
-  }
-  return props.density === "compact" ? "bottom-1.5" : "bottom-2";
-});
-
-const dropdownButtonSizeClass = computed(() =>
-  props.density === "compact" ? "h-7 w-7" : "h-8 w-8"
-);
 
 const showPlaceholder = computed(
   () => !internalValue.value && props.placeholder
 );
-
-const placeholderPositionClass = computed(() =>
-  props.density === "compact"
-    ? "left-10 top-1.5 text-xs"
-    : "left-12 top-3 text-sm"
-);
-
-const fxIconPositionClass = computed(() => {
-  if (props.multiline) {
-    return props.density === "compact"
-      ? "left-2 top-3 h-7 w-7"
-      : "left-2 top-3 h-8 w-8";
-  }
-
-  return props.density === "compact"
-    ? "left-2 top-1/2 h-7 w-7 -translate-y-1/2"
-    : "left-2 top-1/2 h-8 w-8 -translate-y-1/2";
-});
 
 // 初始化编辑器内容
 watch(
@@ -304,19 +282,20 @@ watch(
 const hasVariable = computed(() => {
   const value = internalValue.value;
   if (!value || typeof value !== "string") return false;
-  return /\{\{\s*\$?[^{}]+?\s*\}\}/.test(value);
+  return /\{\{\s*[^{}]+?\s*\}\}/.test(value);
 });
 
+// 计算预览项数量（用于分页）
 const previewItems = computed(() => {
   const value = internalValue.value;
   if (!value) return [];
 
   if (!hasVariable.value) {
-    return [normalizePreviewValue(value)];
+    return [value];
   }
 
   if (!store.selectedNodeId) {
-    return [normalizePreviewValue(value)];
+    return [value];
   }
 
   try {
@@ -335,28 +314,18 @@ const previewItems = computed(() => {
     const result = resolved.preview;
 
     if (Array.isArray(result)) {
-      return result.map((item) => normalizePreviewValue(item));
+      return result;
     }
 
     if (result === null || result === undefined) {
       return [];
     }
 
-    return [normalizePreviewValue(result)];
+    return [result];
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : String(error ?? "未知错误");
-    return [`解析错误: ${message}`];
+    return ["解析错误"];
   }
 });
-
-const currentPreviewItem = computed(
-  () => previewItems.value[currentPreviewIndex.value] ?? ""
-);
-
-const currentPreviewItemHtml = computed(() =>
-  highlightVariables(currentPreviewItem.value)
-);
 
 const canNavigatePrev = computed(
   () => previewItems.value.length > 1 && currentPreviewIndex.value > 0
@@ -400,49 +369,41 @@ function normalizeValue(value: string | number | undefined): string {
   return String(value);
 }
 
-function normalizePreviewValue(value: unknown): string {
-  if (value === null || value === undefined) return "";
-
-  if (typeof value === "object") {
-    try {
-      return JSON.stringify(value, null, 2);
-    } catch (error) {
-      return String(value);
-    }
-  }
-
-  return String(value);
-}
-
-/**
- * 切换下拉预览
- */
-function toggleDropdown() {
-  const next = !showDropdown.value;
-  showDropdown.value = next;
-  if (next) {
-    currentPreviewIndex.value = 0;
-  }
-}
-
 /**
  * 处理焦点事件
  */
 function handleFocus() {
-  if (props.previewMode !== "dropdown") return;
-  currentPreviewIndex.value = 0;
-  showDropdown.value = true;
+  isFocused.value = true;
+  if (props.previewMode === "dropdown") {
+    currentPreviewIndex.value = 0;
+    showDropdown.value = true;
+  }
 }
 
 /**
  * 处理失焦事件
  */
 function handleBlur() {
-  if (props.previewMode !== "dropdown") return;
-  // 延迟关闭，以便点击下拉按钮时不会立即关闭
-  setTimeout(() => {
-    showDropdown.value = false;
-  }, 200);
+  isFocused.value = false;
+}
+
+function handleMouseDown(event: MouseEvent) {
+  if (!editorRef.value) return;
+  const target = event.target as HTMLElement | null;
+  shouldForceCursorToEnd.value =
+    target === editorRef.value || target?.dataset.cursorAnchor === "true";
+}
+
+function handleMouseUp() {
+  if (!editorRef.value) return;
+  if (!shouldForceCursorToEnd.value) return;
+
+  const cursorPos = getCursorPosition();
+  if (cursorPos === 0 && internalValue.value) {
+    setCursorPosition(internalValue.value.length);
+  }
+
+  shouldForceCursorToEnd.value = false;
 }
 
 function goPrevItem() {
@@ -524,7 +485,12 @@ function updateEditorContent(text: string, restoreCursor = false) {
  * 获取纯文本内容
  */
 function getPlainText(element: HTMLElement): string {
-  return element.textContent?.replace(/\u00a0/g, " ") ?? "";
+  return (
+    element.textContent
+      ?.replace(/\u00a0/g, " ") // 替换不间断空格
+      .replace(/\u200B/g, "") ?? // 移除零宽空格
+    ""
+  );
 }
 
 /**
@@ -544,7 +510,8 @@ function getCursorPosition(): number | null {
   preCaretRange.selectNodeContents(editor);
   preCaretRange.setEnd(range.endContainer, range.endOffset);
 
-  return preCaretRange.toString().length;
+  const text = preCaretRange.toString().replace(CURSOR_PLACEHOLDER_REGEX, "");
+  return text.length;
 }
 
 /**
@@ -625,35 +592,185 @@ function handleKeyDown(event: KeyboardEvent) {
 
     insertTextAtCursor("\n");
     handleInput();
+    return;
   }
+
+  if (event.key === "Backspace") {
+    if (handleVariableDeletion(event, "backward")) {
+      return;
+    }
+  }
+
+  if (event.key === "Delete") {
+    if (handleVariableDeletion(event, "forward")) {
+      return;
+    }
+  }
+}
+
+function handleVariableDeletion(
+  event: KeyboardEvent,
+  direction: "backward" | "forward"
+): boolean {
+  const editor = editorRef.value;
+  if (!editor) return false;
+
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return false;
+  }
+
+  const range = selection.getRangeAt(0);
+  const value = internalValue.value;
+
+  if (!range.collapsed) {
+    const startOffset = getRangeBoundaryOffset(range, "start");
+    const endOffset = getRangeBoundaryOffset(range, "end");
+    if (startOffset === null || endOffset === null) {
+      return false;
+    }
+
+    const { start, end } = expandOffsetsToTokenBoundary(
+      value,
+      startOffset,
+      endOffset
+    );
+    if (start === end) {
+      return false;
+    }
+
+    event.preventDefault();
+    applyValueChange(value.slice(0, start) + value.slice(end), start);
+    return true;
+  }
+
+  const cursorPos = getCursorPosition();
+  if (cursorPos === null) {
+    return false;
+  }
+
+  if (direction === "backward") {
+    if (cursorPos === 0) {
+      return false;
+    }
+
+    const before = value.slice(0, cursorPos);
+    const trailingMatch = before.match(VARIABLE_TOKEN_TRAILING_REGEX);
+    if (trailingMatch) {
+      const token = trailingMatch[0];
+      const start = cursorPos - token.length;
+      event.preventDefault();
+      applyValueChange(value.slice(0, start) + value.slice(cursorPos), start);
+      return true;
+    }
+  } else {
+    const after = value.slice(cursorPos);
+    const leadingMatch = after.match(VARIABLE_TOKEN_LEADING_REGEX);
+    if (leadingMatch) {
+      const token = leadingMatch[0];
+      const end = cursorPos + token.length;
+      event.preventDefault();
+      applyValueChange(value.slice(0, cursorPos) + value.slice(end), cursorPos);
+      return true;
+    }
+  }
+
+  const tokenRegex = new RegExp(VARIABLE_TOKEN_PATTERN, "g");
+  let match: RegExpExecArray | null;
+
+  while ((match = tokenRegex.exec(value)) !== null) {
+    const tokenStart = match.index;
+    const tokenEnd = tokenStart + match[0].length;
+
+    const isWithinBackward =
+      direction === "backward" &&
+      cursorPos > tokenStart &&
+      cursorPos <= tokenEnd;
+    const isWithinForward =
+      direction === "forward" &&
+      cursorPos >= tokenStart &&
+      cursorPos < tokenEnd;
+
+    if (isWithinBackward || isWithinForward) {
+      event.preventDefault();
+      applyValueChange(
+        value.slice(0, tokenStart) + value.slice(tokenEnd),
+        tokenStart
+      );
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function applyValueChange(newValue: string, cursorOffset: number) {
+  internalValue.value = newValue;
+  emit("update:modelValue", newValue);
+  updateEditorContent(newValue, false);
+  setCursorPosition(cursorOffset);
+}
+
+function getRangeBoundaryOffset(
+  range: Range,
+  type: "start" | "end"
+): number | null {
+  const editor = editorRef.value;
+  if (!editor) return null;
+
+  const boundaryRange = range.cloneRange();
+  boundaryRange.selectNodeContents(editor);
+
+  if (type === "start") {
+    boundaryRange.setEnd(range.startContainer, range.startOffset);
+  } else {
+    boundaryRange.setEnd(range.endContainer, range.endOffset);
+  }
+
+  const text = boundaryRange.toString().replace(CURSOR_PLACEHOLDER_REGEX, "");
+  return text.length;
+}
+
+function expandOffsetsToTokenBoundary(
+  value: string,
+  start: number,
+  end: number
+): { start: number; end: number } {
+  if (start === end) {
+    return { start, end };
+  }
+
+  const tokenRegex = new RegExp(VARIABLE_TOKEN_PATTERN, "g");
+  let match: RegExpExecArray | null;
+  let adjustedStart = start;
+  let adjustedEnd = end;
+
+  while ((match = tokenRegex.exec(value)) !== null) {
+    const tokenStart = match.index;
+    const tokenEnd = tokenStart + match[0].length;
+
+    if (tokenStart < adjustedStart && tokenEnd > adjustedStart) {
+      adjustedStart = tokenStart;
+    }
+
+    if (tokenStart < adjustedEnd && tokenEnd > adjustedEnd) {
+      adjustedEnd = tokenEnd;
+    }
+  }
+
+  return { start: adjustedStart, end: adjustedEnd };
 }
 
 /**
  * 处理拖放事件
  */
-function handleDrop(event: DragEvent) {
-  event.preventDefault();
-
+function handleVariableDrop(event: CustomEvent) {
   if (!editorRef.value) return;
 
-  moveCaretToEventPosition(event);
+  const dragData = event.detail;
+  if (!dragData?.reference) return;
 
-  const rawPayload =
-    event.dataTransfer?.getData("application/x-variable") ||
-    event.dataTransfer?.getData("text/plain") ||
-    "";
-
-  let reference = "";
-
-  try {
-    const parsed = JSON.parse(rawPayload);
-    if (parsed && typeof parsed.reference === "string") {
-      reference = parsed.reference;
-    }
-  } catch {
-    reference = rawPayload.trim();
-  }
-
+  const reference = dragData.reference.trim();
   if (!reference) return;
 
   insertTextAtCursor(reference);
@@ -690,47 +807,15 @@ function insertTextAtCursor(text: string) {
   selection.addRange(newRange);
 }
 
-function moveCaretToEventPosition(event: DragEvent) {
-  const selection = window.getSelection();
-  if (!selection) return;
-
-  let range: Range | null = null;
-
-  const doc = document as Document & {
-    caretRangeFromPoint?: (x: number, y: number) => Range | null;
-    caretPositionFromPoint?: (
-      x: number,
-      y: number
-    ) => {
-      offsetNode: Node;
-      offset: number;
-    } | null;
-  };
-
-  if (typeof doc.caretRangeFromPoint === "function") {
-    range = doc.caretRangeFromPoint(event.clientX, event.clientY);
-  } else if (typeof doc.caretPositionFromPoint === "function") {
-    const position = doc.caretPositionFromPoint(event.clientX, event.clientY);
-    if (position) {
-      range = document.createRange();
-      range.setStart(position.offsetNode, position.offset);
-      range.collapse(true);
-    }
-  }
-
-  if (!range) return;
-
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
 /**
- * 高亮变量
+ * 高亮变量（用于编辑器中显示原始的 {{ }} 变量）
  */
 function highlightVariables(value: string): string {
-  if (!value) return "";
+  // 空内容时返回零宽空格，保持光标正常显示
+  if (!value) return CURSOR_PLACEHOLDER;
 
-  const tokenRegex = /\{\{\s*\$?[^{}]+?\s*\}\}/g;
+  const tokenRegex = new RegExp(VARIABLE_TOKEN_PATTERN, "g");
+  tokenRegex.lastIndex = 0;
   let lastIndex = 0;
   let result = "";
   let match: RegExpExecArray | null;
@@ -739,14 +824,12 @@ function highlightVariables(value: string): string {
     const token = match[0];
     const start = match.index;
     result += escapeHtml(value.slice(lastIndex, start));
-    result += `<span class="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-100/80 px-1.5 py-0.5 text-[12px] font-medium text-emerald-700 shadow-sm">${escapeHtml(
-      token
-    )}</span>`;
+    result += `<span class="variable-token">${escapeHtml(token)}</span>`;
     lastIndex = start + token.length;
   }
 
   result += escapeHtml(value.slice(lastIndex));
-  return result;
+  return result + CURSOR_PLACEHOLDER_HTML;
 }
 
 /**
@@ -759,5 +842,21 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/**
+ * 打开变量编辑器
+ */
+function openVariableEditor() {
+  showVariableEditor.value = true;
+}
+
+/**
+ * 处理变量编辑器保存
+ */
+function handleVariableEditorSave(value: string) {
+  internalValue.value = value;
+  emit("update:modelValue", value);
+  updateEditorContent(value, false);
 }
 </script>

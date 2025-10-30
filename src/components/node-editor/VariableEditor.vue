@@ -11,8 +11,7 @@
       contenteditable="true"
       :class="[baseEditorClass, multiline ? multilineClass : singleLineClass]"
       @input="handleInput"
-      @drop="handleDrop"
-      @dragover.prevent
+      @variable-drop="handleVariableDrop"
       @paste="handlePaste"
       @keydown="handleKeyDown"
     ></div>
@@ -214,29 +213,13 @@ function handleKeyDown(event: KeyboardEvent) {
 /**
  * 处理拖放事件
  */
-function handleDrop(event: DragEvent) {
-  event.preventDefault();
-
+function handleVariableDrop(event: CustomEvent) {
   if (!editorRef.value) return;
 
-  moveCaretToEventPosition(event);
+  const dragData = event.detail;
+  if (!dragData?.reference) return;
 
-  const rawPayload =
-    event.dataTransfer?.getData("application/x-variable") ||
-    event.dataTransfer?.getData("text/plain") ||
-    "";
-
-  let reference = "";
-
-  try {
-    const parsed = JSON.parse(rawPayload);
-    if (parsed && typeof parsed.reference === "string") {
-      reference = parsed.reference;
-    }
-  } catch {
-    reference = rawPayload.trim();
-  }
-
+  const reference = dragData.reference.trim();
   if (!reference) return;
 
   insertTextAtCursor(reference);
@@ -271,40 +254,6 @@ function insertTextAtCursor(text: string) {
 
   selection.removeAllRanges();
   selection.addRange(newRange);
-}
-
-function moveCaretToEventPosition(event: DragEvent) {
-  const selection = window.getSelection();
-  if (!selection) return;
-
-  let range: Range | null = null;
-
-  const doc = document as Document & {
-    caretRangeFromPoint?: (x: number, y: number) => Range | null;
-    caretPositionFromPoint?: (
-      x: number,
-      y: number
-    ) => {
-      offsetNode: Node;
-      offset: number;
-    } | null;
-  };
-
-  if (typeof doc.caretRangeFromPoint === "function") {
-    range = doc.caretRangeFromPoint(event.clientX, event.clientY);
-  } else if (typeof doc.caretPositionFromPoint === "function") {
-    const position = doc.caretPositionFromPoint(event.clientX, event.clientY);
-    if (position) {
-      range = document.createRange();
-      range.setStart(position.offsetNode, position.offset);
-      range.collapse(true);
-    }
-  }
-
-  if (!range) return;
-
-  selection.removeAllRanges();
-  selection.addRange(range);
 }
 
 /**

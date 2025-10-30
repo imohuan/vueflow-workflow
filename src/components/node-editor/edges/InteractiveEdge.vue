@@ -12,14 +12,17 @@
     <!-- 透明的宽路径 - 负责交互（hover + 拖拽） -->
     <path
       :d="path"
-      class="vue-flow__edge-path vue-flow__edge-interaction"
+      :class="[
+        'vue-flow__edge-path vue-flow__edge-interaction',
+        { 'edge-non-interactive': isLoopContainerEdge },
+      ]"
       @mouseenter="handleMouseEnter"
       @mouseleave="handleMouseLeave"
     />
 
     <!-- 删除按钮 - 使用 foreignObject 在 SVG 中嵌入 HTML -->
     <foreignObject
-      v-if="Number.isFinite(labelX) && Number.isFinite(labelY)"
+      v-if="Number.isFinite(labelX) && Number.isFinite(labelY) && isHovered"
       :x="labelX - 16"
       :y="labelY - 16"
       width="32"
@@ -81,6 +84,15 @@ const store = useNodeEditorStore();
 
 // 控制删除按钮显示
 const isHovered = ref(false);
+
+// 判断是否是 loopContainer 相关的连接线
+const isLoopContainerEdge = computed(() => {
+  const sourceNode = store.nodes.find((node) => node.id === props.source);
+  const targetNode = store.nodes.find((node) => node.id === props.target);
+  return (
+    sourceNode?.type === "loopContainer" || targetNode?.type === "loopContainer"
+  );
+});
 
 const pathResult = computed(() => {
   const common = {
@@ -156,12 +168,8 @@ function handleMouseDown(event: MouseEvent) {
 }
 
 function handleMouseEnter() {
-  // 需要判断当前连接线是否是 循环中央的连接线
-  const sourceNode = store.nodes.find((node) => node.id === props.source);
-  const targetNode = store.nodes.find((node) => node.id === props.target);
-  if ([sourceNode?.type, targetNode?.type].includes("loopContainer"))
-    return false;
-
+  // 禁止 loopContainer 相关的连接线显示删除按钮
+  if (isLoopContainerEdge.value) return;
   isHovered.value = true;
 }
 
@@ -186,10 +194,23 @@ function handleMouseLeave() {
   cursor: pointer;
 }
 
+/* loopContainer 连接线不可交互 */
+.edge-non-interactive {
+  cursor: default !important;
+  pointer-events: none !important;
+}
+
 /* Hover 状态 - 加粗可见路径 */
 .vue-flow__edge-custom:hover .vue-flow__edge-path-visual {
   stroke: #6366f1;
   stroke-width: 3px;
+}
+
+/* loopContainer 连接线不响应 hover */
+.vue-flow__edge-custom:has(.edge-non-interactive):hover
+  .vue-flow__edge-path-visual {
+  stroke: #b1b1b7;
+  stroke-width: 2px;
 }
 
 /* foreignObject 不响应事件，避免阻止边的拖拽 */

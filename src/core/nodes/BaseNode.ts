@@ -59,9 +59,14 @@ export abstract class BaseNode {
     const hasCustomInputPorts = configInputs.some((input) => input.isPort);
     const hasCustomOutputPorts = configOutputs.some((output) => output.isPort);
 
-    const inputs: PortDefinition[] = hasCustomInputPorts
+    // 分离配置项和端口
+    const configOnlyInputs = configInputs.filter((input) => !input.isPort);
+
+    // 如果没有自定义端口，添加默认端口
+    const finalInputs: PortDefinition[] = hasCustomInputPorts
       ? configInputs
       : [
+          ...configOnlyInputs, // 保留配置项
           {
             id: "__input__",
             name: "输入",
@@ -83,7 +88,7 @@ export abstract class BaseNode {
 
     return {
       config: this.getDefaultConfig(),
-      inputs,
+      inputs: finalInputs,
       outputs,
       label: this.label,
       category: this.category,

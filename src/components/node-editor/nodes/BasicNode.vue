@@ -38,7 +38,7 @@
                 :aria-checked="props.data.config?.[input.id]"
                 :title="
                   isVariableBound(props.data.config?.[input.id])
-                    ? '已绑定变量，请在配置面板中编辑'
+                    ? '已绑定变量'
                     : undefined
                 "
               >
@@ -54,35 +54,34 @@
             </div>
             <div
               v-if="isVariableBound(props.data.config?.[input.id])"
-              class="flex items-center gap-1 text-[10px] text-purple-500"
+              class="flex items-center gap-1.5"
             >
-              <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-              已绑定变量，请在配置面板中编辑
+              <VariableBadge :value="props.data.config?.[input.id]" />
             </div>
           </div>
 
           <div v-else class="space-y-0.5">
-            <div class="flex items-center justify-between gap-1">
-              <div
-                class="text-[10px] font-medium text-slate-700 truncate"
-                :title="input.name"
-              >
-                {{ input.name }}
-                <span v-if="input.required" class="text-red-500">*</span>
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                <div
+                  class="text-[10px] font-medium text-slate-700 truncate"
+                  :title="input.name"
+                >
+                  {{ input.name }}
+                  <span v-if="input.required" class="text-red-500">*</span>
+                </div>
+                <VariableBadge
+                  v-if="isVariableBound(props.data.config?.[input.id])"
+                  :value="props.data.config?.[input.id]"
+                  size="xs"
+                />
               </div>
-              <div class="text-[9px] text-slate-400 font-mono">
+              <div class="text-[9px] text-slate-400 font-mono shrink-0">
                 {{ input.type }}
               </div>
             </div>
 
             <div @click.stop>
-              <div
-                v-if="isVariableBound(props.data.config?.[input.id])"
-                class="mb-1 flex items-center gap-1 text-[10px] text-purple-500"
-              >
-                <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-                已绑定变量，请在配置面板中编辑
-              </div>
               <input
                 v-if="input.type === 'string'"
                 :value="props.data.config?.[input.id] || ''"
@@ -170,6 +169,7 @@
 <script setup lang="ts">
 import type { NodeData } from "@/typings/nodeEditor";
 import NodeWrapper from "./NodeWrapper.vue";
+import VariableBadge from "@/components/common/VariableBadge.vue";
 import { useNodeConfig } from "./useNodeConfig";
 
 interface Props {

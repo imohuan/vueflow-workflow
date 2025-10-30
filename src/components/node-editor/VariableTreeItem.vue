@@ -1,17 +1,62 @@
 <template>
   <div>
-    <!-- 自定义拖拽跟随元素 -->
-    <div
-      v-if="showDragFollower"
-      class="fixed pointer-events-none z-9999 scale-100 px-3 py-1 text-xs font-medium text-slate-800 bg-white/90 rounded-lg border border-slate-200 shadow-lg backdrop-blur"
-      :style="{
-        left: dragPosition.x + 'px',
-        top: dragPosition.y + 'px',
-        transform: 'translate(-50%, -100%)',
-      }"
-    >
-      {{ node.label }}
-    </div>
+    <!-- 自定义拖拽跟随元素 - 使用 Teleport 渲染到 body 避免父容器样式影响 -->
+    <Teleport to="body">
+      <!-- 手掌图标 - 跟随鼠标实时移动 -->
+      <div
+        v-if="dropTargetState !== 'default'"
+        class="fixed pointer-events-none z-[10001] w-8 h-8 flex items-center justify-center"
+        :style="{
+          left: dragPosition.x + 'px',
+          top: dragPosition.y + 'px',
+          transform: 'translate(-50%, -50%)',
+        }"
+      >
+        <IconHand class="w-5 h-5 text-slate-800" />
+      </div>
+
+      <!-- 拖拽信息提示框 -->
+      <div
+        v-if="showDragFollower"
+        class="fixed pointer-events-none z-10000 scale-100 px-3 py-1 text-xs font-medium rounded-lg shadow-lg backdrop-blur"
+        :class="[
+          dropTargetState === 'empty'
+            ? 'bg-emerald-100/95 border-2 border-emerald-400 text-emerald-700'
+            : dropTargetState === 'hasContent'
+            ? 'bg-blue-100/95 border-2 border-blue-400 text-blue-700'
+            : 'bg-red-100/95 border-2 border-red-400 text-red-700',
+        ]"
+        :style="dragFollowerStyle"
+      >
+        <div class="flex items-center gap-1.5">
+          <!-- 状态图标指示器 -->
+          <span
+            v-if="dropTargetState === 'empty'"
+            class="text-emerald-600 text-xs"
+            >⇱</span
+          >
+          <span
+            v-else-if="dropTargetState === 'hasContent'"
+            class="text-blue-600 text-xs"
+            >↓</span
+          >
+
+          {{ node.label }}
+
+          <!-- 提示文字 -->
+          <span
+            v-if="dropTargetState === 'empty'"
+            class="text-[10px] opacity-70"
+            >吸附左侧</span
+          >
+          <span
+            v-else-if="dropTargetState === 'hasContent'"
+            class="text-[10px] opacity-70"
+            >插入位置</span
+          >
+        </div>
+      </div>
+    </Teleport>
 
     <div
       class="flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-150 group hover:bg-slate-100/70"
@@ -37,13 +82,8 @@
         class="px-2.5 py-1 text-xs font-medium text-slate-800 bg-white/90 rounded-lg shadow-sm border border-slate-200 shrink-0 transition-all duration-150 hover:shadow-md"
         :class="{
           'cursor-grab': node.reference,
-          'cursor-grabbing': node.reference && isDragging,
         }"
-        :draggable="Boolean(node.reference)"
-        @dragstart="handleDragStart"
-        @drag="handleDrag"
-        @dragend="handleDragEnd"
-        @mousedown.stop
+        @mousedown.stop="handleMouseDown"
       >
         {{ node.label }}
       </span>
@@ -86,6 +126,7 @@
 import { computed, ref } from "vue";
 import IconChevronRight from "@/icons/IconChevronRight.vue";
 import type { VariableTreeNode } from "@/utils/variableResolver";
+import IconHand from "@/icons/IconHand.vue";
 
 defineOptions({ name: "VariableTreeItem" });
 
@@ -102,9 +143,42 @@ const expanded = ref(props.level < 1);
 const isDragging = ref(false);
 const showDragFollower = ref(false);
 const dragPosition = ref({ x: 0, y: 0 });
+const dropTargetState = ref<"default" | "empty" | "hasContent">("default");
+const currentEditableElement = ref<HTMLElement | null>(null);
 const hasChildren = computed(
   () => Array.isArray(props.node.children) && props.node.children.length > 0
 );
+
+// 计算拖拽跟随元素的样式（实现吸附效果）
+const dragFollowerStyle = computed(() => {
+  const editable = currentEditableElement.value;
+
+  // 只有空输入框才吸附到左侧
+  if (editable && dropTargetState.value === "empty") {
+    const rect = editable.getBoundingClientRect();
+    // 定位到输入框左侧，向左偏移 8px 间距
+    return {
+      left: rect.left - 8 + "px",
+      top: rect.top + rect.height / 2 + "px",
+      transform: "translate(12px, -50%)",
+    };
+  }
+
+  if (editable && dropTargetState.value === "hasContent") {
+    return {
+      left: dragPosition.value.x + "px",
+      top: dragPosition.value.y + "px",
+      // transform: "translate(12px, -50%)",
+    };
+  }
+
+  // 其他情况（有内容的输入框、默认状态）都跟随鼠标，显示在右下角
+  return {
+    left: dragPosition.value.x + "px",
+    top: dragPosition.value.y + "px",
+    transform: "translate(-50%, -100%)",
+  };
+});
 
 const formattedValue = computed(() => {
   const val = props.node.value;
@@ -141,52 +215,131 @@ function handleRowClick() {
   }
 }
 
-function handleDrag(event: DragEvent) {
-  // 更新跟随元素位置
-  if (event.clientX === 0 && event.clientY === 0) return; // 拖拽结束时会触发一次 (0, 0)
+function handleMouseDown(event: MouseEvent) {
+  if (!props.node.reference) return;
 
-  dragPosition.value = {
-    x: event.clientX,
-    y: event.clientY,
-  };
-}
+  event.preventDefault();
 
-function handleDragEnd() {
-  isDragging.value = false;
-  showDragFollower.value = false;
-}
-
-function handleDragStart(event: DragEvent) {
   isDragging.value = true;
-  if (!props.node.reference || !event.dataTransfer) return;
-
-  // 显示自定义跟随元素（左上方，右下角对齐鼠标）
   showDragFollower.value = true;
+  dropTargetState.value = "default";
+  currentEditableElement.value = null;
+
+  // 设置拖拽时的手掌光标样式
+  document.body.style.cursor = "grabbing";
+
   dragPosition.value = {
     x: event.clientX,
     y: event.clientY,
   };
 
+  // 准备拖拽数据
   const variableRef = props.node.reference.trim();
-
   const payload = {
     reference: variableRef,
     type: props.node.valueType,
     label: props.node.label,
   };
 
-  event.dataTransfer.effectAllowed = "copy";
-  event.dataTransfer.setData("application/x-variable", JSON.stringify(payload));
-  event.dataTransfer.setData("text/plain", variableRef);
+  // 存储拖拽数据到全局变量，供 drop 时使用
+  (window as any).__draggedVariableData = {
+    payload,
+    reference: variableRef,
+  };
 
-  // 隐藏浏览器默认的拖拽图像（使用1x1透明像素）
-  const emptyImage = document.createElement("canvas");
-  emptyImage.width = 1;
-  emptyImage.height = 1;
-  const emptyCtx = emptyImage.getContext("2d");
-  if (emptyCtx) {
-    emptyCtx.clearRect(0, 0, 1, 1);
+  // 绑定全局事件
+  document.addEventListener("mousemove", handleMouseMove);
+  document.addEventListener("mouseup", handleMouseUp);
+}
+
+function handleMouseMove(event: MouseEvent) {
+  if (!isDragging.value) return;
+
+  dragPosition.value = {
+    x: event.clientX,
+    y: event.clientY,
+  };
+
+  // 检测鼠标下方的元素
+  const target = document.elementFromPoint(event.clientX, event.clientY);
+  if (!target) {
+    dropTargetState.value = "default";
+    currentEditableElement.value = null;
+    return;
   }
-  event.dataTransfer.setDragImage(emptyImage, 0, 0);
+
+  // 检查是否是可编辑的元素（contenteditable 或 input/textarea）
+  const isEditable =
+    target.getAttribute("contenteditable") === "true" ||
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement;
+
+  let editableElement: HTMLElement | null = null;
+
+  if (!isEditable) {
+    // 检查父元素是否可编辑
+    const editableParent = target.closest("[contenteditable='true']");
+    if (!editableParent) {
+      dropTargetState.value = "default";
+      currentEditableElement.value = null;
+      return;
+    }
+
+    editableElement = editableParent as HTMLElement;
+  } else {
+    editableElement = target as HTMLElement;
+  }
+
+  // 更新当前可编辑元素
+  currentEditableElement.value = editableElement;
+
+  // 检查可编辑元素是否有内容
+  const content = getPlainTextContent(editableElement);
+  dropTargetState.value = content.trim() === "" ? "empty" : "hasContent";
+}
+
+/**
+ * 获取元素的纯文本内容
+ */
+function getPlainTextContent(element: HTMLElement): string {
+  if (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement
+  ) {
+    return element.value;
+  }
+  return (
+    element.textContent?.replace(/\u00a0/g, " ").replace(/\u200B/g, "") || ""
+  );
+}
+
+function handleMouseUp(event: MouseEvent) {
+  if (!isDragging.value) return;
+
+  isDragging.value = false;
+  showDragFollower.value = false;
+  dropTargetState.value = "default";
+  currentEditableElement.value = null;
+
+  // 恢复鼠标样式
+  document.body.style.cursor = "";
+
+  // 移除全局事件监听
+  document.removeEventListener("mousemove", handleMouseMove);
+  document.removeEventListener("mouseup", handleMouseUp);
+
+  // 触发 drop 事件到鼠标位置的元素
+  const target = document.elementFromPoint(event.clientX, event.clientY);
+  if (target) {
+    // 创建自定义事件传递数据
+    const dropEvent = new CustomEvent("variable-drop", {
+      bubbles: true,
+      detail: (window as any).__draggedVariableData,
+    });
+    target.dispatchEvent(dropEvent);
+  }
+
+  // 清理拖拽数据
+  delete (window as any).__draggedVariableData;
 }
 </script>

@@ -43,69 +43,75 @@
         </div>
 
         <!-- 内容区域 -->
-        <div class="flex flex-1 overflow-hidden">
+        <Splitter class="flex-1 border-0! rounded-none!">
           <!-- 左侧变量面板 -->
-          <div
-            class="w-[360px] border-r border-slate-200 overflow-hidden shrink-0 bg-white"
-          >
-            <VariablePanel :variables="availableVariables" />
-          </div>
+          <SplitterPanel :size="25" :minSize="15" class="border-0!">
+            <div
+              class="w-full h-full overflow-hidden bg-white border-r border-slate-200"
+            >
+              <VariablePanel :variables="availableVariables" />
+            </div>
+          </SplitterPanel>
 
           <!-- 右侧配置区域 -->
-          <div class="flex-1 overflow-y-auto bg-[#f6f6f8]">
-            <div class="max-w-3xl mx-auto p-4 space-y-3">
-              <!-- 基本信息区域 -->
-              <div
-                class="bg-white border border-slate-200 rounded-md overflow-hidden transition-colors duration-200 hover:border-slate-300"
-              >
-                <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                  <span
-                    class="text-sm font-medium text-slate-600 tracking-tight"
-                    >基本信息</span
-                  >
-                </div>
-                <div class="p-4 flex flex-col gap-2">
-                  <label class="text-sm font-medium text-slate-600"
-                    >节点标签</label
-                  >
-                  <InputText
-                    v-model="nodeLabel"
-                    type="text"
-                    placeholder="输入节点标签"
-                    @change="updateLabel"
-                  />
-                </div>
-              </div>
-
-              <!-- 配置数据 -->
-              <NodeConfigForm />
-
-              <!-- 操作按钮组 -->
-              <div
-                class="flex gap-3 p-3 bg-white border border-slate-200 rounded-md"
-              >
-                <Button
-                  class="flex-1"
-                  variant="filled"
-                  severity="primary"
-                  @click="handleExecute"
+          <SplitterPanel :size="75" :minSize="50" class="border-0!">
+            <div class="w-full h-full overflow-y-auto bg-[#f6f6f8]">
+              <div class="max-w-3xl mx-auto p-4 space-y-3">
+                <!-- 基本信息区域 -->
+                <div
+                  class="bg-white border border-slate-200 rounded-md overflow-hidden transition-colors duration-200 hover:border-slate-300"
                 >
-                  <IconPlayCircle class="w-4 h-4" />
-                  <span>执行节点</span>
-                </Button>
-                <Button
-                  class="flex-1"
-                  variant="outlined"
-                  severity="secondary"
-                  @click="handleDelete"
+                  <div
+                    class="px-4 py-2.5 bg-slate-50 border-b border-slate-200"
+                  >
+                    <span
+                      class="text-sm font-medium text-slate-600 tracking-tight"
+                      >基本信息</span
+                    >
+                  </div>
+                  <div class="p-4 flex flex-col gap-2">
+                    <label class="text-sm font-medium text-slate-600"
+                      >节点标签</label
+                    >
+                    <InputText
+                      v-model="nodeLabel"
+                      type="text"
+                      placeholder="输入节点标签"
+                      @change="updateLabel"
+                    />
+                  </div>
+                </div>
+
+                <!-- 配置数据 -->
+                <NodeConfigForm />
+
+                <!-- 操作按钮组 -->
+                <div
+                  class="flex gap-3 p-3 bg-white border border-slate-200 rounded-md"
                 >
-                  <IconTrash class="w-4 h-4" />
-                  <span>删除节点</span>
-                </Button>
+                  <Button
+                    class="flex-1"
+                    variant="filled"
+                    severity="primary"
+                    @click="handleExecute"
+                  >
+                    <IconPlayCircle class="w-4 h-4" />
+                    <span>执行节点</span>
+                  </Button>
+                  <Button
+                    class="flex-1"
+                    variant="outlined"
+                    severity="secondary"
+                    @click="handleDelete"
+                  >
+                    <IconTrash class="w-4 h-4" />
+                    <span>删除节点</span>
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </SplitterPanel>
+        </Splitter>
       </div>
     </div>
   </div>
@@ -123,6 +129,8 @@ import IconCog from "@/icons/IconCog.vue";
 import IconClose from "@/icons/IconClose.vue";
 import IconPlayCircle from "@/icons/IconPlayCircle.vue";
 import IconTrash from "@/icons/IconTrash.vue";
+import Splitter from "@/volt/Splitter.vue";
+import SplitterPanel from "primevue/splitterpanel";
 
 const store = useNodeEditorStore();
 const { selectedNode } = store;

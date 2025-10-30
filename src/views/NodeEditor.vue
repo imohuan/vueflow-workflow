@@ -242,7 +242,7 @@ const configStore = useEditorConfigStore();
 const { config } = storeToRefs(configStore);
 
 const vueFlowApi = useVueFlow();
-const { getIntersectingNodes } = vueFlowApi;
+const { getIntersectingNodes, getSelectedNodes } = vueFlowApi;
 
 const showConfigPanel = ref(false);
 const showNodeListPanel = ref(false);
@@ -264,6 +264,28 @@ type HighlightVariant = "normal" | "warning";
 
 const highlightedContainers = new Map<string, HighlightVariant>();
 const lastDragPositions = new Map<string, { x: number; y: number }>();
+
+function isEditableElement(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  const tagName = target.tagName;
+  if (tagName === "INPUT" || tagName === "TEXTAREA") {
+    return true;
+  }
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  const role = target.getAttribute("role");
+  if (role === "textbox" || role === "combobox" || role === "searchbox") {
+    return true;
+  }
+
+  return Boolean(target.closest('[contenteditable="true"]'));
+}
 
 function setContainerHighlightState(
   containerId: string | null,
@@ -293,7 +315,19 @@ function setContainerHighlightState(
   store.setContainerHighlight(containerId, false);
 }
 
-function updateDragTargetHighlight(targetId: string | null) {
+/**
+ * 检查节点是否有连接线
+ */
+function nodeHasConnections(nodeId: string): boolean {
+  return edges.value.some(
+    (edge) => edge.source === nodeId || edge.target === nodeId
+  );
+}
+
+function updateDragTargetHighlight(
+  targetId: string | null,
+  highlightType: HighlightVariant = "normal"
+) {
   if (dragTargetContainerId.value === targetId) {
     return;
   }
@@ -305,11 +339,29 @@ function updateDragTargetHighlight(targetId: string | null) {
   dragTargetContainerId.value = targetId;
 
   if (targetId) {
-    setContainerHighlightState(targetId, true, "normal");
+    setContainerHighlightState(targetId, true, highlightType);
   }
 }
 
 useEventListener(window, "keydown", (event: KeyboardEvent) => {
+  if (event.key === "F2") {
+    if (store.renamingNodeId) {
+      event.preventDefault();
+      return;
+    }
+
+    if (isEditableElement(event.target)) {
+      return;
+    }
+
+    const targetId = store.selectedNodeId;
+    if (targetId) {
+      event.preventDefault();
+      store.startRenamingNode(targetId);
+    }
+    return;
+  }
+
   if (isCtrlPressed.value) {
     return;
   }
@@ -463,7 +515,16 @@ onMounted(() => {
 
     const nextContainerId =
       loopContainers.length > 0 ? loopContainers[0]?.id ?? null : null;
-    updateDragTargetHighlight(nextContainerId ?? null);
+
+    // 检查节点是否有连接线
+    const hasConnections = nodeHasConnections(node.id);
+
+    // 如果有连接线，显示红色边框（警告状态）
+    const highlightType: HighlightVariant = hasConnections
+      ? "warning"
+      : "normal";
+
+    updateDragTargetHighlight(nextContainerId ?? null, highlightType);
   });
 
   disposeNodeDragStop = vueFlowApi.onNodeDragStop(({ node }) => {
@@ -502,7 +563,12 @@ onMounted(() => {
     const targetId = dragTargetContainerId.value;
     if (targetId) {
       updateDragTargetHighlight(null);
-      store.moveNodeIntoContainer(node.id, targetId);
+
+      // 只有当节点没有连接线时才允许添加到容器中
+      const hasConnections = nodeHasConnections(node.id);
+      if (!hasConnections) {
+        store.moveNodeIntoContainer(node.id, targetId);
+      }
     }
   });
 
@@ -814,7 +880,14 @@ function onDragOver(event: DragEvent) {
 function onNodesChange(changes: NodeChange[]) {
   if (isLocked.value) return;
 
+  let hasSelectChange = false;
+
   changes.forEach((change) => {
+    if (change.type === "select") {
+      hasSelectChange = true;
+      return;
+    }
+
     if (change.type === "dimensions" && change.dimensions) {
       store.updateNodeDimensions(change.id, change.dimensions);
     } else if (change.type === "position" && change.position) {
@@ -828,6 +901,18 @@ function onNodesChange(changes: NodeChange[]) {
       store.removeNode(change.id);
     }
   });
+
+  if (hasSelectChange) {
+    const selectedNodes = getSelectedNodes.value;
+    if (selectedNodes.length > 0) {
+      const lastSelected = selectedNodes[selectedNodes.length - 1];
+      if (lastSelected?.id) {
+        store.selectNode(lastSelected.id);
+      }
+    } else if (store.selectedNodeId) {
+      store.selectNode(null);
+    }
+  }
 }
 
 /**
@@ -952,6 +1037,16 @@ function onConnect(connection: Connection) {
  * 当拖拽边的端点重新连接时调用
  */
 function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
+  // 禁止编辑 loopContainer 相关的连接线
+  const sourceNode = store.nodes.find((node) => node.id === edge.source);
+  const targetNode = store.nodes.find((node) => node.id === edge.target);
+  if (
+    sourceNode?.type === "loopContainer" ||
+    targetNode?.type === "loopContainer"
+  ) {
+    return;
+  }
+
   // 检查新连接是否已存在（防止重复连接）
   const exists = edges.value.some(
     (e) =>

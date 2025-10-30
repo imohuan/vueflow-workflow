@@ -45,10 +45,13 @@ export function buildVariableContext(
     const node = nodeMap.get(nodeId);
     if (!node?.data?.result) return;
 
-    const outputs = node.data.result.data.outputs;
+    const resultData = node.data.result.data;
+    const outputs = resultData.outputs;
     const outputEntries = Object.entries(outputs || {});
     if (outputEntries.length === 0) return;
 
+    // 使用节点名称（label）作为引用前缀，如果没有 label 则使用 nodeId
+    const nodeName = node.data.label || nodeId;
     const nodeLabel = node.data.label || nodeId;
     const nodeTree: VariableTreeNode = {
       id: nodeId,
@@ -59,24 +62,37 @@ export function buildVariableContext(
       nodeId,
     };
 
-    outputEntries.forEach(([outputId, output]) => {
-      const baseRef = `${nodeId}.${outputId}`;
-      contextMap.set(baseRef, output.value);
+    outputEntries.forEach(([, output]) => {
+      // 如果输出值是对象且包含 data 字段，直接展开 data 的内容
+      let valueToExpand = output.value;
+      const basePrefix = nodeName;
 
-      const outputNode: VariableTreeNode = {
-        id: baseRef,
-        label: outputId, // 使用 ID 而不是 label，保持原始字段名
-        valueType: detectValueType(output.value),
-        reference: createReference(baseRef),
-        value: output.value,
-        nodeId,
-        outputId,
-        children: [],
-      };
+      if (
+        valueToExpand &&
+        typeof valueToExpand === "object" &&
+        !Array.isArray(valueToExpand) &&
+        "data" in valueToExpand
+      ) {
+        // 将 isError 添加到 data 中
+        const dataValue = (valueToExpand as any).data;
+        const isError = (valueToExpand as any).isError;
 
-      outputNode.children = buildValueTree(output.value, baseRef, contextMap);
+        if (dataValue && typeof dataValue === "object") {
+          valueToExpand = {
+            ...dataValue,
+            ...(isError !== undefined ? { isError } : {}),
+          };
+        }
+      }
 
-      nodeTree.children?.push(outputNode);
+      // 直接在节点名称下展开字段，不再添加 outputId 层级
+      contextMap.set(nodeName, valueToExpand);
+
+      // 构建子树
+      const children = buildValueTree(valueToExpand, basePrefix, contextMap);
+
+      // 直接将子字段添加到节点下
+      nodeTree.children?.push(...children);
     });
 
     tree.push(nodeTree);
@@ -149,12 +165,21 @@ function resolveTemplateString(
     return coerceType(template, expectedType);
   }
 
+  const firstMatch = matches[0];
+  if (!firstMatch) {
+    return coerceType(template, expectedType);
+  }
+
   const isSingleToken =
-    matches.length === 1 && template.trim() === matches[0][0];
+    matches.length === 1 && template.trim() === firstMatch[0];
 
   if (isSingleToken) {
     // 提取变量名（去掉可能的 $ 前缀）
-    let key = matches[0][1].trim();
+    const expr = firstMatch[1];
+    if (!expr) {
+      return template;
+    }
+    const key = expr.trim();
     // 如果原始匹配包含 $，则key不需要处理，因为正则已经排除了$
     const value = contextMap.get(key);
     if (value === undefined) {
@@ -166,6 +191,7 @@ function resolveTemplateString(
   let resolved = template;
 
   matches.forEach(([full, expr]) => {
+    if (!expr) return;
     const key = expr.trim();
     if (!contextMap.has(key)) return;
     const value = contextMap.get(key);
@@ -221,8 +247,9 @@ function buildValueTree(
   }
 
   if (typeof value === "object") {
-    return Object.entries(value as Record<string, unknown>).map(
-      ([key, child]) => {
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => key !== "type") // 过滤掉 type 字段
+      .map(([key, child]) => {
         const ref = `${baseRef}.${key}`;
         contextMap.set(ref, child);
         return {
@@ -233,8 +260,7 @@ function buildValueTree(
           value: child,
           children: buildValueTree(child, ref, contextMap),
         };
-      }
-    );
+      });
   }
 
   return [];
@@ -248,7 +274,57 @@ function detectValueType(value: unknown): string {
 }
 
 function createReference(path: string): string {
-  return `{{ $${path} }}`;
+  // 直接使用路径，不添加 $ 前缀
+  return `{{ ${path} }}`;
+}
+
+/**
+ * 简化变量引用的显示格式
+ * @param value - 包含变量引用的字符串，如 "{{ 截图.data.result.name }}"
+ * @returns 简化后的显示格式，如 "截图 - name"
+ */
+export function simplifyVariableReference(value: string): string {
+  if (!value || typeof value !== "string") return "";
+
+  // 提取所有变量引用
+  const tokenRegex = /\{\{\s*([^{}]+?)\s*\}\}/g;
+  const matches = [...value.matchAll(tokenRegex)];
+
+  if (matches.length === 0) return value;
+
+  // 简化每个变量引用
+  const simplified = matches.map((match) => {
+    const path = match[1]?.trim();
+    if (!path) return match[0];
+
+    const parts = path.split(".");
+    if (parts.length === 0) return match[0];
+
+    // 获取第一部分（节点名）和最后一部分（属性名）
+    const firstPart = parts[0];
+    const lastPart = parts[parts.length - 1];
+
+    // 如果只有一个部分或最后一部分是数字索引，返回原值
+    if (parts.length === 1 || /^\d+$/.test(lastPart || "")) {
+      return firstPart || match[0];
+    }
+
+    return `${firstPart} - ${lastPart}`;
+  });
+
+  // 如果只有一个变量且是完整匹配，返回简化后的
+  const firstMatch = matches[0];
+  if (matches.length === 1 && firstMatch && value.trim() === firstMatch[0]) {
+    return simplified[0] || value;
+  }
+
+  // 否则替换所有变量引用
+  let result = value;
+  matches.forEach((match, index) => {
+    result = result.replace(match[0], simplified[index] || match[0]);
+  });
+
+  return result;
 }
 
 function coerceType(value: unknown, expectedType?: string): unknown {

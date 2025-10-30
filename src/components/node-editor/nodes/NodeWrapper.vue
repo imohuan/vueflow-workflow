@@ -14,7 +14,7 @@
     @dblclick.stop="handleDoubleClick"
   >
     <div
-      class="flex items-center justify-between gap-2 px-3 py-2 text-white font-semibold relative overflow-hidden rounded-t-xl"
+      class="flex items-center justify-between gap-2 px-3 py-2 text-white font-semibold relative overflow-hidden rounded-t"
       :style="{
         background: `linear-gradient(to bottom right, ${nodeTheme.headerFrom}, ${nodeTheme.headerTo})`,
       }"
@@ -22,8 +22,22 @@
       <div
         class="absolute inset-0 bg-linear-to-br from-white/10 to-transparent pointer-events-none"
       ></div>
-      <div class="flex-1 text-[9px] tracking-wide relative z-10 truncate">
-        {{ data.label || "节点" }}
+      <div class="flex-1 text-[9px] tracking-wide relative z-10">
+        <template v-if="isRenaming">
+          <input
+            ref="renameInputRef"
+            v-model="editingLabel"
+            type="text"
+            class="w-full text-[9px] px-2 py-1 rounded bg-white/95 text-slate-700 focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-1 focus:ring-offset-slate-500 placeholder:text-slate-400"
+            placeholder="请输入节点名称"
+            @keydown.enter.stop.prevent="handleRenameSubmit"
+            @keydown.esc.stop.prevent="handleRenameCancel"
+            @blur="handleRenameBlur"
+          />
+        </template>
+        <span v-else class="block truncate">
+          {{ displayLabel }}
+        </span>
       </div>
       <div class="flex items-center gap-1.5 relative z-10">
         <button
@@ -123,7 +137,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch, nextTick } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import type { NodeData } from "@/typings/nodeEditor";
 import { useNodeEditorStore } from "@/stores/nodeEditor";
@@ -155,11 +169,43 @@ const contentRef = ref<HTMLDivElement | null>(null);
 
 const nodeTheme = computed(() => getNodeTheme(props.data.category || ""));
 
-const isSelected = computed(() =>
-  props.selected !== undefined
-    ? props.selected
-    : store.selectedNodeId === props.id
+const renameInputRef = ref<HTMLInputElement | null>(null);
+const editingLabel = ref("");
+const originalLabel = ref("");
+
+const isRenaming = computed(() => store.renamingNodeId === props.id);
+
+const isSelected = computed(
+  () => (props.selected ?? false) || store.selectedNodeId === props.id
 );
+
+const displayLabel = computed(() => {
+  const label = props.data.label;
+  if (typeof label !== "string") {
+    return "节点";
+  }
+  const trimmed = label.trim();
+  return trimmed.length > 0 ? trimmed : "节点";
+});
+
+watch(isRenaming, (enabled) => {
+  if (enabled) {
+    originalLabel.value = props.data.label ?? "";
+    if (typeof props.data.label === "string" && props.data.label.trim()) {
+      editingLabel.value = props.data.label;
+    } else {
+      editingLabel.value = displayLabel.value;
+    }
+    nextTick(() => {
+      if (!renameInputRef.value) return;
+      renameInputRef.value.focus();
+      renameInputRef.value.select();
+    });
+  } else {
+    editingLabel.value = "";
+    originalLabel.value = "";
+  }
+});
 
 const inputPorts = computed(() =>
   (props.data.inputs ?? []).filter((port) => port.isPort === true)
@@ -186,7 +232,33 @@ function handleClick() {
 }
 
 function handleDoubleClick() {
+  if (isRenaming.value) {
+    return;
+  }
   store.openNodeEditor(props.id);
+}
+
+function handleRenameSubmit() {
+  if (!isRenaming.value) {
+    return;
+  }
+  store.renameNode(props.id, editingLabel.value);
+  store.stopRenamingNode();
+}
+
+function handleRenameCancel() {
+  if (!isRenaming.value) {
+    return;
+  }
+  editingLabel.value = originalLabel.value;
+  store.stopRenamingNode();
+}
+
+function handleRenameBlur() {
+  if (!isRenaming.value) {
+    return;
+  }
+  handleRenameSubmit();
 }
 
 function handleDelete() {

@@ -142,6 +142,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
   );
   const edges = ref<Edge[]>(loadPersistedArray<Edge>(STORAGE_KEYS.edges));
   const selectedNodeId = ref<string | null>(null);
+  const renamingNodeId = ref<string | null>(null);
   const isNodeEditorVisible = ref(false);
 
   let persistTimer: number | null = null;
@@ -498,6 +499,46 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
   );
 
   /**
+   * 生成唯一节点名称
+   * @param baseName - 基础名称（如"截图"）
+   * @returns 唯一名称（如"截图"、"截图 1"、"截图 2"）
+   */
+  function generateUniqueName(baseName: string): string {
+    // 获取所有已存在的节点名称
+    const existingNames = new Set(
+      nodes.value
+        .map((n) => n.data?.label)
+        .filter((label): label is string => Boolean(label))
+    );
+
+    // 如果基础名称不存在，直接返回
+    if (!existingNames.has(baseName)) {
+      return baseName;
+    }
+
+    // 查找最大的数字后缀
+    let maxNumber = 0;
+    const baseNamePattern = new RegExp(
+      `^${baseName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+(\\d+)$`
+    );
+
+    existingNames.forEach((name) => {
+      if (name === baseName) {
+        maxNumber = Math.max(maxNumber, 0);
+      } else {
+        const match = name.match(baseNamePattern);
+        if (match && match[1]) {
+          const num = parseInt(match[1], 10);
+          maxNumber = Math.max(maxNumber, num);
+        }
+      }
+    });
+
+    // 返回下一个可用名称
+    return maxNumber === 0 ? `${baseName} 1` : `${baseName} ${maxNumber + 1}`;
+  }
+
+  /**
    * 通过节点类型创建节点
    * @param nodeType - 节点类型
    * @param position - 节点位置
@@ -521,6 +562,11 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
 
     // 创建节点数据
     const nodeData = nodeClass.createNodeData();
+
+    // 生成唯一名称
+    if (nodeData.label) {
+      nodeData.label = generateUniqueName(nodeData.label);
+    }
 
     const node: Node<NodeData> = {
       id,
@@ -614,6 +660,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
         sourceHandle: "loop",
         target: containerId,
         targetHandle: "loop-in",
+        updatable: false, // 禁止编辑 For 节点和 loopContainer 之间的连接线
       });
 
       layoutContainerChildren(containerId);
@@ -657,6 +704,10 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
 
     if (selectedNodeId.value && ids.has(selectedNodeId.value)) {
       selectNode(null);
+    }
+
+    if (renamingNodeId.value && ids.has(renamingNodeId.value)) {
+      renamingNodeId.value = null;
     }
 
     affectedContainers.forEach((containerId) => {
@@ -1491,6 +1542,9 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     if (nodeId === null) {
       isNodeEditorVisible.value = false;
     }
+    if (renamingNodeId.value && renamingNodeId.value !== nodeId) {
+      renamingNodeId.value = null;
+    }
   }
 
   function openNodeEditor(nodeId: string) {
@@ -1500,6 +1554,43 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
 
   function closeNodeEditor() {
     isNodeEditorVisible.value = false;
+  }
+
+  function startRenamingNode(nodeId: string) {
+    if (!nodeId) return;
+    if (!nodes.value.some((node) => node.id === nodeId)) {
+      return;
+    }
+
+    selectedNodeId.value = nodeId;
+    renamingNodeId.value = nodeId;
+  }
+
+  function stopRenamingNode() {
+    if (renamingNodeId.value) {
+      renamingNodeId.value = null;
+    }
+  }
+
+  function renameNode(nodeId: string, label: string) {
+    const node = nodes.value.find((n) => n.id === nodeId);
+    if (!node?.data) return;
+
+    const trimmed = typeof label === "string" ? label.trim() : "";
+    const fallback = node.data.label || "节点";
+    const nextLabel = trimmed.length > 0 ? trimmed : fallback;
+
+    if (node.data.label === nextLabel) {
+      return;
+    }
+
+    node.data = {
+      ...node.data,
+      label: nextLabel,
+    };
+
+    recordHistory();
+    schedulePersist();
   }
 
   /**
@@ -1980,6 +2071,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     selectedNodeId,
     selectedNode,
     isNodeEditorVisible,
+    renamingNodeId,
 
     // 历史记录
     initializeHistory,
@@ -2013,6 +2105,9 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     selectNode,
     openNodeEditor,
     closeNodeEditor,
+    startRenamingNode,
+    stopRenamingNode,
+    renameNode,
     validateConnection,
     collectNodeInputs,
     getAvailableVariables,

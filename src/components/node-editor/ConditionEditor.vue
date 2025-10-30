@@ -61,7 +61,7 @@
           </div>
 
           <!-- 右侧：子条件行 -->
-          <div class="flex-1 space-y-2">
+          <div class="flex-1 space-y-2 overflow-hidden">
             <div
               v-for="(subCond, subIndex) in condition.subConditions"
               :key="subIndex"
@@ -82,12 +82,15 @@
 
               <!-- 操作符选择 -->
               <div class="shrink-0">
-                <Select
+                <CascadedSelect
                   v-model="subCond.operator"
-                  :options="getOperatorOptions(subCond.dataType)"
-                  @change="updateSubCondition(condIndex, subIndex, subCond)"
-                  class="operator-select"
-                  :title="OPERATOR_LABELS[subCond.operator]"
+                  :options="operatorOptions"
+                  :groups="dataTypeGroups"
+                  @change="
+                    () => updateSubCondition(condIndex, subIndex, subCond)
+                  "
+                  trigger-class="w-11 bg-white px-1 py-0.5 text-sm font-semibold text-slate-700"
+                  placeholder="="
                 />
               </div>
 
@@ -149,21 +152,21 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from "vue";
+import { reactive, watch, computed } from "vue";
 import type {
   Condition,
   SubCondition,
-  DataType,
   OperatorType,
   IfConfig,
 } from "@/core/nodes/flow/IfNode";
-import {
-  DATA_TYPE_LABELS,
-  OPERATOR_LABELS,
-  OPERATORS_BY_TYPE,
-} from "@/core/nodes/flow/IfNode";
+import { OPERATOR_LABELS, OPERATORS_BY_TYPE } from "@/core/nodes/flow/IfNode";
 import VariableTextInput from "./VariableTextInput.vue";
 import Select from "@/components/common/Select.vue";
+import CascadedSelect from "@/components/common/CascadedSelect.vue";
+import type {
+  CascadedOption,
+  OptionGroup,
+} from "@/components/common/CascadedSelect.vue";
 import IconPlus from "@/icons/IconPlus.vue";
 import IconMinus from "@/icons/IconMinus.vue";
 
@@ -193,15 +196,65 @@ watch(
   { deep: true }
 );
 
-// 数据类型选项
-const dataTypeOptions = [
-  { label: "str", value: "string" },
-  { label: "#", value: "number" },
-  { label: "?", value: "boolean" },
-  { label: "📅", value: "date" },
-  { label: "[]", value: "array" },
-  { label: "{}", value: "object" },
-];
+// 数据类型分组配置
+const dataTypeGroups = computed<OptionGroup[]>(() => [
+  { value: "string", label: "String" },
+  { value: "number", label: "Number" },
+  { value: "date", label: "Date & Time" },
+  { value: "boolean", label: "Boolean" },
+  { value: "array", label: "Array" },
+  { value: "object", label: "Object" },
+]);
+
+// 操作符符号映射（用于按钮显示）
+const operatorSymbols: Partial<Record<OperatorType, string>> = {
+  "is equal to": "=",
+  "is not equal to": "≠",
+  contains: "⊃",
+  "does not contain": "⊅",
+  "starts with": "^",
+  "ends with": "$",
+  "is greater than": ">",
+  "is less than": "<",
+  "is greater than or equal to": "≥",
+  "is less than or equal to": "≤",
+  exists: "?",
+  "does not exist": "∅",
+  "is empty": "␀",
+  "is not empty": "!␀",
+  "is true": "✓",
+  "is false": "✗",
+  "is before": "<",
+  "is after": ">",
+  "is before or equal to": "≤",
+  "is after or equal to": "≥",
+  "length equal to": "len=",
+  "length not equal to": "len≠",
+  "length greater than": "len>",
+  "length less than": "len<",
+  "length greater than or equal to": "len≥",
+  "length less than or equal to": "len≤",
+};
+
+// 操作符选项配置
+const operatorOptions = computed<CascadedOption[]>(() => {
+  const options: CascadedOption[] = [];
+
+  // 为每个数据类型生成选项
+  Object.entries(OPERATORS_BY_TYPE).forEach(([dataType, operators]) => {
+    operators.forEach((operator) => {
+      options.push({
+        value: operator,
+        label: OPERATOR_LABELS[operator],
+        displayLabel: operatorSymbols[operator] || OPERATOR_LABELS[operator],
+        group: dataType,
+        title: OPERATOR_LABELS[operator],
+      });
+    });
+  });
+
+  return options;
+});
 
 // 创建默认条件
 function createDefaultCondition(): Condition {
@@ -298,50 +351,6 @@ function updateSubConditionValue(
   }
 }
 
-// 数据类型变化时更新操作符
-function onDataTypeChange(
-  condIndex: number,
-  subIndex: number,
-  subCond: SubCondition
-) {
-  const newOperator = OPERATORS_BY_TYPE[subCond.dataType]?.[0] || "is equal to";
-  subCond.operator = newOperator;
-  updateSubCondition(condIndex, subIndex, subCond);
-}
-
-// 获取操作符选项
-function getOperatorOptions(dataType: DataType) {
-  const operators = OPERATORS_BY_TYPE[dataType] || [];
-  return operators.map((op) => ({
-    label: getOperatorSymbol(op),
-    value: op,
-    title: OPERATOR_LABELS[op],
-  }));
-}
-
-// 获取操作符符号（简化显示）
-function getOperatorSymbol(operator: OperatorType): string {
-  const symbols: Partial<Record<OperatorType, string>> = {
-    "is equal to": "=",
-    "is not equal to": "≠",
-    contains: "⊃",
-    "does not contain": "⊅",
-    "starts with": "^",
-    "ends with": "$",
-    "is greater than": ">",
-    "is less than": "<",
-    "is greater than or equal to": "≥",
-    "is less than or equal to": "≤",
-    exists: "?",
-    "does not exist": "∅",
-    "is empty": "␀",
-    "is not empty": "!␀",
-    "is true": "✓",
-    "is false": "✗",
-  };
-  return symbols[operator] || OPERATOR_LABELS[operator].slice(0, 2);
-}
-
 // 是否需要值输入
 function needsValue(operator: OperatorType): boolean {
   const noValueOps: OperatorType[] = [
@@ -390,54 +399,12 @@ function emitUpdate() {
   display: none;
 }
 
-/* 紧凑编辑器下拉预览按钮样式 */
-:deep(.compact-editor button) {
-  top: 50%;
-  transform: translateY(-50%);
-  right: 0.25rem;
-}
-
 :deep(.compact-editor button svg) {
   width: 0.875rem;
   height: 0.875rem;
 }
 
-/* 逻辑选择器样式 */
-:deep(.logic-select) {
-  width: 3rem !important;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.375rem;
-  text-align: center;
-  font-weight: 500;
-  color: #7c3aed;
-  border-color: #ddd6fe;
-}
-
-:deep(.logic-select:hover) {
-  border-color: #c4b5fd;
-}
-
-:deep(.logic-select:focus) {
-  border-color: #a78bfa;
-  --tw-ring-color: #ede9fe;
-}
-
-/* 操作符选择器样式 */
-:deep(.operator-select) {
-  width: 2.75rem !important;
-  font-size: 0.875rem;
-  padding: 0.25rem 0.375rem;
-  text-align: center;
-  font-weight: 600;
-}
-
-/* 类型选择器样式 */
-:deep(.type-select) {
-  width: 2.5rem !important;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.25rem;
-  text-align: center;
-}
+/* Select 组件样式已移至 src/components/common/Select.vue */
 
 /* 滚动条样式 */
 .condition-config-panel::-webkit-scrollbar {

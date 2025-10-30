@@ -264,27 +264,8 @@
           </p>
         </div>
 
-        <!-- 额外的配置键（未在输入端口中定义） -->
-        <template v-if="additionalConfigKeys.length">
-          <div class="h-px bg-slate-100"></div>
-          <div
-            v-for="key in additionalConfigKeys"
-            :key="key"
-            class="flex flex-col gap-2"
-          >
-            <label class="text-sm font-medium text-slate-700">{{ key }}</label>
-            <VariableTextInput
-              :model-value="toDisplayValue(getConfigValue(key))"
-              :multiline="shouldUseMultiline(undefined, getConfigValue(key))"
-              @update:modelValue="(val) => setConfigValue(key, val)"
-            />
-          </div>
-        </template>
-
         <div
-          v-if="
-            inputDefinitions.length === 0 && additionalConfigKeys.length === 0
-          "
+          v-if="inputDefinitions.length === 0"
           class="p-5 text-center text-slate-400 text-sm italic bg-slate-50 border-2 border-dashed border-slate-200 rounded-md"
         >
           暂无配置项
@@ -322,13 +303,11 @@ const nodeType = computed(() => {
 });
 
 const inputDefinitions = computed(() => {
-  return store.selectedNode?.data?.inputs ?? [];
-});
-
-const additionalConfigKeys = computed(() => {
-  const config = localConfig.value || {};
-  const inputIds = new Set(inputDefinitions.value.map((input) => input.id));
-  return Object.keys(config).filter((key) => !inputIds.has(key));
+  const inputs = store.selectedNode?.data?.inputs ?? [];
+  // 过滤掉默认的数据流端口，只保留配置项
+  return inputs.filter(
+    (input) => input.id !== "__input__" && input.id !== "__output__"
+  );
 });
 
 const ifConfigProxy = computed<IfConfig>({
