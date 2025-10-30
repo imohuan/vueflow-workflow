@@ -1,11 +1,8 @@
 <template>
   <NodeWrapper v-bind="props">
     <template #default>
-      <div
-        v-if="(props.data.inputs?.length ?? 0) > 0"
-        class="flex flex-col gap-1.5"
-      >
-        <div v-for="input in props.data.inputs" :key="input.id">
+      <div v-if="displayInputs.length > 0" class="flex flex-col gap-1.5">
+        <div v-for="input in displayInputs" :key="input.id">
           <div v-if="input.type === 'boolean'" class="space-y-1" @click.stop>
             <div class="flex items-center justify-between gap-2">
               <div class="flex-1 min-w-0">
@@ -167,6 +164,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import type { NodeData } from "@/typings/nodeEditor";
 import NodeWrapper from "./NodeWrapper.vue";
 import VariableBadge from "@/components/common/VariableBadge.vue";
@@ -187,4 +185,8 @@ const {
   isVariableBound,
   toggleBoolean,
 } = useNodeConfig(props);
+
+const displayInputs = computed(() => {
+  return (props.data.inputs ?? []).filter((input) => !input.isPort);
+});
 </script>

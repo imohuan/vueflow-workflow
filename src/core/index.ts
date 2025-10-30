@@ -15,3 +15,6 @@ export type {
 
 // 导出所有节点
 export * from "./nodes";
+
+// 导出执行引擎
+export * from "./executor";

@@ -21,6 +21,13 @@ import {
 import type { VariableTreeNode } from "@/utils/variableResolver";
 import { nodeEditorLayoutConfig, type ContainerPaddingConfig } from "@/config";
 import type { IfConfig } from "@/core/nodes/flow/IfNode";
+import {
+  executeWorkflow as runWorkflow,
+  type ExecutionLog,
+  type WorkflowNode,
+  type WorkflowEdge,
+  type WorkflowExecutionResult,
+} from "@/core/executor";
 
 const { containerDefaults, childEstimate } = nodeEditorLayoutConfig;
 
@@ -245,6 +252,9 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
   const renamingNodeId = ref<string | null>(null);
   const isNodeEditorVisible = ref(false);
   const clipboard = ref<NodeClipboardData | null>(null);
+  const isExecutingWorkflow = ref(false);
+  const lastExecutionLog = ref<ExecutionLog | null>(null);
+  const lastExecutionError = ref<string | null>(null);
 
   let persistTimer: number | null = null;
   let stateDirty = false;
@@ -1858,6 +1868,10 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     return Boolean(clipboard.value && clipboard.value.nodes.length > 0);
   }
 
+  /**
+   * 粘贴剪贴板节点
+   * @returns 新创建的节点 ID 列表
+   */
   function pasteClipboardNodes(targetPosition: {
     x: number;
     y: number;
@@ -1897,12 +1911,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
 
     batchStart();
     try {
-      nodes.value.forEach((node) => {
-        const selectableNode = node as Node<NodeData> & { selected?: boolean };
-        if (selectableNode.selected) {
-          selectableNode.selected = false;
-        }
-      });
+      // 移除所有节点的选中状态（通过 vue-flow API 在外部处理）
 
       sortedNodes.forEach((item) => {
         const originalNode = item.node;
@@ -1979,7 +1988,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
           }
         }
 
-        (newNode as Node<NodeData> & { selected?: boolean }).selected = true;
+        // 不在这里设置 selected，而是通过外部 vue-flow API 来选中
         applyNodeLayerClass(newNode);
         nodes.value.push(newNode);
         newNodeIds.push(newNode.id);
@@ -2005,7 +2014,6 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
           .slice(2, 9)}`;
         newEdge.source = newSource;
         newEdge.target = newTarget;
-        (newEdge as Edge & { selected?: boolean }).selected = false;
 
         edges.value.push(newEdge);
         applyEdgeLayerClass(newEdge);
@@ -2021,17 +2029,13 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
         }
       });
 
-      if (newNodeIds.length > 0) {
-        const lastNodeId = newNodeIds[newNodeIds.length - 1];
-        if (lastNodeId) {
-          selectedNodeId.value = lastNodeId;
-        }
-      }
+      // 不在这里设置 selectedNodeId，由外部通过 vue-flow API 选中节点
     } finally {
       batchEnd();
       refreshEdgeLayerClasses();
     }
 
+    schedulePersist();
     return newNodeIds;
   }
 

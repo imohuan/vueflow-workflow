@@ -72,6 +72,10 @@ export interface NodeData {
   result?: NodeResult;
   /** 结果是否展开 */
   resultExpanded?: boolean;
+  /** 节点执行状态 */
+  executionStatus?: "pending" | "running" | "success" | "error" | "skipped";
+  /** 节点执行错误信息 */
+  executionError?: string;
   /** 节点标签 */
   label?: string;
   /** 节点分类 */

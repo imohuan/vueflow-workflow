@@ -45,6 +45,9 @@
         :connection-radius="0"
         :edges-updatable="true"
         :edge-updater-radius="20"
+        :select-nodes-on-drag="true"
+        :nodes-draggable="!isLocked"
+        :elements-selectable="!isLocked"
         @nodes-change="onNodesChange"
         @edges-change="onEdgesChange"
         @connect="onConnect"
@@ -264,7 +267,12 @@ const configStore = useEditorConfigStore();
 const { config } = storeToRefs(configStore);
 
 const vueFlowApi = useVueFlow();
-const { getIntersectingNodes, getSelectedNodes } = vueFlowApi;
+const {
+  getIntersectingNodes,
+  getSelectedNodes,
+  addSelectedNodes,
+  removeSelectedElements,
+} = vueFlowApi;
 
 const showConfigPanel = ref(false);
 const showNodeListPanel = ref(false);
@@ -736,6 +744,7 @@ const ctrlY = keys["Ctrl+Y"] as any;
 const ctrlShiftZ = keys["Ctrl+Shift+Z"] as any;
 const ctrlC = keys["Ctrl+C"] as any;
 const ctrlV = keys["Ctrl+V"] as any;
+const deleteKey = keys["Delete"] as any;
 
 // 撤销
 whenever(ctrlZ, () => {
@@ -802,7 +811,52 @@ whenever(ctrlV, () => {
   }
 
   const position = lastPointerPosition.value ?? getFallbackPastePosition();
-  store.pasteClipboardNodes(position);
+  const newNodeIds = store.pasteClipboardNodes(position);
+
+  if (newNodeIds.length === 0) {
+    return;
+  }
+
+  // 首先取消所有选中
+  removeSelectedElements();
+
+  // 等待节点完全渲染并被 Vue Flow 测量尺寸后再选中
+  // 使用 nextTick + setTimeout 确保节点的 dimensions 和 computedPosition 已计算完成
+  nextTick(() => {
+    setTimeout(() => {
+      const newNodes = nodes.value.filter((node) =>
+        newNodeIds.includes(node.id)
+      );
+
+      if (newNodes.length > 0) {
+        // 使用 vue-flow API 选中节点
+        addSelectedNodes(newNodes as any);
+
+        // 同步更新 store 的 selectedNodeId
+        const lastNodeId = newNodeIds[newNodeIds.length - 1];
+        if (lastNodeId) {
+          store.selectNode(lastNodeId);
+        }
+      }
+    }, 200);
+  });
+});
+
+// Delete 键删除选中节点
+whenever(deleteKey, () => {
+  if (!isShortcutAvailable()) {
+    return;
+  }
+
+  const selectedNodes = (getSelectedNodes.value ?? []) as Node<NodeData>[];
+  if (!selectedNodes.length) {
+    return;
+  }
+
+  // 删除所有选中的节点
+  selectedNodes.forEach((node) => {
+    store.removeNode(node.id);
+  });
 });
 
 /**

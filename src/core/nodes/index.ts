@@ -45,6 +45,8 @@ import { CaptureConsoleNode } from "./advanced/CaptureConsoleNode";
 // 流程控制
 import { ForNode } from "./flow/ForNode";
 import { IfNode } from "./flow/IfNode";
+import { StartNode } from "./flow/StartNode";
+import { EndNode } from "./flow/EndNode";
 
 // 数据处理
 import { MergeNode } from "./transform/MergeNode";
@@ -101,6 +103,8 @@ export const NODE_REGISTRY = {
   },
   /** 流程控制 */
   flow: {
+    start: new StartNode(),
+    end: new EndNode(),
     for: new ForNode(),
     if: new IfNode(),
   },
@@ -198,6 +202,8 @@ export {
   SendCommandToInjectScriptNode,
   CaptureConsoleNode,
   // 流程控制
+  StartNode,
+  EndNode,
   ForNode,
   IfNode,
   // 数据处理
