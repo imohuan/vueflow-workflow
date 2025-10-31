@@ -627,35 +627,89 @@ export class MCPClient {
    * @returns 解析后的数据
    */
   private parseMCPContent(result: any): any {
-    // 如果没有 content 字段，直接返回
-    if (!result || !result.content) {
-      return result;
+    // 递归处理对象中的所有 { type: "text", text: "..." } 结构
+    return this.deepParseTextContent(result);
+  }
+
+  /**
+   * 深度解析所有 { type: "text", text: "..." } 结构
+   * @param data - 要解析的数据
+   * @returns 解析后的数据
+   */
+  private deepParseTextContent(data: any): any {
+    // null 或 undefined 直接返回
+    if (data == null) {
+      return data;
     }
 
-    // 如果 content 是数组且有内容
-    if (Array.isArray(result.content) && result.content.length > 0) {
-      const firstItem = result.content[0];
+    // 处理 { type: "text", text: "..." } 结构
+    if (
+      typeof data === "object" &&
+      !Array.isArray(data) &&
+      data.type === "text" &&
+      typeof data.text === "string"
+    ) {
+      try {
+        // 尝试解析 text 字段中的 JSON
+        const parsed = JSON.parse(data.text);
+        // 递归处理解析后的数据
+        return this.deepParseTextContent(parsed);
+      } catch {
+        // 如果不是 JSON，返回原始文本
+        return data.text;
+      }
+    }
 
-      // 如果第一项是 text 类型
-      if (firstItem.type === "text" && firstItem.text) {
+    // 处理带 content 数组的标准 MCP 响应格式
+    if (
+      typeof data === "object" &&
+      !Array.isArray(data) &&
+      Array.isArray(data.content) &&
+      data.content.length > 0
+    ) {
+      const firstItem = data.content[0];
+
+      // 如果第一项是 text 类型，尝试解析
+      if (
+        firstItem &&
+        firstItem.type === "text" &&
+        typeof firstItem.text === "string"
+      ) {
         try {
-          // 尝试解析嵌套的 JSON
           const parsed = JSON.parse(firstItem.text);
 
-          // 如果解析成功且有 data 字段，返回 data
-          if (parsed.data) {
-            return parsed.data;
+          // 如果解析成功且有 data 字段，优先返回 data
+          if (parsed && typeof parsed === "object" && parsed.data) {
+            return this.deepParseTextContent(parsed.data);
           }
 
-          return parsed;
+          // 否则返回解析后的整个对象
+          return this.deepParseTextContent(parsed);
         } catch {
-          // 如果不是 JSON，直接返回文本
+          // 如果不是 JSON，返回文本
           return firstItem.text;
         }
       }
     }
 
-    return result;
+    // 处理数组：递归处理每一项
+    if (Array.isArray(data)) {
+      return data.map((item) => this.deepParseTextContent(item));
+    }
+
+    // 处理普通对象：递归处理每个属性
+    if (typeof data === "object") {
+      const result: Record<string, any> = {};
+      for (const key in data) {
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+          result[key] = this.deepParseTextContent(data[key]);
+        }
+      }
+      return result;
+    }
+
+    // 基本类型直接返回
+    return data;
   }
 
   /**
