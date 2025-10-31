@@ -11,6 +11,8 @@ import type {
 } from "./types";
 import type { NodeResult, NodeResultOutput } from "@/typings/nodeEditor";
 import type { MCPClient } from "@/core/mcp-client";
+import { WorkflowEventType } from "@/typings/workflowExecution";
+import type { NodeExecutionStatus as WorkflowNodeExecutionStatus } from "@/typings/workflowExecution";
 
 interface CollectContextOptions {
   incomingMap: Map<string, WorkflowEdge[]>;
@@ -27,8 +29,18 @@ const DEFAULT_LOG_PREFIX = "workflow";
 export async function executeWorkflow(
   options: WorkflowExecutorOptions
 ): Promise<WorkflowExecutionResult> {
-  const { nodes, edges, startNodeId, client, nodeFactory, signal, logId } =
-    options;
+  const {
+    nodes,
+    edges,
+    startNodeId,
+    client,
+    nodeFactory,
+    signal,
+    logId,
+    emitter,
+    executionId,
+    workflowId,
+  } = options;
 
   if (!Array.isArray(nodes) || nodes.length === 0) {
     throw new Error("执行失败：至少需要一个节点");
@@ -36,6 +48,21 @@ export async function executeWorkflow(
 
   if (signal?.aborted) {
     throw new Error("执行已被取消");
+  }
+
+  // 生成执行任务ID（如果未提供）
+  const taskExecutionId = executionId || `exec_${Date.now()}`;
+  const taskWorkflowId = workflowId || "default-workflow";
+
+  // 发送工作流开始事件
+  if (emitter) {
+    emitter.emit(WorkflowEventType.STARTED, {
+      executionId: taskExecutionId,
+      workflowId: taskWorkflowId,
+      mode: "worker",
+      timestamp: Date.now(),
+      totalNodes: nodes.length,
+    });
   }
 
   const startNode = determineStartNode({ nodes, explicitStartId: startNodeId });
@@ -100,6 +127,16 @@ export async function executeWorkflow(
     logEntry.status = "running";
     logEntry.startTime = Date.now();
 
+    // 发送节点开始执行事件
+    if (emitter) {
+      emitter.emit(WorkflowEventType.NODE_STATUS, {
+        executionId: taskExecutionId,
+        nodeId,
+        status: "running" as WorkflowNodeExecutionStatus,
+        timestamp: Date.now(),
+      });
+    }
+
     try {
       const executor = resolveNodeExecutor(
         currentNode,
@@ -127,10 +164,23 @@ export async function executeWorkflow(
         result,
       };
 
+      const endTime = Date.now();
       logEntry.status = "success";
-      logEntry.endTime = Date.now();
+      logEntry.endTime = endTime;
       logEntry.input = inputs;
       logEntry.output = result;
+
+      // 发送节点执行成功事件
+      if (emitter) {
+        emitter.emit(WorkflowEventType.NODE_STATUS, {
+          executionId: taskExecutionId,
+          nodeId,
+          status: "success" as WorkflowNodeExecutionStatus,
+          timestamp: endTime,
+          output: result,
+          duration: endTime - logEntry.startTime,
+        });
+      }
 
       if (deriveNodeType(currentNode) === "end") {
         endNodeReached = true;
@@ -161,20 +211,49 @@ export async function executeWorkflow(
         });
       }
 
+      // 发送边激活事件
       edgesToQueue.forEach((edge) => {
         if (!visitedQueue.has(edge.target)) {
           queue.push(edge.target);
+
+          // 发送边激活事件
+          if (emitter && edge.id) {
+            emitter.emit(WorkflowEventType.EDGE_ACTIVE, {
+              executionId: taskExecutionId,
+              edgeId: edge.id,
+              fromNodeId: edge.source,
+              toNodeId: edge.target,
+              timestamp: Date.now(),
+            });
+          }
         }
       });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : String(error ?? "执行异常");
+      const errorTime = Date.now();
       logEntry.status = "error";
-      logEntry.endTime = Date.now();
+      logEntry.endTime = errorTime;
       logEntry.input = logEntry.input ?? null;
       logEntry.error = message;
       workflowStatus = "error";
       workflowError = message;
+
+      // 发送节点执行错误事件
+      if (emitter) {
+        emitter.emit(WorkflowEventType.NODE_STATUS, {
+          executionId: taskExecutionId,
+          nodeId,
+          status: "error" as WorkflowNodeExecutionStatus,
+          timestamp: errorTime,
+          error: {
+            message,
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+          duration: errorTime - logEntry.startTime,
+        });
+      }
+
       break;
     }
   }
@@ -201,9 +280,36 @@ export async function executeWorkflow(
     }
   });
 
+  const finalEndTime = Date.now();
   log.status = workflowStatus;
-  log.endTime = Date.now();
+  log.endTime = finalEndTime;
   log.error = workflowError;
+
+  // 发送工作流完成或错误事件
+  if (emitter) {
+    if (workflowStatus === "success") {
+      const successCount = log.nodes.filter(
+        (n) => n.status === "success"
+      ).length;
+      const failedCount = log.nodes.filter((n) => n.status === "error").length;
+
+      emitter.emit(WorkflowEventType.COMPLETED, {
+        executionId: taskExecutionId,
+        timestamp: finalEndTime,
+        duration: finalEndTime - log.startTime,
+        successNodes: successCount,
+        failedNodes: failedCount,
+      });
+    } else if (workflowStatus === "error") {
+      emitter.emit(WorkflowEventType.ERROR, {
+        executionId: taskExecutionId,
+        error: {
+          message: workflowError || "工作流执行失败",
+        },
+        timestamp: finalEndTime,
+      });
+    }
+  }
 
   if (workflowStatus === "aborted") {
     throwAbortError(workflowError);

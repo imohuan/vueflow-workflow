@@ -28,6 +28,7 @@ import {
   type WorkflowEdge,
   type WorkflowExecutionResult,
 } from "@/core/executor";
+import { workflowEmitter } from "@/main";
 
 const { containerDefaults, childEstimate } = nodeEditorLayoutConfig;
 
@@ -2658,11 +2659,18 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
           targetHandle: edge.targetHandle ?? null,
         }));
 
+      // 生成执行任务ID
+      const executionId = `exec_${Date.now()}`;
+      const workflowId = "default-workflow"; // TODO: 后续支持多工作流时使用实际的工作流ID
+
       const result: WorkflowExecutionResult = await runWorkflow({
         nodes: workflowNodes,
         edges: workflowEdges,
         startNodeId: startNode.id,
         client: mcpClient,
+        emitter: workflowEmitter,
+        executionId,
+        workflowId,
       });
 
       lastExecutionLog.value = result.log;

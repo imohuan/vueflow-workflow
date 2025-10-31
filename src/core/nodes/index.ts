@@ -47,6 +47,7 @@ import { ForNode } from "./flow/ForNode";
 import { IfNode } from "./flow/IfNode";
 import { StartNode } from "./flow/StartNode";
 import { EndNode } from "./flow/EndNode";
+import { DelayNode } from "./flow/DelayNode";
 
 // 数据处理
 import { MergeNode } from "./transform/MergeNode";
@@ -107,6 +108,7 @@ export const NODE_REGISTRY = {
     end: new EndNode(),
     for: new ForNode(),
     if: new IfNode(),
+    delay: new DelayNode(),
   },
   /** 数据处理 */
   transform: {
@@ -206,6 +208,7 @@ export {
   EndNode,
   ForNode,
   IfNode,
+  DelayNode,
   // 数据处理
   MergeNode,
   CodeNode,

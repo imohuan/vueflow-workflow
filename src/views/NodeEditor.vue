@@ -266,6 +266,9 @@ import IconLayout from "@/icons/IconLayout.vue";
 import IconFit from "@/icons/IconFit.vue";
 import IconPlayCircle from "@/icons/IconPlayCircle.vue";
 
+// 引入工作流执行状态管理
+import { useWorkflowExecution } from "@/composables/workflow/useWorkflowExecution";
+
 type DagreLayoutDirection = "TB" | "BT" | "LR" | "RL";
 
 // 引入 VueFlow 样式
@@ -282,6 +285,107 @@ const { nodes, edges, isExecutingWorkflow } = storeToRefs(store);
 
 const configStore = useEditorConfigStore();
 const { config } = storeToRefs(configStore);
+
+// 初始化工作流执行状态管理器
+// TODO: 后续需要根据实际工作流ID传入，当前使用固定ID作为示例
+const workflowId = ref("default-workflow");
+const workflowExecution = useWorkflowExecution(workflowId);
+
+// 响应式更新节点和边的执行状态
+// 使用定时器实时检查状态变化并更新
+let executionStateUpdateInterval: number | null = null;
+
+function updateNodesExecutionState() {
+  const executionId = workflowExecution.activeExecutionId.value;
+  if (!executionId) {
+    // 没有活跃执行时，清除所有节点的执行状态
+    nodes.value.forEach((node) => {
+      if (node.data && node.data.executionStatus) {
+        node.data.executionStatus = undefined;
+      }
+    });
+    return;
+  }
+
+  const nodeStates = workflowExecution.getNodeStates(executionId);
+  if (!nodeStates) return;
+
+  // 实时更新所有节点的执行状态
+  nodes.value.forEach((node) => {
+    const state = nodeStates.get(node.id);
+    if (state && node.data) {
+      // 只在状态真正变化时更新
+      if (node.data.executionStatus !== state.status) {
+        node.data.executionStatus = state.status;
+      }
+
+      // 更新节点执行结果（成功时显示输出）
+      if (state.status === "success" && state.output) {
+        // 确保result对象包含必要的字段
+        const duration =
+          state.endTime && state.startTime
+            ? state.endTime - state.startTime
+            : 0;
+
+        node.data.result = {
+          status: "success",
+          duration,
+          timestamp: state.endTime || Date.now(),
+          ...state.output,
+        };
+
+        // 首次显示时默认不展开
+        if (node.data.resultExpanded === undefined) {
+          node.data.resultExpanded = false;
+        }
+      }
+
+      // 更新错误信息
+      if (state.status === "error" && state.error) {
+        node.data.executionError = state.error.message;
+      }
+    }
+  });
+}
+
+function updateEdgesActivationState() {
+  const executionId = workflowExecution.activeExecutionId.value;
+  if (!executionId) {
+    // 没有活跃执行时，清除所有边的激活状态
+    edges.value.forEach((edge) => {
+      if (edge.data && edge.data.isActive) {
+        edge.data = { ...edge.data, isActive: false };
+      }
+    });
+    return;
+  }
+
+  const activeEdges = workflowExecution.getActiveEdges(executionId);
+  if (!activeEdges) return;
+
+  // 更新所有边的激活状态
+  edges.value.forEach((edge) => {
+    const shouldBeActive = activeEdges.has(edge.id);
+    const currentlyActive = edge.data?.isActive || false;
+
+    if (shouldBeActive !== currentlyActive) {
+      edge.data = {
+        ...(edge.data || {}),
+        isActive: shouldBeActive,
+      };
+    }
+  });
+}
+
+function updateExecutionState() {
+  updateNodesExecutionState();
+  updateEdgesActivationState();
+}
+
+// 在组件挂载时启动定时检查（每100ms更新一次）
+onMounted(() => {
+  executionStateUpdateInterval = window.setInterval(updateExecutionState, 100);
+});
 
 const vueFlowApi = useVueFlow();
 const {
@@ -781,6 +885,11 @@ onMounted(() => {
 onUnmounted(() => {
   if (fpsInterval) {
     clearInterval(fpsInterval);
+  }
+
+  // 清理执行状态更新定时器
+  if (executionStateUpdateInterval) {
+    clearInterval(executionStateUpdateInterval);
   }
 
   // 清理节点拖拽监听器

@@ -1,6 +1,8 @@
 import type { NodeData, NodeResult } from "@/typings/nodeEditor";
 import type { MCPClient } from "@/core/mcp-client";
 import type { BaseNode } from "@/core/nodes";
+import type { Emitter } from "mitt";
+import type { WorkflowEvents } from "@/typings/workflowExecution";
 
 export type WorkflowStatus =
   | "pending"
@@ -45,6 +47,12 @@ export interface WorkflowExecutorOptions {
   nodeFactory?: (type: string) => BaseNode | undefined;
   signal?: AbortSignal;
   logId?: string;
+  /** 工作流事件发射器（用于实时预览） */
+  emitter?: Emitter<WorkflowEvents>;
+  /** 执行任务 ID（用于实时预览） */
+  executionId?: string;
+  /** 工作流 ID（用于实时预览） */
+  workflowId?: string;
 }
 
 export interface NodeExecutionLog {

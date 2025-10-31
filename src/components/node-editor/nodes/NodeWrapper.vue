@@ -1,8 +1,9 @@
 <template>
   <div
     :class="[
-      'node-wrapper min-w-[280px] max-w-[400px] bg-white border-2 rounded-md shadow-lg cursor-pointer text-sm overflow-visible backdrop-blur-xl transition-all duration-300 ease-out',
+      'node-wrapper min-w-[280px] max-w-[400px] bg-white border-2 rounded-md shadow-lg cursor-pointer text-sm overflow-visible backdrop-blur-xl transition-all duration-300 ease-out relative',
       'border-slate-200 hover:shadow-xl',
+      executionStatusClass,
     ]"
     :style="{
       borderColor: isSelected ? nodeTheme.selectedBorder : undefined,
@@ -13,6 +14,15 @@
     @click="handleClick"
     @dblclick.stop="handleDoubleClick"
   >
+    <!-- 执行状态指示器 -->
+    <div
+      v-if="executionStatusBadge"
+      class="absolute -top-7 right-0 z-10 px-4 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1"
+      :class="executionStatusBadge.class"
+    >
+      <span>{{ executionStatusBadge.icon }}</span>
+      <span class="text-[10px]">{{ executionStatusBadge.text }}</span>
+    </div>
     <div
       class="flex items-center justify-between gap-2 px-3 py-2 text-white font-semibold relative overflow-hidden rounded-t"
       :style="{
@@ -189,6 +199,54 @@ const displayLabel = computed(() => {
   return trimmed.length > 0 ? trimmed : "节点";
 });
 
+// 执行状态样式类
+const executionStatusClass = computed(() => {
+  const status = props.data.executionStatus;
+  if (!status) return "";
+
+  const statusClasses: Record<string, string> = {
+    pending: "execution-pending",
+    running: "execution-running",
+    success: "execution-success",
+    error: "execution-error",
+    skipped: "execution-skipped",
+  };
+
+  return statusClasses[status] || "";
+});
+
+// 执行状态徽章
+const executionStatusBadge = computed(() => {
+  const status = props.data.executionStatus;
+  if (!status || status === "pending") return null;
+
+  const badges: Record<string, { icon: string; text: string; class: string }> =
+    {
+      running: {
+        icon: "⏳",
+        text: "执行中",
+        class: "bg-blue-500 text-white animate-pulse",
+      },
+      success: {
+        icon: "✓",
+        text: "成功",
+        class: "bg-green-500 text-white",
+      },
+      error: {
+        icon: "✕",
+        text: "失败",
+        class: "bg-red-500 text-white",
+      },
+      skipped: {
+        icon: "⏭",
+        text: "跳过",
+        class: "bg-gray-400 text-white",
+      },
+    };
+
+  return badges[status] || null;
+});
+
 watch(isRenaming, (enabled) => {
   if (enabled) {
     originalLabel.value = props.data.label ?? "";
@@ -344,5 +402,34 @@ function getHandleStyle(
 </script>
 
 <style scoped>
-/* 组件特定样式（如果需要） */
+/* ==================== 执行状态样式 ==================== */
+
+/* pending: 无特殊样式 */
+.execution-pending {
+  /* 保持默认样式 */
+}
+
+/* running: 蓝色边框 */
+.execution-running {
+  border-color: rgb(59 130 246) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* success: 无特殊边框 */
+.execution-success {
+  /* 通过右上角徽章显示状态 */
+}
+
+/* error: 红色边框 */
+.execution-error {
+  border-color: rgb(239 68 68) !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+/* skipped: 灰色虚线边框 */
+.execution-skipped {
+  border-color: rgb(203 213 225);
+  border-style: dashed;
+  opacity: 0.7;
+}
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <g class="vue-flow__edge-custom">
+  <g class="vue-flow__edge-custom" :class="{ 'edge-active': isActive }">
     <!-- 可见的细路径 - 只负责显示 -->
     <path
       :id="id"
@@ -92,6 +92,11 @@ const isLoopContainerEdge = computed(() => {
   return (
     sourceNode?.type === "loopContainer" || targetNode?.type === "loopContainer"
   );
+});
+
+// 判断边是否处于激活状态（执行中）
+const isActive = computed(() => {
+  return (props as any).data?.isActive || false;
 });
 
 const pathResult = computed(() => {
@@ -222,5 +227,24 @@ function handleMouseLeave() {
 /* 只有按钮响应事件 */
 .edgebutton-foreignobject button {
   pointer-events: all;
+}
+
+/* ==================== 边激活状态动画 ==================== */
+
+/* 激活状态的边 - 使用流动动画（快速过渡效果） */
+.edge-active .vue-flow__edge-path-visual {
+  stroke: #10b981 !important;
+  stroke-width: 3px !important;
+  stroke-dasharray: 8 4;
+  animation: edge-flow 0.5s linear infinite;
+}
+
+@keyframes edge-flow {
+  from {
+    stroke-dashoffset: 12;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 </style>
