@@ -9,6 +9,7 @@ alwaysApply: true
 - 包管理器：默认使用 pnpm（如项目中存在 pnpm-lock.yaml）
 - Windows 环境：使用 PowerShell 脚本
 - 其他环境：根据项目实际配置自动适配（如 npm、yarn、bun 等）
+- API 文档查询：使用 Context7 MCP 查询第三方库的最新 API 文档
 
 ## 交流与语言
 
@@ -97,14 +98,64 @@ alwaysApply: true
 - 常用函数：`debounce`、`throttle`、`cloneDeep`、`isEmpty`、`isEqual`
 - 优先使用原生方法：如果原生 JavaScript 方法足够，不必使用 lodash
 
+## API 文档查询规范
+
+### Context7 MCP 使用
+
+在使用第三方库开发功能前，必须通过 Context7 MCP 查询最新的 API 文档，确保使用的是最新、最正确的 API。
+
+#### 查询流程
+
+1. **解析库 ID**：使用 `resolve-library-id` 工具获取库的 Context7 ID
+
+   - 输入库名称（如 "vue"、"pinia"、"vueuse"）
+   - 获取准确的库 ID（格式：`/org/project` 或 `/org/project/version`）
+
+2. **获取文档**：使用 `get-library-docs` 工具获取最新文档
+   - 使用第一步获得的库 ID
+   - 可指定具体的主题（如 "hooks"、"routing"、"composition-api"）
+   - 根据需要调整 tokens 参数（默认 5000，复杂场景可增加）
+
+#### 适用场景
+
+必须使用 Context7 MCP 查询的情况：
+
+- 使用新的第三方库或框架
+- 使用不熟悉的 API
+- API 可能已更新或弃用的情况
+- 需要查看完整参数、返回值、使用示例
+
+可以跳过查询的情况：
+
+- 使用非常基础、确定不会改变的原生 JavaScript API
+- 项目内部自定义的工具函数和组件
+- 已经非常熟悉且近期使用过的 API
+
+#### 常用库查询示例
+
+- Vue 3 核心 API：查询 `vue` 或 `/vuejs/core`
+- Pinia 状态管理：查询 `pinia` 或 `/vuejs/pinia`
+- VueUse 工具库：查询 `vueuse` 或 `/@vueuse/core`
+- Vue Router：查询 `vue-router` 或 `/vuejs/router`
+- Tailwind CSS：查询 `tailwindcss` 或 `/tailwindlabs/tailwindcss`
+- lodash-es：查询 `lodash` 或 `/lodash/lodash`
+
+#### 注意事项
+
+- 优先查询官方维护的文档库（trust score 7-10）
+- 如果库有多个版本，优先使用项目中实际安装的版本
+- 查询时指定具体主题可以获得更精准的文档内容
+- 将查询到的 API 信息应用到代码中，确保参数、类型、用法正确
+
 ## 工作流程
 
 ### 开发流程
 
 1. 理解需求：确认功能需求和技术细节
-2. 实现优先：先实现功能，后优化代码
-3. 测试验证：确保功能正常工作
-4. 代码整理：清理临时代码和调试信息
+2. **查询最新 API**：使用 Context7 MCP 查询相关第三方库的最新 API 文档（必须步骤）
+3. 实现优先：先实现功能，后优化代码
+4. 测试验证：确保功能正常工作
+5. 代码整理：清理临时代码和调试信息
 
 ### 代码修改
 

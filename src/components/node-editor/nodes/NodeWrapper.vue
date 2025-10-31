@@ -138,7 +138,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from "vue";
-import { Handle, Position } from "@vue-flow/core";
+import { Handle, Position, useVueFlow } from "@vue-flow/core";
 import type { NodeData } from "@/typings/nodeEditor";
 import { useNodeEditorStore } from "@/stores/nodeEditor";
 import IconPlay from "@/icons/IconPlay.vue";
@@ -165,6 +165,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const store = useNodeEditorStore();
+const { getSelectedNodes } = useVueFlow();
 const contentRef = ref<HTMLDivElement | null>(null);
 
 const nodeTheme = computed(() => getNodeTheme(props.data.category || ""));
@@ -235,6 +236,16 @@ function handleDoubleClick() {
   if (isRenaming.value) {
     return;
   }
+
+  // 只在单选状态下才触发双击打开编辑器
+  // 多选时不触发双击事件，避免误触发
+  const selectedNodes = getSelectedNodes.value ?? [];
+
+  if (selectedNodes.length > 1) {
+    // 多选状态下，不触发双击事件
+    return;
+  }
+
   store.openNodeEditor(props.id);
 }
 

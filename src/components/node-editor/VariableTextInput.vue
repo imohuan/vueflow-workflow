@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-2">
+  <div v-bind="$attrs" class="space-y-2">
     <!-- 顶部预览 -->
     <VariablePreview
       v-if="previewMode === 'top' && isFocused"
@@ -206,6 +206,10 @@ import {
   buildVariableContext,
   resolveConfigWithVariables,
 } from "@/utils/variableResolver";
+
+defineOptions({
+  inheritAttrs: false,
+});
 
 interface Props {
   modelValue?: string | number;

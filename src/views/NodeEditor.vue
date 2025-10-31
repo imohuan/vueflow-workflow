@@ -218,18 +218,12 @@
       </Transition>
     </div>
   </div>
-
-  <!-- <Teleport v-if="deleteButtonClass" :to="deleteButtonClass"> -->
-  <!-- <Teleport to="g[data-id=edge_1761721330586] g.vue-flow__edge-textwrapper">
-    <div class="absolute top-0 left-0 w-10 h-10 bg-red-500">
-      <button class="w-full h-full bg-blue-500">删除</button>
-    </div>
-  </Teleport> -->
 </template>
 
 <script setup lang="ts">
 import {
   ref,
+  computed,
   watch,
   onMounted,
   onUnmounted,
@@ -295,7 +289,18 @@ const {
   getSelectedNodes,
   addSelectedNodes,
   removeSelectedElements,
+  nodesSelectionActive,
 } = vueFlowApi;
+
+// 多选状态
+const multiSelectionActive = computed({
+  get: () => vueFlowApi.multiSelectionActive?.value ?? false,
+  set: (value: boolean) => {
+    if (vueFlowApi.multiSelectionActive) {
+      vueFlowApi.multiSelectionActive.value = value;
+    }
+  },
+});
 
 const showConfigPanel = ref(false);
 const showNodeListPanel = ref(false);
@@ -354,8 +359,6 @@ if (typeof window !== "undefined") {
   });
 }
 const managedSelectedNodeIds = ref<string[]>([]);
-const isManagingSelection = ref(false);
-const selectionLogPrefix = "[SelectionTrace]";
 
 function isEditableElement(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -806,8 +809,14 @@ const ctrlShiftZ = keys["Ctrl+Shift+Z"] as any;
 const ctrlC = keys["Ctrl+C"] as any;
 const ctrlV = keys["Ctrl+V"] as any;
 const deleteKey = keys["Delete"] as any;
+const escapeKey = keys["Escape"] as any;
 const shiftKey = keys.Shift as any;
-const altKey = keys.Alt as any;
+
+// 同步 Shift 键状态到 VueFlow 的 multiSelectionActive
+// Shift 用于多选（可以切换选择状态）
+watch(shiftKey, (pressed) => {
+  multiSelectionActive.value = Boolean(pressed);
+});
 
 // 撤销
 whenever(ctrlZ, () => {
@@ -896,8 +905,12 @@ whenever(ctrlV, () => {
         addSelectedNodes(newNodes as any);
         managedSelectedNodeIds.value = [...newNodeIds];
 
+        // 关键：启用多选视图状态
+        if (newNodes.length > 1) {
+          nodesSelectionActive.value = true;
+        }
+
         newNodes.forEach((node) => {
-          node.selected = true;
           vueFlowRef.value?.updateNodeInternals?.(node.id);
         });
 
@@ -926,6 +939,26 @@ whenever(deleteKey, () => {
   selectedNodes.forEach((node) => {
     store.removeNode(node.id);
   });
+});
+
+// ESC 键清空选中状态
+whenever(escapeKey, () => {
+  if (!isShortcutAvailable()) {
+    return;
+  }
+
+  const selectedNodes = (getSelectedNodes.value ?? []) as Node<NodeData>[];
+  if (!selectedNodes.length) {
+    return;
+  }
+
+  // 清空所有选中的节点
+  removeSelectedElements();
+
+  // 更新状态
+  managedSelectedNodeIds.value = [];
+  nodesSelectionActive.value = false;
+  store.selectNode(null);
 });
 
 /**
@@ -1100,124 +1133,11 @@ function onDragOver(event: DragEvent) {
   }
 }
 
-function applySelectionState(ids: string[], focusId: string | null) {
-  const uniqueIds = Array.from(new Set(ids));
-  console.log(
-    selectionLogPrefix,
-    "applySelectionState start",
-    JSON.stringify({ ids: uniqueIds, focusId, timestamp: Date.now() })
-  );
-
-  if (uniqueIds.length === 0) {
-    managedSelectedNodeIds.value = [];
-    removeSelectedElements();
-    store.selectNode(null);
-    console.log(selectionLogPrefix, "applySelectionState cleared");
-    return;
-  }
-
-  isManagingSelection.value = true;
-  removeSelectedElements();
-
-  nextTick(() => {
-    setTimeout(() => {
-      const graphNodes = uniqueIds
-        .map(
-          (id) => vueFlowApi.findNode?.(id) as GraphNode<NodeData> | undefined
-        )
-        .filter((node): node is GraphNode<NodeData> => Boolean(node));
-
-      if (graphNodes.length === 0) {
-        console.warn(
-          selectionLogPrefix,
-          "applySelectionState empty",
-          JSON.stringify({ ids: uniqueIds })
-        );
-        managedSelectedNodeIds.value = [];
-        store.selectNode(null);
-        isManagingSelection.value = false;
-        return;
-      }
-
-      addSelectedNodes(graphNodes);
-
-      graphNodes.forEach((node) => {
-        node.selected = true;
-        vueFlowRef.value?.updateNodeInternals?.(node.id);
-      });
-
-      managedSelectedNodeIds.value = [...uniqueIds];
-
-      const orderedIds = uniqueIds.filter((id) =>
-        graphNodes.some((node) => node.id === id)
-      );
-      const fallbackId =
-        orderedIds[orderedIds.length - 1] ?? uniqueIds[uniqueIds.length - 1];
-      const nextFocusId =
-        focusId && managedSelectedNodeIds.value.includes(focusId)
-          ? focusId
-          : fallbackId ?? null;
-
-      console.log(
-        selectionLogPrefix,
-        "applySelectionState result",
-        JSON.stringify({
-          managedIds: managedSelectedNodeIds.value,
-          focusId: nextFocusId,
-        })
-      );
-
-      store.selectNode(nextFocusId ?? null);
-
-      isManagingSelection.value = false;
-      console.log(
-        selectionLogPrefix,
-        "applySelectionState end",
-        JSON.stringify({ managing: isManagingSelection.value })
-      );
-
-      setTimeout(() => {
-        const domSelected = Array.from(
-          document.querySelectorAll<HTMLElement>(".vue-flow__node.selected")
-        ).map((el) => el.dataset.id ?? el.getAttribute("data-id") ?? "");
-
-        const graphSelected = (
-          (getSelectedNodes.value ?? []) as GraphNode<NodeData>[]
-        ).map((node) => node.id);
-
-        console.log(
-          selectionLogPrefix,
-          "applySelectionState dom-audit",
-          JSON.stringify({
-            delayMs: 3000,
-            domSelected,
-            graphSelected,
-            managedIds: managedSelectedNodeIds.value,
-          })
-        );
-      }, 3000);
-    }, 200);
-  });
-}
-
 /**
  * 节点变化处理
  */
 function onNodesChange(changes: NodeChange[]) {
   if (isLocked.value) return;
-
-  const changeTypes = changes.map((change) => change.type);
-  console.log(
-    selectionLogPrefix,
-    "onNodesChange start",
-    JSON.stringify({
-      changeTypes,
-      isManaging: isManagingSelection.value,
-      shift: Boolean(shiftKey?.value),
-      alt: Boolean(altKey?.value),
-      timestamp: Date.now(),
-    })
-  );
 
   const selectionChanges: NodeSelectionChange[] = [];
 
@@ -1246,102 +1166,37 @@ function onNodesChange(changes: NodeChange[]) {
   });
 
   if (selectionChanges.length === 0) {
-    console.log(
-      selectionLogPrefix,
-      "onNodesChange skip",
-      JSON.stringify({ reason: "no-selection-change" })
-    );
     return;
   }
 
-  if (isManagingSelection.value) {
-    console.log(
-      selectionLogPrefix,
-      "onNodesChange skip",
-      JSON.stringify({ reason: "managing" })
-    );
-    return;
-  }
-
-  const lastChangeId =
-    selectionChanges[selectionChanges.length - 1]?.id ?? null;
-  const shiftPressed = Boolean(shiftKey?.value);
-  const altPressed = Boolean(altKey?.value);
-
-  if (altPressed) {
-    let nextIds = managedSelectedNodeIds.value.slice();
-    selectionChanges.forEach((change) => {
-      nextIds = nextIds.filter((id) => id !== change.id);
-    });
-    console.log(
-      selectionLogPrefix,
-      "onNodesChange alt",
-      JSON.stringify({
-        selectionChanges: selectionChanges.map((change) => ({
-          id: change.id,
-          selected: change.selected,
-        })),
-        nextIds,
-      })
-    );
-    applySelectionState(nextIds, lastChangeId);
-    return;
-  }
-
-  if (shiftPressed) {
-    const nextIdsSet = new Set(managedSelectedNodeIds.value);
-    const newlySelected: string[] = [];
-
-    selectionChanges.forEach((change) => {
-      if (change.selected) {
-        newlySelected.push(change.id);
-        nextIdsSet.add(change.id);
-      }
-    });
-
-    const orderedIds = nodes.value
-      .filter((node) => nextIdsSet.has(node.id))
-      .map((node) => node.id);
-
-    // 如果 nodes 顺序为空，退回集合顺序
-    const nextIds = orderedIds.length ? orderedIds : Array.from(nextIdsSet);
-
-    console.log(
-      selectionLogPrefix,
-      "onNodesChange shift",
-      JSON.stringify({
-        selectionChanges: selectionChanges.map((change) => ({
-          id: change.id,
-          selected: change.selected,
-        })),
-        nextIds,
-      })
-    );
-    applySelectionState(nextIds, lastChangeId);
-    return;
-  }
-
+  // 完全交给 VueFlow 处理选择逻辑，我们只同步状态
   nextTick(() => {
+    // 1. 从 VueFlow 获取当前选中的节点
     const selectedNodes = (getSelectedNodes.value ??
       []) as GraphNode<NodeData>[];
     managedSelectedNodeIds.value = selectedNodes.map((node) => node.id);
 
-    console.log(
-      selectionLogPrefix,
-      "onNodesChange default",
-      JSON.stringify({
-        managedIds: managedSelectedNodeIds.value,
-        lastChangeId,
-      })
-    );
+    // 2. 获取最后一个被点击的节点 ID
+    const lastChangeId =
+      selectionChanges[selectionChanges.length - 1]?.id ?? null;
 
+    // 3. 关键：当有多个节点选中时，启用 nodesSelectionActive（用于显示蓝色背景）
+    if (selectedNodes.length > 1) {
+      nodesSelectionActive.value = true;
+    } else {
+      nodesSelectionActive.value = false;
+    }
+
+    // 4. 同步更新 store 的 selectedNodeId（用于显示配置面板）
     if (selectedNodes.length > 0) {
+      // 优先使用最后点击的节点，否则使用选中列表中的最后一个
       const preferred =
         (lastChangeId
           ? selectedNodes.find((node) => node.id === lastChangeId)
           : undefined) ?? selectedNodes[selectedNodes.length - 1];
       store.selectNode(preferred?.id ?? null);
     } else if (store.selectedNodeId) {
+      // 没有选中节点时，清空 store
       store.selectNode(null);
     }
   });
@@ -1656,38 +1511,23 @@ async function handleExecuteWorkflow() {
   @apply cursor-pointer;
 }
 
-:deep(.node-wrapper) {
-  position: relative;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-:deep(.node-wrapper > *) {
-  position: relative;
-  z-index: 1;
-}
-
-:deep(.node-wrapper::after) {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    135deg,
-    rgba(191, 219, 254, 0.35) 0%,
-    rgba(219, 234, 254, 0.2) 100%
-  );
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.18s ease;
-  z-index: 0;
-}
-
 :deep(.vue-flow__node.selected .node-wrapper) {
+  position: relative;
   box-shadow: 0 14px 38px -22px rgba(37, 99, 235, 0.5);
 }
 
-:deep(.vue-flow__node.selected .node-wrapper::after) {
-  opacity: 1;
+:deep(.vue-flow__node.selected .node-wrapper::before) {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0.375rem;
+  background: linear-gradient(
+    135deg,
+    rgba(147, 197, 253, 0.45) 0%,
+    rgba(191, 219, 254, 0.35) 100%
+  );
+  pointer-events: none;
+  z-index: -1;
 }
 
 /* 动画连接线 */

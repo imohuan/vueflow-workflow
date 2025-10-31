@@ -4,6 +4,7 @@
     v-if="result"
     class="border-t border-slate-200 p-3 bg-white w-full rounded-b-xl overflow-hidden"
     @wheel="handleWheel"
+    @dblclick.stop
   >
     <button
       class="w-full flex items-center justify-between px-2 py-1.5 bg-slate-50 border border-slate-200 rounded cursor-pointer transition-all duration-200 text-xs text-slate-600 hover:bg-slate-100 hover:border-slate-300"
