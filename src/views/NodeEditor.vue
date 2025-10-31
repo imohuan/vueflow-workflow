@@ -185,6 +185,19 @@
           <IconLayout />
         </Button>
         <Button
+          variant="filled"
+          icon-only
+          :disabled="nodes.length === 0 || isExecutingWorkflow"
+          @click="handleExecuteWorkflow"
+          title="执行流程"
+        >
+          <span
+            v-if="isExecutingWorkflow"
+            class="w-4 h-4 rounded-full border-2 border-white/70 border-t-transparent animate-spin"
+          />
+          <IconPlayCircle v-else class="w-4 h-4" />
+        </Button>
+        <Button
           :variant="showConfigPanel ? undefined : 'outlined'"
           icon-only
           @click="toggleConfigPanel"
@@ -215,7 +228,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
+import {
+  ref,
+  watch,
+  onMounted,
+  onUnmounted,
+  onBeforeUnmount,
+  nextTick,
+} from "vue";
 import { storeToRefs } from "pinia";
 import { useEventListener, useMagicKeys, whenever } from "@vueuse/core";
 import { VueFlow, useVueFlow } from "@vue-flow/core";
@@ -227,7 +247,9 @@ import type {
   Connection,
   Node,
   Edge,
+  GraphNode,
   NodeChange,
+  NodeSelectionChange,
   EdgeChange,
   EdgeUpdateEvent,
 } from "@vue-flow/core";
@@ -248,6 +270,7 @@ import IconUndo from "@/icons/IconUndo.vue";
 import IconRedo from "@/icons/IconRedo.vue";
 import IconLayout from "@/icons/IconLayout.vue";
 import IconFit from "@/icons/IconFit.vue";
+import IconPlayCircle from "@/icons/IconPlayCircle.vue";
 
 type DagreLayoutDirection = "TB" | "BT" | "LR" | "RL";
 
@@ -261,7 +284,7 @@ import "@vue-flow/controls/dist/style.css";
 import "@/components/node-editor/ports/portStyles.css";
 
 const store = useNodeEditorStore();
-const { nodes, edges } = storeToRefs(store);
+const { nodes, edges, isExecutingWorkflow } = storeToRefs(store);
 
 const configStore = useEditorConfigStore();
 const { config } = storeToRefs(configStore);
@@ -295,6 +318,44 @@ type HighlightVariant = "normal" | "warning";
 const highlightedContainers = new Map<string, HighlightVariant>();
 const lastDragPositions = new Map<string, { x: number; y: number }>();
 const lastPointerPosition = ref<{ x: number; y: number } | null>(null);
+
+if (typeof window !== "undefined") {
+  const debugKey = "__NODE_EDITOR_DEBUG__";
+  const payload = {
+    get store() {
+      return store;
+    },
+    get lastExecutionLog() {
+      return store.lastExecutionLog ?? null;
+    },
+    get isExecutingWorkflow() {
+      return store.isExecutingWorkflow ?? false;
+    },
+    get nodes() {
+      return store.nodes ?? [];
+    },
+    get edges() {
+      return store.edges ?? [];
+    },
+  };
+
+  Object.defineProperty(window, debugKey, {
+    configurable: true,
+    enumerable: false,
+    get() {
+      return payload;
+    },
+  });
+
+  onBeforeUnmount(() => {
+    if (window && Object.prototype.hasOwnProperty.call(window, debugKey)) {
+      delete (window as unknown as Record<string, unknown>)[debugKey];
+    }
+  });
+}
+const managedSelectedNodeIds = ref<string[]>([]);
+const isManagingSelection = ref(false);
+const selectionLogPrefix = "[SelectionTrace]";
 
 function isEditableElement(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -745,6 +806,8 @@ const ctrlShiftZ = keys["Ctrl+Shift+Z"] as any;
 const ctrlC = keys["Ctrl+C"] as any;
 const ctrlV = keys["Ctrl+V"] as any;
 const deleteKey = keys["Delete"] as any;
+const shiftKey = keys.Shift as any;
+const altKey = keys.Alt as any;
 
 // 撤销
 whenever(ctrlZ, () => {
@@ -831,6 +894,12 @@ whenever(ctrlV, () => {
       if (newNodes.length > 0) {
         // 使用 vue-flow API 选中节点
         addSelectedNodes(newNodes as any);
+        managedSelectedNodeIds.value = [...newNodeIds];
+
+        newNodes.forEach((node) => {
+          node.selected = true;
+          vueFlowRef.value?.updateNodeInternals?.(node.id);
+        });
 
         // 同步更新 store 的 selectedNodeId
         const lastNodeId = newNodeIds[newNodeIds.length - 1];
@@ -918,6 +987,7 @@ function toggleConfigPanel() {
   // 如果当前选中了节点，先取消选中
   if (store.selectedNodeId) {
     store.selectNode(null);
+    managedSelectedNodeIds.value = [];
   }
   showConfigPanel.value = !showConfigPanel.value;
 }
@@ -1030,45 +1100,251 @@ function onDragOver(event: DragEvent) {
   }
 }
 
+function applySelectionState(ids: string[], focusId: string | null) {
+  const uniqueIds = Array.from(new Set(ids));
+  console.log(
+    selectionLogPrefix,
+    "applySelectionState start",
+    JSON.stringify({ ids: uniqueIds, focusId, timestamp: Date.now() })
+  );
+
+  if (uniqueIds.length === 0) {
+    managedSelectedNodeIds.value = [];
+    removeSelectedElements();
+    store.selectNode(null);
+    console.log(selectionLogPrefix, "applySelectionState cleared");
+    return;
+  }
+
+  isManagingSelection.value = true;
+  removeSelectedElements();
+
+  nextTick(() => {
+    setTimeout(() => {
+      const graphNodes = uniqueIds
+        .map(
+          (id) => vueFlowApi.findNode?.(id) as GraphNode<NodeData> | undefined
+        )
+        .filter((node): node is GraphNode<NodeData> => Boolean(node));
+
+      if (graphNodes.length === 0) {
+        console.warn(
+          selectionLogPrefix,
+          "applySelectionState empty",
+          JSON.stringify({ ids: uniqueIds })
+        );
+        managedSelectedNodeIds.value = [];
+        store.selectNode(null);
+        isManagingSelection.value = false;
+        return;
+      }
+
+      addSelectedNodes(graphNodes);
+
+      graphNodes.forEach((node) => {
+        node.selected = true;
+        vueFlowRef.value?.updateNodeInternals?.(node.id);
+      });
+
+      managedSelectedNodeIds.value = [...uniqueIds];
+
+      const orderedIds = uniqueIds.filter((id) =>
+        graphNodes.some((node) => node.id === id)
+      );
+      const fallbackId =
+        orderedIds[orderedIds.length - 1] ?? uniqueIds[uniqueIds.length - 1];
+      const nextFocusId =
+        focusId && managedSelectedNodeIds.value.includes(focusId)
+          ? focusId
+          : fallbackId ?? null;
+
+      console.log(
+        selectionLogPrefix,
+        "applySelectionState result",
+        JSON.stringify({
+          managedIds: managedSelectedNodeIds.value,
+          focusId: nextFocusId,
+        })
+      );
+
+      store.selectNode(nextFocusId ?? null);
+
+      isManagingSelection.value = false;
+      console.log(
+        selectionLogPrefix,
+        "applySelectionState end",
+        JSON.stringify({ managing: isManagingSelection.value })
+      );
+
+      setTimeout(() => {
+        const domSelected = Array.from(
+          document.querySelectorAll<HTMLElement>(".vue-flow__node.selected")
+        ).map((el) => el.dataset.id ?? el.getAttribute("data-id") ?? "");
+
+        const graphSelected = (
+          (getSelectedNodes.value ?? []) as GraphNode<NodeData>[]
+        ).map((node) => node.id);
+
+        console.log(
+          selectionLogPrefix,
+          "applySelectionState dom-audit",
+          JSON.stringify({
+            delayMs: 3000,
+            domSelected,
+            graphSelected,
+            managedIds: managedSelectedNodeIds.value,
+          })
+        );
+      }, 3000);
+    }, 200);
+  });
+}
+
 /**
  * 节点变化处理
  */
 function onNodesChange(changes: NodeChange[]) {
   if (isLocked.value) return;
 
-  let hasSelectChange = false;
+  const changeTypes = changes.map((change) => change.type);
+  console.log(
+    selectionLogPrefix,
+    "onNodesChange start",
+    JSON.stringify({
+      changeTypes,
+      isManaging: isManagingSelection.value,
+      shift: Boolean(shiftKey?.value),
+      alt: Boolean(altKey?.value),
+      timestamp: Date.now(),
+    })
+  );
+
+  const selectionChanges: NodeSelectionChange[] = [];
 
   changes.forEach((change) => {
     if (change.type === "select") {
-      hasSelectChange = true;
+      selectionChanges.push(change);
       return;
     }
 
-    if (change.type === "dimensions" && change.dimensions) {
+    if (change.type === "dimensions" && "id" in change && change.dimensions) {
       store.updateNodeDimensions(change.id, change.dimensions);
-    } else if (change.type === "position" && change.position) {
+    } else if (
+      change.type === "position" &&
+      "id" in change &&
+      change.position
+    ) {
       // 使用防抖机制，300ms 内的多次更新只记录最后一次
       store.updateNodePosition(
         change.id,
         change.position,
         change.dragging === true
       );
-    } else if (change.type === "remove") {
+    } else if (change.type === "remove" && "id" in change) {
       store.removeNode(change.id);
     }
   });
 
-  if (hasSelectChange) {
-    const selectedNodes = getSelectedNodes.value;
-    if (selectedNodes.length > 0) {
-      const lastSelected = selectedNodes[selectedNodes.length - 1];
-      if (lastSelected?.id) {
-        store.selectNode(lastSelected.id);
+  if (selectionChanges.length === 0) {
+    console.log(
+      selectionLogPrefix,
+      "onNodesChange skip",
+      JSON.stringify({ reason: "no-selection-change" })
+    );
+    return;
+  }
+
+  if (isManagingSelection.value) {
+    console.log(
+      selectionLogPrefix,
+      "onNodesChange skip",
+      JSON.stringify({ reason: "managing" })
+    );
+    return;
+  }
+
+  const lastChangeId =
+    selectionChanges[selectionChanges.length - 1]?.id ?? null;
+  const shiftPressed = Boolean(shiftKey?.value);
+  const altPressed = Boolean(altKey?.value);
+
+  if (altPressed) {
+    let nextIds = managedSelectedNodeIds.value.slice();
+    selectionChanges.forEach((change) => {
+      nextIds = nextIds.filter((id) => id !== change.id);
+    });
+    console.log(
+      selectionLogPrefix,
+      "onNodesChange alt",
+      JSON.stringify({
+        selectionChanges: selectionChanges.map((change) => ({
+          id: change.id,
+          selected: change.selected,
+        })),
+        nextIds,
+      })
+    );
+    applySelectionState(nextIds, lastChangeId);
+    return;
+  }
+
+  if (shiftPressed) {
+    const nextIdsSet = new Set(managedSelectedNodeIds.value);
+    const newlySelected: string[] = [];
+
+    selectionChanges.forEach((change) => {
+      if (change.selected) {
+        newlySelected.push(change.id);
+        nextIdsSet.add(change.id);
       }
+    });
+
+    const orderedIds = nodes.value
+      .filter((node) => nextIdsSet.has(node.id))
+      .map((node) => node.id);
+
+    // 如果 nodes 顺序为空，退回集合顺序
+    const nextIds = orderedIds.length ? orderedIds : Array.from(nextIdsSet);
+
+    console.log(
+      selectionLogPrefix,
+      "onNodesChange shift",
+      JSON.stringify({
+        selectionChanges: selectionChanges.map((change) => ({
+          id: change.id,
+          selected: change.selected,
+        })),
+        nextIds,
+      })
+    );
+    applySelectionState(nextIds, lastChangeId);
+    return;
+  }
+
+  nextTick(() => {
+    const selectedNodes = (getSelectedNodes.value ??
+      []) as GraphNode<NodeData>[];
+    managedSelectedNodeIds.value = selectedNodes.map((node) => node.id);
+
+    console.log(
+      selectionLogPrefix,
+      "onNodesChange default",
+      JSON.stringify({
+        managedIds: managedSelectedNodeIds.value,
+        lastChangeId,
+      })
+    );
+
+    if (selectedNodes.length > 0) {
+      const preferred =
+        (lastChangeId
+          ? selectedNodes.find((node) => node.id === lastChangeId)
+          : undefined) ?? selectedNodes[selectedNodes.length - 1];
+      store.selectNode(preferred?.id ?? null);
     } else if (store.selectedNodeId) {
       store.selectNode(null);
     }
-  }
+  });
 }
 
 /**
@@ -1249,6 +1525,7 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
 function onPaneClick() {
   store.selectNode(null);
   showConfigPanel.value = false;
+  managedSelectedNodeIds.value = [];
 }
 
 /**
@@ -1317,6 +1594,18 @@ async function handleAutoLayout() {
   }
 }
 
+async function handleExecuteWorkflow() {
+  if (isExecutingWorkflow.value || nodes.value.length === 0) {
+    return;
+  }
+
+  try {
+    await store.executeWorkflow();
+  } catch (error) {
+    console.error("执行工作流失败", error);
+  }
+}
+
 // useEventListener(window, "mousemove", (event) => {
 //   const edge = event.target?.closest(".vue-flow__edges g");
 //   if (edge) {
@@ -1365,6 +1654,40 @@ async function handleAutoLayout() {
 
 :deep(.vue-flow__edge-path) {
   @apply cursor-pointer;
+}
+
+:deep(.node-wrapper) {
+  position: relative;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+:deep(.node-wrapper > *) {
+  position: relative;
+  z-index: 1;
+}
+
+:deep(.node-wrapper::after) {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(191, 219, 254, 0.35) 0%,
+    rgba(219, 234, 254, 0.2) 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+  z-index: 0;
+}
+
+:deep(.vue-flow__node.selected .node-wrapper) {
+  box-shadow: 0 14px 38px -22px rgba(37, 99, 235, 0.5);
+}
+
+:deep(.vue-flow__node.selected .node-wrapper::after) {
+  opacity: 1;
 }
 
 /* 动画连接线 */

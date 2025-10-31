@@ -1335,6 +1335,126 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     });
   }
 
+  function autoLayoutLoopContainer(
+    container: Node<NodeData>,
+    layoutConfig: {
+      direction: DagreLayoutDirection;
+      nodesep: number;
+      ranksep: number;
+      padding: number;
+    }
+  ) {
+    const children = nodes.value.filter(
+      (node) => node.parentNode === container.id
+    );
+
+    if (children.length === 0) {
+      return;
+    }
+
+    const graph = new dagre.graphlib.Graph();
+    graph.setDefaultEdgeLabel(() => ({}));
+    graph.setGraph({
+      rankdir: layoutConfig.direction,
+      nodesep: layoutConfig.nodesep,
+      ranksep: layoutConfig.ranksep,
+      marginx: 0,
+      marginy: 0,
+    });
+
+    const childIds = new Set(children.map((child) => child.id));
+
+    children.forEach((child) => {
+      graph.setNode(child.id, {
+        width: getNodeApproxWidth(child),
+        height: getNodeApproxHeight(child),
+      });
+    });
+
+    edges.value.forEach((edge) => {
+      if (!childIds.has(edge.source) || !childIds.has(edge.target)) {
+        return;
+      }
+      graph.setEdge(edge.source, edge.target);
+    });
+
+    dagre.layout(graph);
+
+    interface ChildLayoutEntry {
+      child: Node<NodeData>;
+      rawX: number;
+      rawY: number;
+    }
+
+    const layoutEntries: ChildLayoutEntry[] = [];
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+
+    children.forEach((child) => {
+      const metadata = graph.node(child.id) as
+        | { x: number; y: number }
+        | undefined;
+      if (!metadata) {
+        return;
+      }
+
+      const width = getNodeApproxWidth(child);
+      const height = getNodeApproxHeight(child);
+      const rawX = metadata.x - width / 2;
+      const rawY = metadata.y - height / 2;
+
+      if (rawX < minX) {
+        minX = rawX;
+      }
+      if (rawY < minY) {
+        minY = rawY;
+      }
+
+      layoutEntries.push({
+        child,
+        rawX,
+        rawY,
+      });
+    });
+
+    if (layoutEntries.length === 0) {
+      return;
+    }
+
+    const baseX = Number.isFinite(minX) ? minX : 0;
+    const baseY = Number.isFinite(minY) ? minY : 0;
+
+    let containerConfig = getContainerVisualConfig(container);
+
+    layoutEntries.forEach(({ child, rawX, rawY }) => {
+      const desiredPosition = {
+        x: rawX - baseX + containerConfig.padding.left + layoutConfig.padding,
+        y:
+          rawY -
+          baseY +
+          containerConfig.headerHeight +
+          containerConfig.padding.top +
+          layoutConfig.padding,
+      };
+
+      containerConfig = ensureContainerCapacity(
+        container,
+        child,
+        desiredPosition
+      );
+      const clamped = clampChildPosition(
+        desiredPosition,
+        containerConfig,
+        child
+      );
+      child.position = clamped;
+      notifyContainerInternals(child.id);
+    });
+
+    updateContainerBounds(container);
+    notifyContainerInternals(container.id);
+  }
+
   function autoLayout(options: AutoLayoutOptions = {}) {
     const topLevelNodes = nodes.value.filter((node) => !node.parentNode);
 
@@ -1489,6 +1609,17 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
         isDragging: false,
         recordHistory: false,
       });
+    });
+
+    const containerLayoutConfig = {
+      direction,
+      nodesep,
+      ranksep,
+      padding: Math.min(padding, 64),
+    };
+
+    loopContainers.forEach((container) => {
+      autoLayoutLoopContainer(container, containerLayoutConfig);
     });
 
     batchEnd();
@@ -2445,6 +2576,144 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     };
   }
 
+  function getNodeTypeKey(node: Node<NodeData>): string {
+    if (node.data?.variant) {
+      return String(node.data.variant);
+    }
+    const prefix = node.id.split("_")[0];
+    if (prefix) {
+      return prefix;
+    }
+    return node.type || "";
+  }
+
+  async function executeWorkflow(
+    options: { clearPreviousResult?: boolean } = {}
+  ) {
+    if (isExecutingWorkflow.value) {
+      return;
+    }
+
+    const storeNodeMap = new Map<string, Node<NodeData>>(
+      nodes.value.map((node) => [node.id, node])
+    );
+
+    const actionableNodes = Array.from(storeNodeMap.values()).filter(
+      (node) => !node.data?.isContainer
+    );
+
+    if (actionableNodes.length === 0) {
+      lastExecutionError.value = "画布中没有可执行的节点";
+      return;
+    }
+
+    const startNode = actionableNodes.find(
+      (node) => getNodeTypeKey(node) === "start"
+    );
+
+    if (!startNode) {
+      lastExecutionError.value = "请先添加开始节点";
+      return;
+    }
+
+    isExecutingWorkflow.value = true;
+    lastExecutionError.value = null;
+    lastExecutionLog.value = null;
+
+    const shouldClearResult = options.clearPreviousResult ?? true;
+
+    actionableNodes.forEach((node) => {
+      if (!node.data) return;
+      node.data.executionStatus = "pending";
+      node.data.executionError = undefined;
+      if (shouldClearResult && node.data.result) {
+        delete node.data.result;
+      }
+      node.data.resultExpanded = false;
+    });
+
+    nodes.value.forEach((node) => {
+      if (!node.data?.isContainer) {
+        return;
+      }
+      node.data.executionStatus = undefined;
+      node.data.executionError = undefined;
+    });
+
+    try {
+      const workflowNodes: WorkflowNode[] = actionableNodes.map((node) => ({
+        id: node.id,
+        type: node.type,
+        parentNode: node.parentNode,
+        data: JSON.parse(JSON.stringify(node.data ?? {})) as NodeData,
+      }));
+
+      const workflowEdges: WorkflowEdge[] = edges.value
+        .filter((edge) => Boolean(edge.source) && Boolean(edge.target))
+        .map((edge) => ({
+          id: edge.id,
+          source: edge.source as string,
+          target: edge.target as string,
+          sourceHandle: edge.sourceHandle ?? null,
+          targetHandle: edge.targetHandle ?? null,
+        }));
+
+      const result: WorkflowExecutionResult = await runWorkflow({
+        nodes: workflowNodes,
+        edges: workflowEdges,
+        startNodeId: startNode.id,
+        client: mcpClient,
+      });
+
+      lastExecutionLog.value = result.log;
+      lastExecutionError.value = result.log.error ?? null;
+
+      const logEntryMap = new Map(
+        result.log.nodes.map((entry) => [entry.nodeId, entry])
+      );
+
+      Object.entries(result.nodeResults).forEach(([nodeId, nodeResult]) => {
+        const storeNode = storeNodeMap.get(nodeId);
+        if (!storeNode?.data || !nodeResult) {
+          return;
+        }
+        updateNodeResult(nodeId, normalizeNodeResult(nodeResult));
+      });
+
+      actionableNodes.forEach((node) => {
+        if (!node.data) return;
+        const logEntry = logEntryMap.get(node.id);
+        if (logEntry) {
+          node.data.executionStatus = logEntry.status;
+          node.data.executionError = logEntry.error;
+        } else {
+          node.data.executionStatus = "skipped";
+          node.data.executionError = undefined;
+        }
+      });
+
+      schedulePersist();
+      return result;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error ?? "执行失败");
+      lastExecutionError.value = message;
+      lastExecutionLog.value = null;
+
+      actionableNodes.forEach((node) => {
+        if (!node.data) return;
+        if (node.data.executionStatus === "pending") {
+          node.data.executionStatus = "error";
+          node.data.executionError = message;
+        }
+      });
+
+      throw error;
+    } finally {
+      isExecutingWorkflow.value = false;
+    }
+  }
+
   /**
    * 获取可用变量树
    */
@@ -2577,6 +2846,9 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     selectedNode,
     isNodeEditorVisible,
     renamingNodeId,
+    isExecutingWorkflow,
+    lastExecutionLog,
+    lastExecutionError,
 
     // 历史记录
     initializeHistory,
@@ -2622,6 +2894,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     collectNodeInputs,
     getAvailableVariables,
     executeNode,
+    executeWorkflow,
     clearCanvas,
   };
 });

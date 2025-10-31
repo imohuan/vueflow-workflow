@@ -9,7 +9,7 @@ import type {
   WorkflowNode,
   WorkflowStatus,
 } from "./types";
-import type { NodeResult } from "@/typings/nodeEditor";
+import type { NodeResult, NodeResultOutput } from "@/typings/nodeEditor";
 import type { MCPClient } from "@/core/mcp-client";
 
 interface CollectContextOptions {
@@ -134,11 +134,34 @@ export async function executeWorkflow(
 
       if (deriveNodeType(currentNode) === "end") {
         endNodeReached = true;
-        break;
+        continue;
       }
 
       const nextEdges = outgoingMap.get(nodeId) ?? [];
-      nextEdges.forEach((edge) => {
+
+      const activeHandles = new Set<string>();
+      const outputEntries = Object.entries(result.data?.outputs ?? {});
+      outputEntries.forEach(([handleId, output]) => {
+        if (output && output.value !== undefined) {
+          activeHandles.add(handleId);
+        }
+      });
+
+      let edgesToQueue = nextEdges;
+      if (activeHandles.size > 0) {
+        edgesToQueue = nextEdges.filter((edge) => {
+          const handleId = edge.sourceHandle ?? null;
+          if (!handleId) {
+            return activeHandles.size === 1;
+          }
+          if (activeHandles.has(handleId)) {
+            return true;
+          }
+          return handleId === "__output__" || handleId === "result";
+        });
+      }
+
+      edgesToQueue.forEach((edge) => {
         if (!visitedQueue.has(edge.target)) {
           queue.push(edge.target);
         }
@@ -178,7 +201,7 @@ export async function executeWorkflow(
     }
   });
 
-  log.status = workflowStatus === "running" ? "success" : workflowStatus;
+  log.status = workflowStatus;
   log.endTime = Date.now();
   log.error = workflowError;
 
@@ -251,20 +274,28 @@ function collectNodeInputs(
       return;
     }
 
-    const targetHandle = edge.targetHandle ?? "default";
-    const sourceHandle = edge.sourceHandle ?? "__output__";
-    const outputs = sourceResult.data?.outputs ?? {};
-    const outputKeys = Object.keys(outputs);
+    const targetHandle: string = edge.targetHandle ?? "default";
+    const sourceHandle: string = (edge.sourceHandle ?? "__output__") as string;
+    const outputs = sourceResult.data?.outputs as
+      | Record<string, NodeResultOutput>
+      | undefined;
+    const outputRecord: Record<string, NodeResultOutput | undefined> = outputs
+      ? outputs
+      : {};
+    const outputKeys = Object.keys(outputRecord);
 
     let value: unknown;
 
-    if (edge.sourceHandle && outputs[edge.sourceHandle]) {
-      value = outputs[edge.sourceHandle].value;
+    const explicitHandle = edge.sourceHandle ?? undefined;
+    const explicitOutput = getOutputByHandle(outputRecord, explicitHandle);
+    if (explicitOutput) {
+      value = explicitOutput.value;
     } else if (outputKeys.length === 1) {
-      const key = outputKeys[0];
-      value = outputs[key]?.value;
-    } else if (outputs[sourceHandle]) {
-      value = outputs[sourceHandle]?.value;
+      const key = outputKeys[0] as keyof typeof outputRecord;
+      value = outputRecord[key]?.value;
+    } else {
+      const fallbackOutput = getOutputByHandle(outputRecord, sourceHandle);
+      value = fallbackOutput?.value;
     }
 
     if (value === undefined) {
@@ -304,4 +335,17 @@ function throwAbortError(message?: string): never {
   const error = new Error(message || "执行已被取消");
   error.name = "AbortError";
   throw error;
+}
+
+function getOutputByHandle(
+  record: Record<string, NodeResultOutput | undefined>,
+  handle: string | null | undefined
+): NodeResultOutput | undefined {
+  if (!handle) {
+    return undefined;
+  }
+  if (!Object.prototype.hasOwnProperty.call(record, handle)) {
+    return undefined;
+  }
+  return record[handle];
 }

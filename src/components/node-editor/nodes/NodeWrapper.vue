@@ -1,7 +1,7 @@
 <template>
   <div
     :class="[
-      'min-w-[280px] max-w-[400px] bg-white border-2 rounded-md shadow-lg cursor-pointer text-sm overflow-visible backdrop-blur-xl transition-all duration-300 ease-out',
+      'node-wrapper min-w-[280px] max-w-[400px] bg-white border-2 rounded-md shadow-lg cursor-pointer text-sm overflow-visible backdrop-blur-xl transition-all duration-300 ease-out',
       'border-slate-200 hover:shadow-xl',
     ]"
     :style="{

@@ -52,6 +52,15 @@
             <span>执行成功</span>
           </div>
 
+          <div
+            v-if="branchInfo"
+            class="flex items-center gap-2 px-2 py-1 rounded-md bg-white border border-green-100 text-[11px] text-green-700"
+          >
+            <span class="text-green-500 font-semibold">执行分支</span>
+            <span class="font-medium">{{ branchInfo.label }}</span>
+            <span class="text-green-400">({{ branchInfo.id }})</span>
+          </div>
+
           <div v-if="hasOutputs" class="space-y-2">
             <div
               v-for="output in outputList"
@@ -223,7 +232,9 @@ const expanded = ref(props.expanded);
 const outputList = computed<NodeResultOutput[]>(() => {
   const outputs = props.result?.data?.outputs;
   if (!outputs) return [];
-  return Object.values(outputs);
+  return Object.values(outputs).filter(
+    (output) => output && output.value !== undefined
+  );
 });
 
 const hasOutputs = computed(() => outputList.value.length > 0);
@@ -232,6 +243,41 @@ const fullScreenData = computed(() => props.result?.data ?? null);
 const showFullScreen = ref(false);
 const viewerExpandMode = ref<"none" | "first" | "all">("none");
 const viewerExpandTrigger = ref(0);
+
+const branchInfo = computed(() => {
+  const result = props.result;
+  if (!result) return null;
+
+  const raw = result.data?.raw;
+  let branchId: string | null = null;
+  if (raw && typeof raw === "object" && raw !== null) {
+    const candidate = (raw as Record<string, unknown>).branch;
+    if (typeof candidate === "string" && candidate.trim()) {
+      branchId = candidate;
+    }
+  }
+
+  if (!branchId) {
+    const activeOutput = outputList.value.find(
+      (output) => output?.value && typeof output.value === "object"
+    );
+    if (activeOutput) {
+      branchId = activeOutput.id;
+    }
+  }
+
+  if (!branchId) {
+    return null;
+  }
+
+  const outputs = result.data?.outputs ?? {};
+  const matched = outputs[branchId];
+
+  return {
+    id: branchId,
+    label: matched?.label || branchId,
+  };
+});
 
 watch(
   () => props.expanded,

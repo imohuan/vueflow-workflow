@@ -1,6 +1,7 @@
 import { BaseNode } from "../BaseNode";
 import type { PortDefinition } from "@/typings/nodeEditor";
 import type { MCPClient } from "@/core/mcp-client";
+import { isEqual } from "lodash-es";
 
 /** 数据类型 */
 export type DataType =
@@ -46,16 +47,25 @@ export type OperatorType =
   | "length greater than or equal to"
   | "length less than or equal to";
 
+export type ConditionOperand =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Record<string, any>
+  | any[];
+
 /** 子条件（单个判断） */
 export interface SubCondition {
-  /** 字段路径，支持 a.b.c，留空表示直接使用输入值 */
-  field: string;
+  /** 左侧值 */
+  field: ConditionOperand;
   /** 数据类型 */
   dataType: DataType;
   /** 操作符 */
   operator: OperatorType;
-  /** 目标值 */
-  value: string;
+  /** 右侧值 */
+  value: ConditionOperand;
 }
 
 /** 条件（包含多个子条件） */
@@ -266,8 +276,15 @@ export class IfNode extends BaseNode {
     // 评估每个条件
     const evaluations = conditions.map((condition, index) => {
       const subResults = condition.subConditions.map((subCond) => {
-        const actualValue = this.resolveFieldValue(inputValue, subCond.field);
-        const targetValue = this.parseTargetValue(
+        const actualValue = this.resolveOperandValue(
+          subCond.field,
+          subCond.dataType,
+          {
+            fallbackSource: inputValue,
+            preferPath: true,
+          }
+        );
+        const targetValue = this.resolveOperandValue(
           subCond.value,
           subCond.dataType
         );
@@ -382,7 +399,7 @@ export class IfNode extends BaseNode {
   private describeSubCondition(subCond: SubCondition | undefined): string {
     if (!subCond) return "未配置";
 
-    const fieldLabel = subCond.field?.trim() || "输入值";
+    const fieldLabel = this.formatOperand(subCond.field, "输入值");
     const operatorLabel = OPERATOR_LABELS[subCond.operator] || subCond.operator;
 
     // 不需要值的操作符
@@ -399,17 +416,51 @@ export class IfNode extends BaseNode {
       return `${fieldLabel} ${operatorLabel}`;
     }
 
-    const valueText = this.truncateValue(subCond.value || "''", 20);
+    const valueText = this.truncateValue(subCond.value, 20, "''");
     return `${fieldLabel} ${operatorLabel} ${valueText}`;
   }
 
-  private truncateValue(value: string, maxLength = 48): string {
-    if (!value) return "";
-    const trimmed = value.trim();
-    if (trimmed.length <= maxLength) {
-      return trimmed;
+  private truncateValue(
+    value: ConditionOperand,
+    maxLength = 48,
+    fallback = ""
+  ): string {
+    const text = this.formatOperand(value, fallback);
+    if (!text) {
+      return fallback;
     }
-    return `${trimmed.slice(0, maxLength - 1)}…`;
+    if (text.length <= maxLength) {
+      return text;
+    }
+    return `${text.slice(0, maxLength - 1)}…`;
+  }
+
+  private formatOperand(
+    operand: ConditionOperand | undefined,
+    fallback = ""
+  ): string {
+    if (operand === null || operand === undefined) {
+      return fallback;
+    }
+
+    if (typeof operand === "string") {
+      const trimmed = operand.trim();
+      return trimmed.length > 0 ? trimmed : fallback;
+    }
+
+    if (typeof operand === "number" || typeof operand === "boolean") {
+      return String(operand);
+    }
+
+    if (operand instanceof Date) {
+      return operand.toISOString();
+    }
+
+    try {
+      return JSON.stringify(operand);
+    } catch {
+      return String(operand);
+    }
   }
 
   /**
@@ -447,28 +498,130 @@ export class IfNode extends BaseNode {
   }
 
   /**
-   * 解析目标值
+   * 解析操作数值
    */
-  private parseTargetValue(value: string, dataType: DataType): any {
-    if (!value) return "";
+  private resolveOperandValue(
+    operand: ConditionOperand,
+    dataType: DataType,
+    options: {
+      fallbackSource?: any;
+      preferPath?: boolean;
+    } = {}
+  ): any {
+    if (operand === null || operand === undefined) {
+      return operand;
+    }
+
+    if (typeof operand === "string") {
+      const trimmed = operand.trim();
+
+      if (
+        options.preferPath &&
+        options.fallbackSource !== undefined &&
+        this.isPathLikeString(trimmed)
+      ) {
+        const resolved = this.resolveFieldValue(
+          options.fallbackSource,
+          trimmed
+        );
+        if (resolved !== undefined) {
+          return resolved;
+        }
+      }
+
+      return this.coerceValueByType(trimmed, dataType);
+    }
+
+    return this.coerceValueByType(operand, dataType);
+  }
+
+  /**
+   * 根据数据类型转换值
+   */
+  private coerceValueByType(value: any, dataType: DataType): any {
+    if (value === null || value === undefined) {
+      return value;
+    }
 
     switch (dataType) {
-      case "number":
-        return Number(value);
-      case "boolean":
-        return value === "true" || value === "1";
-      case "date":
-        return new Date(value);
-      case "array":
-      case "object":
-        try {
-          return JSON.parse(value);
-        } catch {
+      case "number": {
+        if (typeof value === "number") return value;
+        if (typeof value === "boolean") return value ? 1 : 0;
+        if (typeof value === "string") {
+          const num = Number(value);
+          return Number.isNaN(num) ? value : num;
+        }
+        const coerced = Number(value);
+        return Number.isNaN(coerced) ? value : coerced;
+      }
+      case "boolean": {
+        if (typeof value === "boolean") return value;
+        if (typeof value === "number") return value !== 0;
+        if (typeof value === "string") {
+          const lowered = value.toLowerCase();
+          if (["true", "1", "yes"].includes(lowered)) return true;
+          if (["false", "0", "no"].includes(lowered)) return false;
+        }
+        return Boolean(value);
+      }
+      case "date": {
+        if (value instanceof Date) return value;
+        if (typeof value === "number") return new Date(value);
+        if (typeof value === "string") {
+          const date = new Date(value);
+          return Number.isNaN(date.getTime()) ? value : date;
+        }
+        return value;
+      }
+      case "array": {
+        if (Array.isArray(value)) return value;
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          if (!trimmed) return [];
+          try {
+            const parsed = JSON.parse(trimmed);
+            return Array.isArray(parsed) ? parsed : value;
+          } catch {
+            return value;
+          }
+        }
+        return value;
+      }
+      case "object": {
+        if (value && typeof value === "object" && !Array.isArray(value)) {
           return value;
         }
-      default:
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          if (!trimmed) return {};
+          try {
+            const parsed = JSON.parse(trimmed);
+            return parsed && typeof parsed === "object" ? parsed : value;
+          } catch {
+            return value;
+          }
+        }
         return value;
+      }
+      default:
+        return typeof value === "string" ? value : String(value);
     }
+  }
+
+  private isPathLikeString(value: string): boolean {
+    if (!value) {
+      return false;
+    }
+
+    if (/\s/.test(value)) {
+      return false;
+    }
+
+    if (value === "input") {
+      return true;
+    }
+
+    return value.includes(".") || /\[\d+\]/.test(value);
   }
 
   /**
@@ -478,14 +631,14 @@ export class IfNode extends BaseNode {
     actual: any,
     target: any,
     operator: OperatorType,
-    _dataType: DataType
+    dataType: DataType
   ): boolean {
     switch (operator) {
       // 通用
       case "is equal to":
-        return actual == target;
+        return this.compareEquality(actual, target, dataType);
       case "is not equal to":
-        return actual != target;
+        return !this.compareEquality(actual, target, dataType);
       case "exists":
         return actual !== null && actual !== undefined;
       case "does not exist":
@@ -585,5 +738,66 @@ export class IfNode extends BaseNode {
     if (typeof value === "object" && value !== null)
       return Object.keys(value).length;
     return 0;
+  }
+
+  /**
+   * 判断相等性
+   */
+  private compareEquality(
+    actual: any,
+    target: any,
+    dataType: DataType
+  ): boolean {
+    const normalizedActual = this.normalizeEqualityValue(actual, dataType);
+    const normalizedTarget = this.normalizeEqualityValue(target, dataType);
+
+    if (dataType === "array" || dataType === "object") {
+      return isEqual(normalizedActual, normalizedTarget);
+    }
+
+    return normalizedActual === normalizedTarget;
+  }
+
+  /**
+   * 将值转换为可比较的类型
+   */
+  private normalizeEqualityValue(value: any, dataType: DataType): any {
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    switch (dataType) {
+      case "number": {
+        const numberValue = Number(value);
+        return Number.isNaN(numberValue) ? value : numberValue;
+      }
+      case "boolean": {
+        if (typeof value === "boolean") {
+          return value;
+        }
+        if (typeof value === "string") {
+          const normalized = value.trim().toLowerCase();
+          if (normalized === "true" || normalized === "1") {
+            return true;
+          }
+          if (normalized === "false" || normalized === "0") {
+            return false;
+          }
+        }
+        if (typeof value === "number") {
+          return value === 1;
+        }
+        return Boolean(value);
+      }
+      case "date": {
+        const timestamp =
+          value instanceof Date ? value.getTime() : new Date(value).getTime();
+        return Number.isNaN(timestamp) ? value : timestamp;
+      }
+      case "string":
+        return String(value);
+      default:
+        return value;
+    }
   }
 }
