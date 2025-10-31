@@ -386,13 +386,17 @@ function getHandleStyle(
     }
   }
 
-  // 默认实现
+  // 默认实现：使用固定高度计算，避免初始渲染时的位置错误
+  const DEFAULT_NODE_HEIGHT = 80;
+
   if (total <= 1) {
-    const height = contentRef.value?.offsetHeight || 200;
+    // 单个端口居中对齐
     return {
-      top: `${height / 2}px !important`,
+      top: `${DEFAULT_NODE_HEIGHT / 2}px !important`,
     };
   }
+
+  // 多个端口均匀分布
   const step = 100 / (total + 1);
   const top = (index + 1) * step;
   return {

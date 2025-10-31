@@ -1,127 +1,109 @@
 <!-- 节点列表面板 -->
 <template>
-  <div
-    :class="[
-      'fixed top-0 left-0 h-screen bg-white border-r border-slate-200 shadow-lg z-20 transition-all duration-300',
-      isOpen ? 'w-[280px]' : 'w-0 border-r-0',
-    ]"
-  >
-    <!-- 内容区域 -->
-    <div v-show="isOpen" class="flex flex-col h-full">
-      <!-- 面板头部 -->
-      <div
-        class="flex items-center justify-between px-4 py-3 border-b border-slate-200"
-      >
-        <h2 class="text-sm font-semibold text-slate-700">节点列表</h2>
-        <button
-          @click="emit('close')"
-          class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+  <div class="node-list-panel">
+    <!-- 面板头部 -->
+    <div class="panel-header">
+      <h2 class="panel-title">节点列表</h2>
+      <button @click="emit('close')" class="close-btn">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
         >
-          ×
-        </button>
-      </div>
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
 
-      <!-- 搜索框 -->
-      <div class="px-4 py-3 border-b border-slate-200">
-        <InputText
-          v-model="searchQuery"
-          placeholder="搜索节点..."
-          class="w-full text-sm"
-        />
-      </div>
+    <!-- 搜索框 -->
+    <div class="px-4 py-3 border-b border-slate-200">
+      <InputText
+        v-model="searchQuery"
+        placeholder="搜索节点..."
+        class="w-full text-sm"
+      />
+    </div>
 
-      <!-- 节点列表 -->
-      <div class="flex-1 overflow-y-auto p-2">
-        <Accordion v-model:value="expandedCategories" multiple>
-          <AccordionPanel
-            v-for="(nodeList, category) in filteredNodesByCategory"
-            :key="category"
-            :value="category"
-          >
-            <AccordionHeader>
-              {{ category }}
-              <span class="text-xs text-slate-400"
-                >({{ nodeList.length }})</span
+    <!-- 节点列表 -->
+    <div class="flex-1 overflow-y-auto p-2">
+      <Accordion v-model:value="expandedCategories" multiple>
+        <AccordionPanel
+          v-for="(nodeList, category) in filteredNodesByCategory"
+          :key="category"
+          :value="category"
+        >
+          <AccordionHeader>
+            {{ category }}
+            <span class="text-xs text-slate-400">({{ nodeList.length }})</span>
+          </AccordionHeader>
+          <AccordionContent>
+            <div class="space-y-1">
+              <div
+                v-for="node in nodeList"
+                :key="node.type"
+                :draggable="true"
+                @dragstart="onDragStart($event, node)"
+                @dragend="onDragEnd"
+                class="px-3 py-2 rounded border border-slate-200 bg-white hover:bg-slate-50 cursor-move transition-colors group"
               >
-            </AccordionHeader>
-            <AccordionContent>
-              <div class="space-y-1">
-                <div
-                  v-for="node in nodeList"
-                  :key="node.type"
-                  :draggable="true"
-                  @dragstart="onDragStart($event, node)"
-                  @dragend="onDragEnd"
-                  class="px-3 py-2 rounded border border-slate-200 bg-white hover:bg-slate-50 cursor-move transition-colors group"
-                >
-                  <div class="flex items-start gap-2">
-                    <!-- 拖拽图标 -->
-                    <div
-                      class="mt-0.5 transition-colors"
-                      :style="{
-                        color: getCategoryColor(category).icon,
-                      }"
-                    >
-                      <IconMap class="w-3.5 h-3.5" />
-                    </div>
+                <div class="flex items-start gap-2">
+                  <!-- 拖拽图标 -->
+                  <div
+                    class="mt-0.5 transition-colors"
+                    :style="{
+                      color: getCategoryColor(category).icon,
+                    }"
+                  >
+                    <IconMap class="w-3.5 h-3.5" />
+                  </div>
 
-                    <!-- 节点信息 -->
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-1.5 mb-0.5">
-                        <div
-                          class="text-[11px] font-medium text-slate-700 truncate"
-                        >
-                          {{ node.label }}
-                        </div>
-                        <span
-                          class="px-1.5 py-0.5 rounded text-[9px] font-medium shrink-0"
-                          :style="{
-                            backgroundColor: getCategoryColor(category).tagBg,
-                            color: getCategoryColor(category).tagText,
-                          }"
-                        >
-                          {{ category }}
-                        </span>
-                      </div>
+                  <!-- 节点信息 -->
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5 mb-0.5">
                       <div
-                        class="text-[10px] text-slate-400 line-clamp-2 leading-relaxed"
+                        class="text-[11px] font-medium text-slate-700 truncate"
                       >
-                        {{ node.description }}
+                        {{ node.label }}
                       </div>
+                      <span
+                        class="px-1.5 py-0.5 rounded text-[9px] font-medium shrink-0"
+                        :style="{
+                          backgroundColor: getCategoryColor(category).tagBg,
+                          color: getCategoryColor(category).tagText,
+                        }"
+                      >
+                        {{ category }}
+                      </span>
+                    </div>
+                    <div
+                      class="text-[10px] text-slate-400 line-clamp-2 leading-relaxed"
+                    >
+                      {{ node.description }}
                     </div>
                   </div>
                 </div>
               </div>
-            </AccordionContent>
-          </AccordionPanel>
-        </Accordion>
+            </div>
+          </AccordionContent>
+        </AccordionPanel>
+      </Accordion>
 
-        <!-- 无结果提示 -->
-        <div
-          v-if="Object.keys(filteredNodesByCategory).length === 0"
-          class="flex flex-col items-center justify-center py-12 text-slate-400"
-        >
-          <IconEmptyNode class="w-12 h-12 mb-2 opacity-50" />
-          <div class="text-sm">未找到匹配的节点</div>
-        </div>
-      </div>
-
-      <!-- 底部提示 -->
+      <!-- 无结果提示 -->
       <div
-        class="px-4 py-3 border-t border-slate-200 bg-white text-xs text-slate-500"
+        v-if="Object.keys(filteredNodesByCategory).length === 0"
+        class="flex flex-col items-center justify-center py-12 text-slate-400"
       >
-        拖拽节点到画布以添加
+        <IconEmptyNode class="w-12 h-12 mb-2 opacity-50" />
+        <div class="text-sm">未找到匹配的节点</div>
       </div>
     </div>
 
-    <!-- 切换按钮（当面板关闭时显示） -->
-    <button
-      v-show="!isOpen"
-      @click="emit('open')"
-      class="absolute top-4 -right-10 w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-r-lg shadow-md hover:bg-purple-50 hover:border-purple-300 transition-all duration-200"
-    >
-      <IconChevronRight class="w-5 h-5 text-slate-600" />
-    </button>
+    <!-- 底部提示 -->
+    <div class="panel-footer">拖拽节点到画布以添加</div>
   </div>
 </template>
 
@@ -136,22 +118,12 @@ import AccordionContent from "@/components/common/AccordionContent.vue";
 import InputText from "@/components/common/InputText.vue";
 import IconMap from "@/icons/IconMap.vue";
 import IconEmptyNode from "@/icons/IconEmptyNode.vue";
-import IconChevronRight from "@/icons/IconChevronRight.vue";
-
-interface Props {
-  isOpen?: boolean;
-}
 
 interface Emits {
   (e: "close"): void;
-  (e: "open"): void;
   (e: "dragStart", node: BaseNode): void;
   (e: "dragEnd"): void;
 }
-
-withDefaults(defineProps<Props>(), {
-  isOpen: true,
-});
 
 const emit = defineEmits<Emits>();
 
@@ -339,6 +311,59 @@ function getCategoryColor(category: string) {
 </script>
 
 <style scoped>
+.node-list-panel {
+  width: 280px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-right: 1px solid #e5e7eb;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.close-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.close-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.panel-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #e5e7eb;
+  background: white;
+  font-size: 12px;
+  color: #6b7280;
+}
+
 /* 行截断样式 */
 .line-clamp-2 {
   display: -webkit-box;

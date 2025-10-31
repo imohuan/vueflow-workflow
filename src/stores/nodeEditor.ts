@@ -2813,6 +2813,35 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
   }
 
   /**
+   * 加载工作流数据到画布
+   */
+  function loadWorkflowData(
+    loadedNodes: Node<NodeData>[],
+    loadedEdges: Edge[]
+  ) {
+    // 暂停历史记录
+    batchStart();
+
+    // 清空当前画布
+    nodes.value = [];
+    edges.value = [];
+
+    // 加载新数据
+    nodes.value = loadedNodes.map((node) => ({ ...node }));
+    edges.value = loadedEdges.map((edge) => ({ ...edge }));
+
+    // 刷新层级
+    refreshNodeLayerClasses();
+    refreshEdgeLayerClasses();
+
+    // 恢复历史记录并记录初始状态
+    batchEnd();
+
+    // 取消选中
+    selectNode(null);
+  }
+
+  /**
    * 批量操作：暂停历史记录
    * 用于批量操作，避免记录中间状态
    */
@@ -2904,5 +2933,6 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     executeNode,
     executeWorkflow,
     clearCanvas,
+    loadWorkflowData,
   };
 });

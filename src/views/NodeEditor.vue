@@ -3,22 +3,27 @@
   <div
     class="flex w-screen h-screen bg-linear-to-br from-slate-50 to-slate-100"
   >
-    <!-- 画布区域 -->
-    <div class="flex-1 flex relative overflow-hidden">
-      <!-- 节点列表面板 -->
-      <NodeListPanel
-        :is-open="showNodeListPanel"
-        @close="showNodeListPanel = false"
-        @open="showNodeListPanel = true"
-      />
+    <!-- 第一栏：纵向菜单栏 -->
+    <VerticalTabMenu :active-tab="activeTab" @tab-change="handleTabChange" />
 
-      <!-- 左上角统计信息 -->
-      <div
-        :class="[
-          'absolute bottom-4 flex gap-3 z-5 px-3 py-2 rounded-lg ',
-          showNodeListPanel ? 'left-[296px]' : 'left-4',
-        ]"
-      >
+    <!-- 第三栏：画布区域（占据剩余空间） -->
+    <div class="flex-1 flex relative overflow-hidden">
+      <!-- 第二栏：悬浮面板（绝对定位，悬浮在画布上） -->
+      <div v-if="activeTab !== null" class="absolute left-0 top-0 h-full z-30">
+        <WorkflowFileTree
+          v-if="activeTab === 'folders'"
+          @close="handleClosePanel"
+        />
+
+        <NodeListPanel v-if="activeTab === 'nodes'" @close="handleClosePanel" />
+
+        <ConfigPanel
+          v-if="activeTab === 'settings'"
+          @close="handleClosePanel"
+        />
+      </div>
+      <!-- 左下角统计信息 -->
+      <div class="absolute bottom-4 left-4 flex gap-3 z-5 px-3 py-2 rounded-lg">
         <div class="flex items-center gap-1 text-xs">
           <span class="text-slate-400 font-medium">节点:</span>
           <span class="text-slate-600 font-semibold">{{ nodes.length }}</span>
@@ -197,20 +202,7 @@
           />
           <IconPlayCircle v-else class="w-4 h-4" />
         </Button>
-        <Button
-          :variant="showConfigPanel ? undefined : 'outlined'"
-          icon-only
-          @click="toggleConfigPanel"
-          title="配置"
-        >
-          <IconConfig />
-        </Button>
       </div>
-
-      <!-- 编辑器配置面板 -->
-      <Transition name="slide-left">
-        <ConfigPanel v-if="showConfigPanel && !store.isNodeEditorVisible" />
-      </Transition>
 
       <!-- 节点配置面板（包含变量面板） -->
       <Transition name="slide-left">
@@ -253,13 +245,15 @@ import ConfigPanel from "@/components/node-editor/ConfigPanel.vue";
 import NodeEditorPanel from "@/components/node-editor/NodeEditorPanel.vue";
 import NodeListPanel from "@/components/node-editor/NodeListPanel.vue";
 import InteractiveEdge from "@/components/node-editor/edges/InteractiveEdge.vue";
+import VerticalTabMenu from "@/components/node-editor/VerticalTabMenu.vue";
+import WorkflowFileTree from "@/components/node-editor/WorkflowFileTree.vue";
 import { useNodeEditorStore } from "@/stores/nodeEditor";
 import { useEditorConfigStore } from "@/stores/editorConfig";
+import { useWorkflowStore } from "@/stores/workflow";
 import type { NodeData, PortDefinition } from "@/typings/nodeEditor";
 import { nodeEditorLayoutConfig } from "@/config";
 import Button from "@/components/common/Button.vue";
 import IconMap from "@/icons/IconMap.vue";
-import IconConfig from "@/icons/IconConfig.vue";
 import IconUndo from "@/icons/IconUndo.vue";
 import IconRedo from "@/icons/IconRedo.vue";
 import IconLayout from "@/icons/IconLayout.vue";
@@ -281,10 +275,14 @@ import "@vue-flow/controls/dist/style.css";
 import "@/components/node-editor/ports/portStyles.css";
 
 const store = useNodeEditorStore();
-const { nodes, edges, isExecutingWorkflow } = storeToRefs(store);
+const { nodes, edges, isExecutingWorkflow, selectedNodeId } =
+  storeToRefs(store);
 
 const configStore = useEditorConfigStore();
 const { config } = storeToRefs(configStore);
+
+const workflowStore = useWorkflowStore();
+const { currentWorkflow } = storeToRefs(workflowStore);
 
 // 初始化工作流执行状态管理器
 // TODO: 后续需要根据实际工作流ID传入，当前使用固定ID作为示例
@@ -406,12 +404,60 @@ const multiSelectionActive = computed({
   },
 });
 
-const showConfigPanel = ref(false);
-const showNodeListPanel = ref(false);
 const isLocked = ref(false);
 const fps = ref(0);
 const showMiniMapToggle = ref(config.value.showMiniMap);
 const vueFlowRef = ref();
+
+// 纵向菜单栏状态
+const activeTab = ref<"folders" | "nodes" | "settings" | null>(null);
+
+// 当画布节点被选中时，如果当前面板仍是工作流列表，则自动切换到节点列表
+watch(
+  () => selectedNodeId.value,
+  (nodeId) => {
+    if (nodeId && activeTab.value === "folders") {
+      activeTab.value = "nodes";
+    }
+  }
+);
+
+// 监听当前工作流变化，加载工作流数据到画布
+watch(
+  () => currentWorkflow.value,
+  (workflow) => {
+    if (workflow && workflow.data) {
+      // 加载工作流数据到画布
+      store.loadWorkflowData(workflow.data.nodes, workflow.data.edges);
+    } else {
+      // 清空画布
+      store.clearCanvas();
+    }
+  },
+  { immediate: true }
+);
+
+// 监听画布数据变化，自动保存到当前工作流
+watch(
+  () => [nodes.value, edges.value],
+  () => {
+    if (workflowStore.currentWorkflowId) {
+      // 使用防抖，避免频繁保存
+      if (saveWorkflowTimer.value) {
+        clearTimeout(saveWorkflowTimer.value);
+      }
+      saveWorkflowTimer.value = setTimeout(() => {
+        workflowStore.saveWorkflowData(workflowStore.currentWorkflowId!, {
+          nodes: nodes.value,
+          edges: edges.value,
+        });
+      }, 500);
+    }
+  },
+  { deep: true }
+);
+
+const saveWorkflowTimer = ref<number | null>(null);
 
 // 拖动到容器的状态
 const dragTargetContainerId = ref<string | null>(null);
@@ -639,7 +685,10 @@ watch(
   () => store.isNodeEditorVisible,
   (visible) => {
     if (visible) {
-      showConfigPanel.value = false;
+      // 关闭设置面板
+      if (activeTab.value === "settings") {
+        activeTab.value = null;
+      }
     }
   }
 );
@@ -650,6 +699,9 @@ let lastTime = performance.now();
 let fpsInterval: number;
 
 onMounted(() => {
+  // 初始化工作流：如果没有选中工作流，则自动选择上次编辑的，如果没有则创建新的
+  workflowStore.initializeWorkflow();
+
   // 等待 Vue Flow 完全渲染后再启用历史记录
   nextTick(() => {
     // 延迟 100ms 确保所有组件渲染完成
@@ -1123,15 +1175,22 @@ watch(
 );
 
 /**
- * 切换配置面板
+ * 处理 Tab 切换
  */
-function toggleConfigPanel() {
-  // 如果当前选中了节点，先取消选中
-  if (store.selectedNodeId) {
-    store.selectNode(null);
-    managedSelectedNodeIds.value = [];
+function handleTabChange(tab: "folders" | "nodes" | "settings") {
+  // 如果点击的是当前激活的 tab，则关闭面板
+  if (activeTab.value === tab) {
+    activeTab.value = null;
+  } else {
+    activeTab.value = tab;
   }
-  showConfigPanel.value = !showConfigPanel.value;
+}
+
+/**
+ * 关闭侧边面板
+ */
+function handleClosePanel() {
+  activeTab.value = null;
 }
 
 /**
@@ -1488,7 +1547,6 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
  */
 function onPaneClick() {
   store.selectNode(null);
-  showConfigPanel.value = false;
   managedSelectedNodeIds.value = [];
 }
 

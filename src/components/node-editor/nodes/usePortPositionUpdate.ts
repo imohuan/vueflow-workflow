@@ -27,7 +27,7 @@ export function usePortPositionUpdate(options: UsePortPositionUpdateOptions) {
       setTimeout(() => {
         updateNodeInternals([nodeId]);
         console.log("updatePortPositions", nodeId);
-      }, 400);
+      }, 50);
     });
   }
 

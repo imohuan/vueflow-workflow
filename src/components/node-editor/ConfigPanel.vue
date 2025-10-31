@@ -1,32 +1,29 @@
 <!-- 编辑器配置面板 - JSON 驱动 -->
 <template>
   <div
-    class="w-[340px] h-full bg-white/95 backdrop-blur flex flex-col border-l border-slate-200 overflow-hidden"
+    class="w-[280px] h-full bg-white flex flex-col border-r border-slate-200 overflow-hidden shadow-lg"
   >
     <!-- 面板头部 -->
-    <div
-      class="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-white/90"
-    >
-      <div class="flex items-center gap-3">
-        <div
-          class="flex items-center justify-center w-9 h-9 bg-linear-to-br from-purple-500 to-purple-700 rounded-md text-white shadow-sm"
-        >
-          <IconConfig />
-        </div>
-        <h3 class="m-0 text-base font-semibold text-slate-800 tracking-wide">
-          编辑器配置
-        </h3>
+    <div class="panel-header">
+      <h2 class="panel-title">编辑器配置</h2>
+      <div class="header-actions">
+        <button @click="handleReset" class="reset-btn" title="重置配置">
+          <IconReset class="w-3.5 h-3.5" />
+        </button>
+        <button @click="$emit('close')" class="close-btn">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
       </div>
-      <Button
-        severity="secondary"
-        variant="outlined"
-        size="small"
-        class="gap-2 px-3 py-1.5 text-xs"
-        @click="handleReset"
-      >
-        <IconReset />
-        <span>重置</span>
-      </Button>
     </div>
 
     <!-- 配置内容 - JSON 驱动渲染 -->
@@ -123,13 +120,16 @@ import Checkbox from "@/components/common/Checkbox.vue";
 import Select from "@/components/common/Select.vue";
 import InputText from "@/components/common/InputText.vue";
 import Slider from "@/components/common/Slider.vue";
-import IconConfig from "@/icons/IconConfig.vue";
 import IconReset from "@/icons/IconReset.vue";
 import IconEdgeStyle from "@/icons/IconEdgeStyle.vue";
 import IconCanvas from "@/icons/IconCanvas.vue";
 import IconWidget from "@/icons/IconWidget.vue";
 import IconLayout from "@/icons/IconLayout.vue";
 import IconZoomRange from "@/icons/IconZoomRange.vue";
+
+defineEmits<{
+  (e: "close"): void;
+}>();
 
 const configStore = useEditorConfigStore();
 const { config } = storeToRefs(configStore);
@@ -153,3 +153,48 @@ function handleReset() {
   }
 }
 </script>
+
+<style scoped>
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reset-btn,
+.close-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.reset-btn:hover,
+.close-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+</style>

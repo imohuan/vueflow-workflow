@@ -96,10 +96,11 @@ function customGetHandleStyle(
   // 输出端口对齐对应的条件预览框
   const conditionsCount = conditions.value.length;
 
+  // 尝试使用 DOM 查询获取精确位置
   // 如果是 else 端口（最后一个）
   if (index === conditionsCount) {
     const elseEl = elsePreviewRef.value;
-    if (elseEl && elseEl.offsetParent) {
+    if (elseEl && elseEl.offsetParent && elseEl.offsetTop > 0) {
       // 计算 else 预览框中心点相对于父容器的位置
       const offsetTop = elseEl.offsetTop + elseEl.offsetHeight / 2;
       return {
@@ -109,7 +110,7 @@ function customGetHandleStyle(
   } else {
     // 条件端口
     const conditionEl = conditionRefs.value[index];
-    if (conditionEl && conditionEl.offsetParent) {
+    if (conditionEl && conditionEl.offsetParent && conditionEl.offsetTop > 0) {
       // 计算条件预览框中心点相对于父容器的位置
       const offsetTop = conditionEl.offsetTop + conditionEl.offsetHeight / 2;
       return {
@@ -118,20 +119,34 @@ function customGetHandleStyle(
     }
   }
 
-  // 降级方案：均匀分布
-  const parentEl = document.getElementById(props.id);
-  if (parentEl) {
-    const parentHeight = parentEl.offsetHeight;
-    const step = parentHeight / (total + 1);
-    const top = (index + 1) * step;
+  // 初始渲染时的估算位置（避免位置错误）
+  // 每个条件预览框大约 60px 高，间距 8px（gap-2）
+  const CONDITION_ITEM_HEIGHT = 60;
+  const GAP = 8;
+  const HEADER_HEIGHT = 40;
+  const PADDING_TOP = 12; // py-1.5
+
+  if (index === conditionsCount) {
+    // else 端口位置 = header + padding + (条件数量 * (高度 + 间距)) + else框高度的一半
+    const estimatedTop =
+      HEADER_HEIGHT +
+      PADDING_TOP +
+      conditionsCount * (CONDITION_ITEM_HEIGHT + GAP) +
+      CONDITION_ITEM_HEIGHT / 2;
     return {
-      top: `${top}px !important`,
+      top: `${estimatedTop}px !important`,
+    };
+  } else {
+    // 条件端口位置 = header + padding + (当前索引 * (高度 + 间距)) + 条件框高度的一半
+    const estimatedTop =
+      HEADER_HEIGHT +
+      PADDING_TOP +
+      index * (CONDITION_ITEM_HEIGHT + GAP) +
+      CONDITION_ITEM_HEIGHT / 2;
+    return {
+      top: `${estimatedTop}px !important`,
     };
   }
-
-  return {
-    top: `50% !important`,
-  };
 }
 
 function getConditionSummary(condition: Condition): string {
