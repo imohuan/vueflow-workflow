@@ -88,14 +88,44 @@ export interface NodeData {
   width?: number;
   /** 节点高度（可选） */
   height?: number;
-  /** 自定义节点变体标识 */
-  variant?: string;
+  /**
+   * 自定义节点变体标识，例如区分“开始”、“条件”、“终止”等节点类型
+   * 案例：variant: "start" | "condition" | "end" | "custom"
+   * 示例用法：
+   * {
+   *   id: "node_1",
+   *   data: {
+   *     variant: "start"
+   *   }
+   * }
+   */
+  variant?: "start" | "condition" | "end" | "custom";
   /** 是否为容器节点 */
   isContainer?: boolean;
   /** 容器是否处于高亮状态（拖拽交集提示） */
   isHighlighted?: boolean;
   /** 容器高亮类型 */
   highlightType?: "normal" | "warning";
+  /** 节点样式配置 */
+  style?: {
+    /**
+     * 标题栏颜色配置
+     * - 字符串：单色（如 "#a855f7"）
+     * - 对象：渐变配置
+     *   - `{ from: string, to?: string }` - 渐变起始色和结束色（to 未提供时使用单色）
+     *   - `{ color: string }` - 单色配置（等同于字符串）
+     */
+    headerColor?: string | { from: string; to?: string } | { color: string };
+    /** 是否显示图标 */
+    showIcon?: boolean;
+    /**
+     * 图标内容
+     * - 字符串：emoji 或普通文本图标
+     * - SVG 字符串：完整的 SVG HTML 代码（如 `<svg>...</svg>`）
+     * - 组件名称：项目中已注册的图标组件名称（如 "IconPlay"）
+     */
+    icon?: string;
+  };
 }
 
 /**
@@ -134,7 +164,15 @@ export interface WorkflowExecutionContext {
 export interface WorkflowNode {
   /** 节点唯一 ID */
   id: string;
-  /** Vue Flow 节点类型，可选 */
+  /**
+   * Vue Flow 节点类型，可选
+   * 常见类型有：
+   * - 'default'   // 普通流程节点
+   * - 'input'     // 输入节点
+   * - 'output'    // 输出节点
+   * - 'group'     // 分组容器节点
+   * - 'custom'    // 自定义节点类型
+   */
   type?: string;
   /** 节点数据 */
   data: NodeData;
@@ -178,7 +216,7 @@ export interface WorkflowExecutorOptions<TNode extends BaseNode = BaseNode> {
   edges: WorkflowEdge[];
   /** 开始节点 ID（可选，如果不指定则自动查找） */
   startNodeId?: string;
-  /** 节点工厂函数，根据节点类型创建节点实例 */
+  /** 节点工厂函数，根据节点类型创建节点实例 类型相关于另类的名称了， 如if, for 都算是类型 */
   nodeFactory?: (type: string) => TNode | undefined;
   /** 中止信号（用于取消执行） */
   signal?: AbortSignal;

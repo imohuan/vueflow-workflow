@@ -23,7 +23,11 @@
     "build": "tsup",
     "dev": "tsup --watch"
   },
+  "dependencies": {
+    "lodash-es": "^4.17.21"
+  },
   "devDependencies": {
+    "@types/lodash-es": "^4.17.12",
     "tsup": "^8.3.5",
     "typescript": "~5.9.3"
   },

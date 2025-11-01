@@ -112,10 +112,13 @@ importers:
 
   packages/node-executor:
     dependencies:
-      '@browser-nodes/core':
-        specifier: workspace:*
-        version: link:../browser-nodes
+      lodash-es:
+        specifier: ^4.17.21
+        version: 4.17.21
     devDependencies:
+      '@types/lodash-es':
+        specifier: ^4.17.12
+        version: 4.17.12
       tsup:
         specifier: ^8.3.5
         version: 8.5.0(jiti@2.6.1)(postcss@8.5.6)(typescript@5.9.3)

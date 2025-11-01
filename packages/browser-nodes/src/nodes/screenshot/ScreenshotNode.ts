@@ -1,5 +1,8 @@
 ﻿import { BaseNode } from "@node-executor/core";
-import type { PortDefinition } from "@node-executor/core";
+import type {
+  PortDefinition,
+  WorkflowExecutionContext,
+} from "@node-executor/core";
 import type { MCPClient } from "../../types.ts";
 
 /**
@@ -56,8 +59,13 @@ export class ScreenshotNode extends BaseNode {
   async execute(
     config: Record<string, any>,
     inputs: Record<string, any>,
-    client: MCPClient
+    context: WorkflowExecutionContext
   ): Promise<any> {
+    const client = context.mcpClient as MCPClient;
+    if (!client) {
+      throw new Error("MCP 客户端未初始化，请先使用初始化MCP服务节点");
+    }
+
     const options: any = {};
 
     if (config.fullPage !== undefined) {

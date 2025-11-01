@@ -88,12 +88,7 @@ export async function executeWorkflow<TNode extends BaseNode = BaseNode>(
 
   const nodeMap = new Map<string, WorkflowNode>();
   nodes.forEach((node) => {
-    nodeMap.set(node.id, {
-      ...node,
-      data: {
-        ...node.data,
-      },
-    });
+    nodeMap.set(node.id, { ...node, data: { ...node.data } });
   });
 
   const outgoingMap = buildEdgeMap(edges, "source");
@@ -175,9 +170,8 @@ export async function executeWorkflow<TNode extends BaseNode = BaseNode>(
 
       const config = { ...currentNode.data.config };
 
-      // 传递执行上下文给节点，节点内部会从 context 中获取 MCP 客户端
-      // TypeScript 类型：BaseNode.run 现在只接受 3 个参数 (config, inputs, context)
-      const result = await executor.run(config, inputs, context as any);
+      // 传递执行上下文给节点
+      const result = await executor.run(config, inputs, context);
 
       nodeResults[currentNode.id] = result;
       executedNodeIds.add(currentNode.id);

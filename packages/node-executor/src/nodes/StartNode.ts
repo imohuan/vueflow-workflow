@@ -1,5 +1,5 @@
-import { BaseNode } from "@browser-nodes/core";
-import type { NodeData, PortDefinition } from "@/typings/nodeEditor";
+import { BaseNode } from "../BaseNode.ts";
+import type { NodeData, PortDefinition } from "../types.ts";
 
 export interface StartNodeConfig {
   /** 初始输出数据 */
@@ -45,7 +45,7 @@ export class StartNode extends BaseNode {
     };
   }
 
-  override createNodeData(): NodeData {
+  createNodeData(): NodeData {
     return {
       config: this.getDefaultConfig(),
       inputs: this.defineInputs(),
@@ -59,7 +59,7 @@ export class StartNode extends BaseNode {
   async execute(
     config: StartNodeConfig,
     _inputs: Record<string, any>,
-    _client: any
+    context: any
   ): Promise<any> {
     const payload = config.initialPayload ?? null;
     return {

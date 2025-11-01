@@ -1,5 +1,5 @@
-import { BaseNode } from "@browser-nodes/core";
-import type { PortDefinition } from "@/typings/nodeEditor";
+import { BaseNode } from "../BaseNode.ts";
+import type { PortDefinition } from "../types.ts";
 import { isEqual } from "lodash-es";
 
 /** 数据类型 */
@@ -265,7 +265,7 @@ export class IfNode extends BaseNode {
   async execute(
     config: IfConfig,
     inputs: Record<string, any>,
-    _client: any
+    context: any
   ): Promise<any> {
     const inputValue = inputs.input;
     const conditions = Array.isArray(config.conditions)

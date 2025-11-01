@@ -1,6 +1,8 @@
 ﻿import { BaseNode } from "@node-executor/core";
-import type { PortDefinition } from "@node-executor/core";
-import type { MCPClient } from "../../types.ts";
+import type {
+  PortDefinition,
+  WorkflowExecutionContext,
+} from "@node-executor/core";
 
 /**
  * 代码执行节点
@@ -70,7 +72,7 @@ return input1;`,
   async execute(
     config: Record<string, any>,
     inputs: Record<string, any>,
-    _client: MCPClient
+    _context: WorkflowExecutionContext
   ): Promise<any> {
     const code = config.code || "return null;";
     const input1 = inputs.input1;

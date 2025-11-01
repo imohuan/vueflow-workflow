@@ -1,18 +1,14 @@
 /**
  * 节点编辑器类型定义
- * 重新导出 @browser-nodes/core 的类型以保持向后兼容
  */
 
-// 从 @/workflow/nodes 重新导出，统一入口
 export type {
   PortDefinition,
   NodeData,
   NodeResult,
   NodeResultOutput,
   NodeResultData,
-  MCPClient,
-  MCPResponse,
-} from "@browser-nodes/core";
+} from "@node-executor/core";
 
 /**
  * 节点类型

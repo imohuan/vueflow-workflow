@@ -62,7 +62,7 @@ export class InitializeMCPNode extends BaseNode {
   async execute(
     config: Record<string, any>,
     inputs: Record<string, any>,
-    client: MCPClient
+    context: WorkflowExecutionContext
   ): Promise<any> {
     // execute 方法不会被调用，因为我们重写了 run 方法
     throw new Error("InitializeMCPNode 必须通过 run 方法调用");

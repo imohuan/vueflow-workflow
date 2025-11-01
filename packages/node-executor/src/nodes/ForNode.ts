@@ -1,7 +1,7 @@
-import { BaseNode } from "@browser-nodes/core";
-import type { PortDefinition } from "@/typings/nodeEditor";
+import { BaseNode } from "../BaseNode.ts";
+import type { PortDefinition } from "../types.ts";
 
-interface ForConfig {
+export interface ForConfig {
   /** 数据来源模式 */
   mode: "input" | "static" | "range";
   /** 输入数据路径（相对 input） */
@@ -80,7 +80,7 @@ export class ForNode extends BaseNode {
   async execute(
     config: ForConfig,
     inputs: Record<string, any>,
-    _client: any
+    context: any
   ): Promise<any> {
     const items = this.resolveItems(config, inputs.items);
 

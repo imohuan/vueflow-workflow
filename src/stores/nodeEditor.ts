@@ -21,7 +21,7 @@ import {
 } from "@/workflow/variables/variableResolver";
 import type { VariableTreeNode } from "@/workflow/variables/variableResolver";
 import { nodeEditorLayoutConfig, type ContainerPaddingConfig } from "@/config";
-import { IfNode } from "@/workflow/nodes";
+import { IfNode } from "@node-executor/core";
 import type { IfConfig } from "@/workflow/nodes";
 import {
   executeWorkflow as runWorkflow,
@@ -2674,8 +2674,6 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
         nodes: workflowNodes,
         edges: workflowEdges,
         startNodeId: startNode.id,
-        // 不再传递全局 client，改为通过初始化 MCP 节点来管理
-        // client: mcpClient, // @deprecated 已废弃，请使用初始化 MCP 节点
         nodeFactory: getNodeByType, // 使用包含核心节点的 getNodeByType
         emitter: workflowEmitter,
         executionId,

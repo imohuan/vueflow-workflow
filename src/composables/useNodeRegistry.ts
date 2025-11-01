@@ -8,9 +8,9 @@ import { ref, computed } from "vue";
 import {
   getAllNodes,
   getNodeByType as getBrowserNodeByType,
-  type BaseNode,
   type PortDefinition,
 } from "@browser-nodes/core";
+import { type BaseNode } from "@node-executor/core";
 import { getNodeByType as getCoreNodeByType } from "@/workflow/nodes";
 import type { NodeData } from "@/typings/nodeEditor";
 
@@ -53,7 +53,7 @@ const state = ref<NodeRegistryState>({
  * 从节点实例提取元数据
  * 使用 createNodeData 方法获取完整的节点数据（包含默认端口逻辑）
  */
-function extractMetadata(node: BaseNode): NodeMetadata {
+function extractMetadata(node: BaseNode | any): NodeMetadata {
   // 使用 createNodeData 方法获取完整的节点数据
   const nodeData = node.createNodeData();
 
@@ -234,7 +234,13 @@ function createNodeData(type: string): NodeData | null {
     outputs: finalOutputs,
     label: metadata.label,
     category: metadata.category,
-    variant: metadata.type,
+    variant:
+      metadata.type === "start" ||
+      metadata.type === "end" ||
+      metadata.type === "condition" ||
+      metadata.type === "custom"
+        ? metadata.type
+        : "custom",
   };
 }
 

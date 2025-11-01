@@ -1,5 +1,5 @@
-import { BaseNode } from "@browser-nodes/core";
-import type { NodeData, PortDefinition } from "@/typings/nodeEditor";
+import { BaseNode } from "../BaseNode.ts";
+import type { NodeData, PortDefinition } from "../types.ts";
 
 export interface EndNodeConfig {
   /** 是否返回输入作为最终结果 */
@@ -53,7 +53,7 @@ export class EndNode extends BaseNode {
     };
   }
 
-  override createNodeData(): NodeData {
+  createNodeData(): NodeData {
     return {
       config: this.getDefaultConfig(),
       inputs: this.defineInputs(),
@@ -67,7 +67,7 @@ export class EndNode extends BaseNode {
   async execute(
     config: EndNodeConfig,
     inputs: Record<string, any>,
-    _client: any
+    context: any
   ): Promise<any> {
     const value = config.returnInput ? inputs.input ?? null : config;
     return {

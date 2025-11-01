@@ -6,10 +6,8 @@
       executionStatusClass,
     ]"
     :style="{
-      borderColor: isSelected ? nodeTheme.selectedBorder : undefined,
-      boxShadow: isSelected
-        ? `0 0 0 1px ${nodeTheme.selectedBorder}25`
-        : undefined,
+      borderColor: isSelected ? selectedBorderColor : undefined,
+      boxShadow: isSelected ? `0 0 0 1px ${selectedBorderColor}25` : undefined,
     }"
     @click="handleClick"
     @dblclick.stop="handleDoubleClick"
@@ -26,33 +24,58 @@
     <div
       class="flex items-center justify-between gap-2 px-3 py-2 text-white font-semibold relative overflow-hidden rounded-t"
       :style="{
-        background: `linear-gradient(to bottom right, ${nodeTheme.headerFrom}, ${nodeTheme.headerTo})`,
+        background: `linear-gradient(to bottom right, ${headerColorFrom}, ${headerColorTo})`,
       }"
     >
       <div
         class="absolute inset-0 bg-linear-to-br from-white/10 to-transparent pointer-events-none"
       ></div>
-      <div class="flex-1 text-[9px] tracking-wide relative z-10">
-        <template v-if="isRenaming">
-          <input
-            ref="renameInputRef"
-            v-model="editingLabel"
-            type="text"
-            class="w-full text-[9px] px-2 py-1 rounded bg-white/95 text-slate-700 focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-1 focus:ring-offset-slate-500 placeholder:text-slate-400"
-            placeholder="请输入节点名称"
-            @keydown.enter.stop.prevent="handleRenameSubmit"
-            @keydown.esc.stop.prevent="handleRenameCancel"
-            @blur="handleRenameBlur"
+      <div
+        class="flex items-center gap-2 flex-1 text-[9px] tracking-wide relative z-10"
+      >
+        <!-- 图标 -->
+        <div
+          v-if="showIcon && iconContent"
+          class="shrink-0 w-4 h-4 flex items-center justify-center text-white"
+        >
+          <!-- SVG 字符串 -->
+          <span
+            v-if="isSvgString"
+            v-html="iconContent"
+            class="w-full h-full [&>svg]:w-full [&>svg]:h-full [&>svg]:fill-current"
+          ></span>
+          <!-- 组件图标 -->
+          <component
+            v-else-if="isComponentName && iconComponent"
+            :is="iconComponent"
+            class="w-full h-full"
           />
-        </template>
-        <span v-else class="block truncate">
-          {{ displayLabel }}
-        </span>
+          <!-- 普通字符串（emoji 或文本） -->
+          <span v-else class="text-xs leading-none">{{ iconContent }}</span>
+        </div>
+        <!-- 标题 -->
+        <div class="flex-1 min-w-0">
+          <template v-if="isRenaming">
+            <input
+              ref="renameInputRef"
+              v-model="editingLabel"
+              type="text"
+              class="w-full text-[9px] px-2 py-1 rounded bg-white/95 text-slate-700 focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-1 focus:ring-offset-slate-500 placeholder:text-slate-400"
+              placeholder="请输入节点名称"
+              @keydown.enter.stop.prevent="handleRenameSubmit"
+              @keydown.esc.stop.prevent="handleRenameCancel"
+              @blur="handleRenameBlur"
+            />
+          </template>
+          <span v-else class="block truncate">
+            {{ displayLabel }}
+          </span>
+        </div>
       </div>
       <div class="flex items-center gap-1.5 relative z-10">
         <button
           class="w-[22px] h-[22px] flex items-center justify-center bg-white/95 hover:bg-white border-none rounded-md cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-          :style="{ color: nodeTheme.headerFrom }"
+          :style="{ color: headerColorFrom }"
           @click.stop="handleExecute"
           title="执行节点"
         >
@@ -147,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from "vue";
+import { computed, ref, watch, nextTick, type Component } from "vue";
 import { Handle, Position, useVueFlow } from "@vue-flow/core";
 import type { NodeData } from "@/typings/nodeEditor";
 import { useNodeEditorStore } from "@/stores/nodeEditor";
@@ -156,6 +179,79 @@ import NodeResult from "../NodeResult.vue";
 import { getNodeTheme } from "@/config/nodeTheme";
 import { PORT_STYLE } from "../ports";
 import { usePortPositionUpdate } from "./usePortPositionUpdate";
+
+// 导入所有图标组件
+import IconBell from "@/icons/IconBell.vue";
+import IconCanvas from "@/icons/IconCanvas.vue";
+import IconCheck from "@/icons/IconCheck.vue";
+import IconChevronDown from "@/icons/IconChevronDown.vue";
+import IconChevronRight from "@/icons/IconChevronRight.vue";
+import IconClose from "@/icons/IconClose.vue";
+import IconCog from "@/icons/IconCog.vue";
+import IconConfig from "@/icons/IconConfig.vue";
+import IconDocument from "@/icons/IconDocument.vue";
+import IconEdgeStyle from "@/icons/IconEdgeStyle.vue";
+import IconEmptyNode from "@/icons/IconEmptyNode.vue";
+import IconExternalLink from "@/icons/IconExternalLink.vue";
+import IconFit from "@/icons/IconFit.vue";
+import IconFx from "@/icons/IconFx.vue";
+import IconHand from "@/icons/IconHand.vue";
+import IconLayout from "@/icons/IconLayout.vue";
+import IconLink from "@/icons/IconLink.vue";
+import IconLock from "@/icons/IconLock.vue";
+import IconMap from "@/icons/IconMap.vue";
+import IconMinus from "@/icons/IconMinus.vue";
+import IconNodeEditor from "@/icons/IconNodeEditor.vue";
+import IconPlayCircle from "@/icons/IconPlayCircle.vue";
+import IconPlus from "@/icons/IconPlus.vue";
+import IconRedo from "@/icons/IconRedo.vue";
+import IconReset from "@/icons/IconReset.vue";
+import IconSettings from "@/icons/IconSettings.vue";
+import IconTrash from "@/icons/IconTrash.vue";
+import IconUndo from "@/icons/IconUndo.vue";
+import IconUnlock from "@/icons/IconUnlock.vue";
+import IconWidget from "@/icons/IconWidget.vue";
+import IconZoomIn from "@/icons/IconZoomIn.vue";
+import IconZoomOut from "@/icons/IconZoomOut.vue";
+import IconZoomRange from "@/icons/IconZoomRange.vue";
+
+// 图标组件映射
+const iconComponentMap: Record<string, Component> = {
+  IconBell,
+  IconCanvas,
+  IconCheck,
+  IconChevronDown,
+  IconChevronRight,
+  IconClose,
+  IconCog,
+  IconConfig,
+  IconDocument,
+  IconEdgeStyle,
+  IconEmptyNode,
+  IconExternalLink,
+  IconFit,
+  IconFx,
+  IconHand,
+  IconLayout,
+  IconLink,
+  IconLock,
+  IconMap,
+  IconMinus,
+  IconNodeEditor,
+  IconPlay,
+  IconPlayCircle,
+  IconPlus,
+  IconRedo,
+  IconReset,
+  IconSettings,
+  IconTrash,
+  IconUndo,
+  IconUnlock,
+  IconWidget,
+  IconZoomIn,
+  IconZoomOut,
+  IconZoomRange,
+};
 
 interface Props {
   id: string;
@@ -179,6 +275,99 @@ const { getSelectedNodes } = useVueFlow();
 const contentRef = ref<HTMLDivElement | null>(null);
 
 const nodeTheme = computed(() => getNodeTheme(props.data.category || ""));
+
+/**
+ * 解析 headerColor 配置
+ * 支持字符串、对象格式，返回 from 和 to 颜色值
+ */
+const parseHeaderColor = computed((): { from: string; to: string } => {
+  const headerColor = props.data.style?.headerColor;
+
+  // 如果未配置，使用主题默认值
+  if (!headerColor) {
+    return {
+      from: nodeTheme.value.headerFrom,
+      to: nodeTheme.value.headerTo,
+    };
+  }
+
+  // 字符串格式：单色
+  if (typeof headerColor === "string") {
+    return {
+      from: headerColor,
+      to: headerColor,
+    };
+  }
+
+  // 对象格式
+  if (typeof headerColor === "object") {
+    // { color: string } 格式
+    if ("color" in headerColor) {
+      return {
+        from: headerColor.color,
+        to: headerColor.color,
+      };
+    }
+
+    // { from: string, to?: string } 格式
+    if ("from" in headerColor) {
+      return {
+        from: headerColor.from,
+        to: headerColor.to || headerColor.from, // 如果没有 to，使用 from 作为单色
+      };
+    }
+  }
+
+  // 默认值
+  return {
+    from: nodeTheme.value.headerFrom,
+    to: nodeTheme.value.headerTo,
+  };
+});
+
+// 计算标题栏颜色
+const headerColorFrom = computed(() => parseHeaderColor.value.from);
+const headerColorTo = computed(() => parseHeaderColor.value.to);
+
+// 选中边框颜色使用 header 的起始颜色
+const selectedBorderColor = computed(() => headerColorFrom.value);
+
+// 是否显示图标
+const showIcon = computed(() => {
+  return props.data.style?.showIcon ?? false;
+});
+
+// 图标内容
+const iconContent = computed(() => {
+  return props.data.style?.icon || "";
+});
+
+// 判断是否为 SVG 字符串
+const isSvgString = computed(() => {
+  return (
+    iconContent.value &&
+    typeof iconContent.value === "string" &&
+    iconContent.value.trim().startsWith("<svg")
+  );
+});
+
+// 判断是否为组件名称
+const isComponentName = computed(() => {
+  return (
+    iconContent.value &&
+    typeof iconContent.value === "string" &&
+    !isSvgString.value &&
+    iconComponentMap[iconContent.value] !== undefined
+  );
+});
+
+// 获取图标组件
+const iconComponent = computed(() => {
+  if (isComponentName.value && iconContent.value) {
+    return iconComponentMap[iconContent.value];
+  }
+  return null;
+});
 
 const renameInputRef = ref<HTMLInputElement | null>(null);
 const editingLabel = ref("");

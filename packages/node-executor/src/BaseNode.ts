@@ -14,24 +14,43 @@ import type {
 export abstract class BaseNode {
   /** 节点类型标识 */
   abstract readonly type: string;
-
   /** 节点显示名称 */
   abstract readonly label: string;
-
   /** 节点描述 */
   abstract readonly description: string;
-
   /** 节点分类 */
   abstract readonly category: string;
-
   /** 输入端口定义 */
   protected abstract defineInputs(): PortDefinition[];
-
   /** 输出端口定义 */
   protected abstract defineOutputs(): PortDefinition[];
-
   /** 默认配置 */
   protected abstract getDefaultConfig(): Record<string, any>;
+
+  /**
+   * 获取节点样式配置
+   * @returns 样式配置对象
+   */
+  protected getStyleConfig(): {
+    /**
+     * 标题栏颜色配置
+     * - 字符串：单色（如 "#a855f7"）
+     * - 对象：渐变配置
+     *   - `{ from: string, to?: string }` - 渐变起始色和结束色（to 未提供时使用单色）
+     *   - `{ color: string }` - 单色配置（等同于字符串）
+     */
+    headerColor?: string | { from: string; to?: string } | { color: string };
+    showIcon?: boolean;
+    /**
+     * 图标内容
+     * - 字符串：emoji 或普通文本图标
+     * - SVG 字符串：完整的 SVG HTML 代码（如 `<svg>...</svg>`）
+     * - 组件名称：项目中已注册的图标组件名称（如 "IconPlay"）
+     */
+    icon?: string;
+  } {
+    return {};
+  }
 
   /**
    * 执行节点逻辑
@@ -92,6 +111,7 @@ export abstract class BaseNode {
       outputs,
       label: this.label,
       category: this.category,
+      style: this.getStyleConfig(),
     };
   }
 
@@ -206,11 +226,7 @@ export abstract class BaseNode {
       }
     }
 
-    return {
-      outputs,
-      raw: rawPayload,
-      summary,
-    };
+    return { outputs, raw: rawPayload, summary };
   }
 
   /**
