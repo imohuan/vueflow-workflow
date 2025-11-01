@@ -279,7 +279,7 @@ MCP（Model Context Protocol）是一个标准化的协议，用于客户端与�
 **使用示例：**
 
 ```typescript
-import { createMCPClient } from "@browser-nodes/core";
+import { createMCPClient } from "@workflow-imohuan/browser-nodes";
 
 // 创建客户端
 const client = createMCPClient();

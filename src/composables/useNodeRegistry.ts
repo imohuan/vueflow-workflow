@@ -1,6 +1,6 @@
 /**
  * 节点注册表 Hooks
- * 统一管理节点元数据，支持从 @browser-nodes/core 加载和动态注册
+ * 统一管理节点元数据，支持从 @workflow-imohuan/browser-nodes 加载和动态注册
  * 未来将完全基于 JSON 数据，不依赖节点实例
  */
 
@@ -9,8 +9,8 @@ import {
   getAllNodes,
   getNodeByType as getBrowserNodeByType,
   type PortDefinition,
-} from "@browser-nodes/core";
-import { type BaseNode } from "@node-executor/core";
+} from "@workflow-imohuan/browser-nodes";
+import { type BaseNode } from "@workflow-imohuan/node-executor";
 import { getNodeByType as getCoreNodeByType } from "@/workflow/nodes";
 import type { NodeData } from "@/typings/nodeEditor";
 
@@ -70,13 +70,13 @@ function extractMetadata(node: BaseNode | any): NodeMetadata {
 
 /**
  * 初始化节点注册表
- * 从 @browser-nodes/core 和核心节点加载所有节点元数据
+ * 从 @workflow-imohuan/browser-nodes 和核心节点加载所有节点元数据
  */
 function initializeRegistry() {
   // 清空现有数据
   state.value.metadataMap.clear();
 
-  // 加载 browser-nodes 包中的节点
+  // 加载 @workflow-imohuan/browser-nodes 包中的节点
   const browserNodes = getAllNodes();
   browserNodes.forEach((node) => {
     const metadata = extractMetadata(node);

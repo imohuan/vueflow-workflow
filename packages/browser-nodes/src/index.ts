@@ -3,7 +3,7 @@
  * 管理所有可用的节点类型
  */
 
-import { BaseNode } from "@node-executor/core";
+import { BaseNode } from "@workflow-imohuan/node-executor";
 
 // 浏览器管理
 import { InitializeMCPNode } from "./nodes/core/InitializeMCPNode.ts";
@@ -163,7 +163,7 @@ export function getNodesByCategory(): Record<string, BaseNode[]> {
 }
 
 // 导出核心类
-export { BaseNode } from "@node-executor/core";
+export { BaseNode } from "@workflow-imohuan/node-executor";
 
 /**
  * 导出节点类

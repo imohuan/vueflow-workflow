@@ -1,5 +1,5 @@
 {
-  "name": "@browser-nodes/core",
+  "name": "@workflow-imohuan/browser-nodes",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -24,7 +24,7 @@
     "dev": "tsup --watch"
   },
   "dependencies": {
-    "@node-executor/core": "workspace:*",
+    "@workflow-imohuan/node-executor": "workspace:*",
     "lodash-es": "^4.17.21"
   },
   "devDependencies": {

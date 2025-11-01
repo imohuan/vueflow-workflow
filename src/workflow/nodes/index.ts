@@ -6,23 +6,28 @@ export type {
   SubCondition,
   Condition,
   IfConfig,
-} from "@node-executor/core";
+} from "@workflow-imohuan/node-executor";
 
 export {
   OPERATOR_LABELS,
   DATA_TYPE_LABELS,
   OPERATORS_BY_TYPE,
-} from "@node-executor/core";
+} from "@workflow-imohuan/node-executor";
 
 // 导入核心节点实例
-import { StartNode, EndNode, IfNode, ForNode } from "@node-executor/core";
+import {
+  StartNode,
+  EndNode,
+  IfNode,
+  ForNode,
+} from "@workflow-imohuan/node-executor";
 
 // 导入 browser-nodes 包
 import {
   getNodeByType as getBrowserNodeByType,
   type MCPClient,
-} from "@browser-nodes/core";
-import { type BaseNode } from "@node-executor/core";
+} from "@workflow-imohuan/browser-nodes";
+import { type BaseNode } from "@workflow-imohuan/node-executor";
 
 // 核心节点注册表
 const CORE_NODE_MAP: Record<string, BaseNode> = {
@@ -54,14 +59,14 @@ export interface WorkflowExecutionContext {
   [key: string]: unknown;
 }
 
-// 导出 BaseNode 从 @node-executor/core
-export { BaseNode } from "@node-executor/core";
+// 导出 BaseNode 从 @workflow-imohuan/node-executor
+export { BaseNode } from "@workflow-imohuan/node-executor";
 
-// 导出类型（从 @node-executor/core 导出基础类型）
+// 导出类型（从 @workflow-imohuan/node-executor 导出基础类型）
 export type {
   PortDefinition,
   NodeData,
   NodeResult,
   NodeResultOutput,
   NodeResultData,
-} from "@node-executor/core";
+} from "@workflow-imohuan/node-executor";

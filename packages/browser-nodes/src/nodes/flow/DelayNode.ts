@@ -1,9 +1,9 @@
-﻿import { BaseNode } from "@node-executor/core";
+﻿import { BaseNode } from "@workflow-imohuan/node-executor";
 import type {
   NodeData,
   PortDefinition,
   WorkflowExecutionContext,
-} from "@node-executor/core";
+} from "@workflow-imohuan/node-executor";
 
 export interface DelayNodeConfig {
   /** 延迟时间（毫秒） */

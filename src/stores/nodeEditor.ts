@@ -21,7 +21,7 @@ import {
 } from "@/workflow/variables/variableResolver";
 import type { VariableTreeNode } from "@/workflow/variables/variableResolver";
 import { nodeEditorLayoutConfig, type ContainerPaddingConfig } from "@/config";
-import { IfNode } from "@node-executor/core";
+import { IfNode } from "@workflow-imohuan/node-executor";
 import type { IfConfig } from "@/workflow/nodes";
 import {
   executeWorkflow as runWorkflow,
@@ -29,7 +29,7 @@ import {
   type WorkflowNode,
   type WorkflowEdge,
   type WorkflowExecutionResult,
-} from "@node-executor/core";
+} from "@workflow-imohuan/node-executor";
 import { workflowEmitter } from "@/main";
 
 const { containerDefaults, childEstimate } = nodeEditorLayoutConfig;

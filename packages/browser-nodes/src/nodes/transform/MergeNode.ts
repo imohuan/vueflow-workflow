@@ -1,8 +1,8 @@
-﻿import { BaseNode } from "@node-executor/core";
+﻿import { BaseNode } from "@workflow-imohuan/node-executor";
 import type {
   PortDefinition,
   WorkflowExecutionContext,
-} from "@node-executor/core";
+} from "@workflow-imohuan/node-executor";
 
 /**
  * 变量聚合节点

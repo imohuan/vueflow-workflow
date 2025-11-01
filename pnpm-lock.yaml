@@ -11,15 +11,9 @@ importers:
 
   .:
     dependencies:
-      '@browser-nodes/core':
-        specifier: workspace:*
-        version: link:packages/browser-nodes
       '@dagrejs/dagre':
         specifier: ^1.1.5
         version: 1.1.5
-      '@node-executor/core':
-        specifier: workspace:*
-        version: link:packages/node-executor
       '@primevue/icons':
         specifier: ^4.4.1
         version: 4.4.1(vue@3.5.22(typescript@5.9.3))
@@ -38,6 +32,12 @@ importers:
       '@vueuse/core':
         specifier: ^14.0.0
         version: 14.0.0(vue@3.5.22(typescript@5.9.3))
+      '@workflow-imohuan/browser-nodes':
+        specifier: workspace:*
+        version: link:packages/browser-nodes
+      '@workflow-imohuan/node-executor':
+        specifier: workspace:*
+        version: link:packages/node-executor
       lodash-es:
         specifier: ^4.17.21
         version: 4.17.21
@@ -96,7 +96,7 @@ importers:
 
   packages/browser-nodes:
     dependencies:
-      '@node-executor/core':
+      '@workflow-imohuan/node-executor':
         specifier: workspace:*
         version: link:../node-executor
       lodash-es:
