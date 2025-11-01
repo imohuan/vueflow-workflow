@@ -19,7 +19,7 @@
 ### 1. 基础使用
 
 ```typescript
-import { createMCPClient } from "@/core";
+import { createMCPClient } from "@browser-nodes/core";
 
 // 创建客户端实例
 const client = createMCPClient({
@@ -47,7 +47,7 @@ if (result.success) {
 ```vue
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { createMCPClient } from "@/core";
+import { createMCPClient } from "@browser-nodes/core";
 
 const client = createMCPClient();
 const loading = ref(false);

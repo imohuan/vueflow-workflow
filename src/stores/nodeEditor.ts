@@ -12,22 +12,24 @@ import type {
   Connection,
   NodeResultOutput,
 } from "@/typings/nodeEditor";
-import { getNodeByType, IfNode } from "@/core/nodes";
-import { createMCPClient } from "@/core/mcp-client";
+import { getNodeByType } from "@/workflow/nodes";
+import type { WorkflowExecutionContext } from "@/workflow/nodes";
+import { useNodeRegistry } from "@/composables/useNodeRegistry";
 import {
   buildVariableContext,
   resolveConfigWithVariables,
-} from "@/utils/variableResolver";
-import type { VariableTreeNode } from "@/utils/variableResolver";
+} from "@/workflow/variables/variableResolver";
+import type { VariableTreeNode } from "@/workflow/variables/variableResolver";
 import { nodeEditorLayoutConfig, type ContainerPaddingConfig } from "@/config";
-import type { IfConfig } from "@/core/nodes/flow/IfNode";
+import { IfNode } from "@/workflow/nodes";
+import type { IfConfig } from "@/workflow/nodes";
 import {
   executeWorkflow as runWorkflow,
   type ExecutionLog,
   type WorkflowNode,
   type WorkflowEdge,
   type WorkflowExecutionResult,
-} from "@/core/executor";
+} from "@node-executor/core";
 import { workflowEmitter } from "@/main";
 
 const { containerDefaults, childEstimate } = nodeEditorLayoutConfig;
@@ -238,13 +240,9 @@ function loadPersistedArray<T>(key: string): T[] {
   }
 }
 
-// 创建全局 MCP 客户端实例
-const mcpClient = createMCPClient({
-  apiUrl: "/api/mcp",
-  enableLog: true,
-});
-
 export const useNodeEditorStore = defineStore("nodeEditor", () => {
+  // 初始化节点注册表（在 store 内部调用）
+  const nodeRegistry = useNodeRegistry();
   const nodes = ref<Node<NodeData>[]>(
     loadPersistedArray<Node<NodeData>>(STORAGE_KEYS.nodes)
   );
@@ -661,9 +659,21 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     position: { x: number; y: number },
     options: { parentNodeId?: string } = {}
   ): string | null {
-    const nodeClass = getNodeByType(nodeType);
-    if (!nodeClass) {
-      console.error(`未找到节点类型: ${nodeType}`);
+    // 优先使用节点注册表创建节点数据（支持 JSON 数据）
+    let nodeData = nodeRegistry.createNodeData(nodeType);
+
+    // 如果注册表中没有，尝试使用节点实例（向后兼容）
+    if (!nodeData) {
+      const nodeClass = getNodeByType(nodeType);
+      if (!nodeClass) {
+        console.error(`未找到节点类型: ${nodeType}`);
+        return null;
+      }
+      nodeData = nodeClass.createNodeData();
+    }
+
+    if (!nodeData) {
+      console.error(`无法创建节点数据: ${nodeType}`);
       return null;
     }
 
@@ -671,9 +681,6 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     const id = `${nodeType}_${Date.now()}_${Math.random()
       .toString(36)
       .substr(2, 9)}`;
-
-    // 创建节点数据
-    const nodeData = nodeClass.createNodeData();
 
     // 生成唯一名称
     if (nodeData.label) {
@@ -2667,7 +2674,9 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
         nodes: workflowNodes,
         edges: workflowEdges,
         startNodeId: startNode.id,
-        client: mcpClient,
+        // 不再传递全局 client，改为通过初始化 MCP 节点来管理
+        // client: mcpClient, // @deprecated 已废弃，请使用初始化 MCP 节点
+        nodeFactory: getNodeByType, // 使用包含核心节点的 getNodeByType
         emitter: workflowEmitter,
         executionId,
         workflowId,
@@ -2777,7 +2786,15 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
         variableContext.map
       );
 
-      const result = await nodeClass.run(resolvedConfig, inputs, mcpClient);
+      // 执行单个节点时创建空的执行上下文
+      // 注意：单节点执行时，如果节点需要 MCP 客户端，需要先执行初始化 MCP 节点
+      const emptyContext: WorkflowExecutionContext = {};
+      // TypeScript 类型检查：BaseNode.run 现在只接受 3 个参数 (config, inputs, context)
+      const result = await (nodeClass as any).run(
+        resolvedConfig,
+        inputs,
+        emptyContext
+      );
 
       // 4. 保存结果
       updateNodeResult(nodeId, result);

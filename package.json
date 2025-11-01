@@ -9,7 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@browser-nodes/core": "workspace:*",
     "@dagrejs/dagre": "^1.1.5",
+    "@node-executor/core": "workspace:*",
     "@primevue/icons": "^4.4.1",
     "@vue-flow/background": "^1.3.2",
     "@vue-flow/controls": "^1.1.3",

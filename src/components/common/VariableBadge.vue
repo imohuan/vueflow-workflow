@@ -16,7 +16,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import IconLink from "@/icons/IconLink.vue";
-import { simplifyVariableReference } from "@/utils/variableResolver";
+import { simplifyVariableReference } from "@/workflow/variables/variableResolver";
 
 interface Props {
   /** 变量值，如 "{{ 截图.result.name }}" */

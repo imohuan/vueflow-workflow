@@ -55,8 +55,8 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { NodeData } from "@/typings/nodeEditor";
-import type { Condition, IfConfig } from "@/core/nodes/flow/IfNode";
-import { OPERATOR_LABELS } from "@/core/nodes/flow/IfNode";
+import type { Condition, IfConfig } from "@/workflow/nodes";
+import { OPERATOR_LABELS } from "@/workflow/nodes";
 import NodeWrapper from "./NodeWrapper.vue";
 
 interface Props {

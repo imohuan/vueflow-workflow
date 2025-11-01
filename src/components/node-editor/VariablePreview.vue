@@ -30,7 +30,7 @@ import { useNodeEditorStore } from "@/stores/nodeEditor";
 import {
   resolveConfigWithVariables,
   buildVariableContext,
-} from "@/utils/variableResolver";
+} from "@/workflow/variables/variableResolver";
 
 interface Props {
   value?: string | number;

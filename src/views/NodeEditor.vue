@@ -261,7 +261,7 @@ import IconFit from "@/icons/IconFit.vue";
 import IconPlayCircle from "@/icons/IconPlayCircle.vue";
 
 // 引入工作流执行状态管理
-import { useWorkflowExecution } from "@/composables/workflow/useWorkflowExecution";
+import { useWorkflowExecution } from "@/workflow/execution/useWorkflowExecution";
 
 type DagreLayoutDirection = "TB" | "BT" | "LR" | "RL";
 

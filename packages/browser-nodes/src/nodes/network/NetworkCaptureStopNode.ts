@@ -1,0 +1,56 @@
+﻿import { BaseNode } from "@node-executor/core";
+import type { PortDefinition } from "@node-executor/core";
+import type { MCPClient } from "../../types.ts";
+
+/**
+ * 停止网络捕获节点
+ * 停止监听并获取捕获的网络数据
+ */
+export class NetworkCaptureStopNode extends BaseNode {
+  readonly type = "networkCaptureStop";
+  readonly label = "停止网络捕获";
+  readonly description = "停止监听并获取捕获的网络数据";
+  readonly category = "网络监控";
+
+  protected defineInputs(): PortDefinition[] {
+    return [];
+  }
+
+  protected defineOutputs(): PortDefinition[] {
+    return [
+      {
+        id: "requests",
+        name: "网络请求",
+        type: "array",
+      },
+    ];
+  }
+
+  protected getDefaultConfig(): Record<string, any> {
+    return {};
+  }
+
+  async execute(
+    config: Record<string, any>,
+    inputs: Record<string, any>,
+    client: MCPClient
+  ): Promise<any> {
+    const response = await client.networkCaptureStop();
+
+    if (!response.success) {
+      throw new Error(response.error?.message || "停止网络捕获失败");
+    }
+
+    const payload = response.result;
+
+    return {
+      outputs: {
+        requests: payload,
+      },
+      raw: payload,
+      summary: Array.isArray(payload)
+        ? `捕获到 ${payload.length} 条请求`
+        : undefined,
+    };
+  }
+}

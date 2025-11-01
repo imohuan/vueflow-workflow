@@ -158,8 +158,8 @@ import type {
   SubCondition,
   OperatorType,
   IfConfig,
-} from "@/core/nodes/flow/IfNode";
-import { OPERATOR_LABELS, OPERATORS_BY_TYPE } from "@/core/nodes/flow/IfNode";
+} from "@/workflow/nodes";
+import { OPERATOR_LABELS, OPERATORS_BY_TYPE } from "@/workflow/nodes";
 import VariableTextInput from "./VariableTextInput.vue";
 import Select from "@/components/common/Select.vue";
 import CascadedSelect from "@/components/common/CascadedSelect.vue";

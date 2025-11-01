@@ -109,8 +109,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { getNodesByCategory } from "@/core/nodes";
-import type { BaseNode } from "@/core/nodes";
+import { useNodeRegistry } from "@/composables/useNodeRegistry";
+import type { NodeMetadata } from "@/composables/useNodeRegistry";
 import Accordion from "@/components/common/Accordion.vue";
 import AccordionPanel from "@/components/common/AccordionPanel.vue";
 import AccordionHeader from "@/components/common/AccordionHeader.vue";
@@ -121,7 +121,7 @@ import IconEmptyNode from "@/icons/IconEmptyNode.vue";
 
 interface Emits {
   (e: "close"): void;
-  (e: "dragStart", node: BaseNode): void;
+  (e: "dragStart", node: NodeMetadata): void;
   (e: "dragEnd"): void;
 }
 
@@ -129,17 +129,12 @@ const emit = defineEmits<Emits>();
 
 const searchQuery = ref("");
 
+// 使用节点注册表 hooks
+const nodeRegistry = useNodeRegistry();
+
 /** 所有节点按分类 */
 const nodesByCategory = computed(() => {
-  const categories = getNodesByCategory();
-  // 转换为包含元数据的格式
-  const result: Record<string, any[]> = {};
-
-  for (const [category, nodes] of Object.entries(categories)) {
-    result[category] = nodes.map((node) => node.getMetadata());
-  }
-
-  return result;
+  return nodeRegistry.getNodesByCategory.value;
 });
 
 // 默认展开所有分类
@@ -155,20 +150,17 @@ const filteredNodesByCategory = computed(() => {
     return nodesByCategory.value;
   }
 
-  const result: Record<string, any[]> = {};
+  const result: Record<string, NodeMetadata[]> = {};
+  const searchResults = nodeRegistry.searchNodes(query);
 
-  for (const [category, nodes] of Object.entries(nodesByCategory.value)) {
-    const filtered = nodes.filter(
-      (node) =>
-        node.label.toLowerCase().includes(query) ||
-        node.description.toLowerCase().includes(query) ||
-        node.type.toLowerCase().includes(query)
-    );
-
-    if (filtered.length > 0) {
-      result[category] = filtered;
+  // 按分类组织搜索结果
+  searchResults.forEach((node) => {
+    const category = node.category;
+    if (!result[category]) {
+      result[category] = [];
     }
-  }
+    result[category]!.push(node);
+  });
 
   return result;
 });
@@ -176,7 +168,7 @@ const filteredNodesByCategory = computed(() => {
 /**
  * 拖拽开始
  */
-function onDragStart(event: DragEvent, nodeMetadata: any) {
+function onDragStart(event: DragEvent, nodeMetadata: NodeMetadata) {
   if (!event.dataTransfer) return;
 
   // 设置拖拽数据

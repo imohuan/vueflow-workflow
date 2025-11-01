@@ -252,8 +252,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, h, type Component } from "vue";
-import type { MCPClient } from "@/core/mcp-client";
-import { createMCPClient } from "@/core";
+import type { MCPClient } from "@browser-nodes/core";
+import { createMCPClient } from "@browser-nodes/core";
 import IconDocument from "@/icons/IconDocument.vue";
 
 // 创建 MCP 客户端实例

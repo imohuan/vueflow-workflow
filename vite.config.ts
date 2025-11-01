@@ -10,6 +10,8 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    // 配置条件导出，优先使用 development 条件（指向 TypeScript 源文件）
+    conditions: ["development", "import", "module", "browser", "default"],
   },
   server: {
     port: 3000,

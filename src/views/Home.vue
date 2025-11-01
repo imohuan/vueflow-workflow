@@ -45,9 +45,6 @@ interface Page {
 
 const pages: Page[] = [
   { path: "/node-editor", title: "节点编辑器" },
-  { path: "/flow-test", title: "Flow 测试" },
-  { path: "/demo", title: "演示页面" },
-  { path: "/box-line", title: "Box Line" },
   { path: "/mcp-test", title: "MCP 测试" },
 ];
 

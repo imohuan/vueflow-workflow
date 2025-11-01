@@ -282,7 +282,7 @@ import InputText from "@/components/common/InputText.vue";
 import Select from "@/components/common/Select.vue";
 import VariableTextInput from "./VariableTextInput.vue";
 import ConditionEditor from "./ConditionEditor.vue";
-import type { IfConfig } from "@/core/nodes/flow/IfNode";
+import type { IfConfig } from "@/workflow/nodes";
 
 const store = useNodeEditorStore();
 // 本地配置副本

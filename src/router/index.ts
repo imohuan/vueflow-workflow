@@ -17,21 +17,6 @@ const router = createRouter({
       component: () => import("@/views/NodeEditor.vue"),
     },
     {
-      path: "/flow-test",
-      name: "FlowTest",
-      component: () => import("@/views/FlowTest/index.vue"),
-    },
-    {
-      path: "/demo",
-      name: "Demo",
-      component: () => import("@/views/Demo.vue"),
-    },
-    {
-      path: "/box-line",
-      name: "BoxLine",
-      component: () => import("@/views/BoxLine/index.vue"),
-    },
-    {
       path: "/mcp-test",
       name: "MCPTest",
       component: () => import("@/views/MCPTest.vue"),

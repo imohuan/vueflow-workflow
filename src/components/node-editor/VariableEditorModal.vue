@@ -170,7 +170,7 @@ import { useNodeEditorStore } from "@/stores/nodeEditor";
 import {
   buildVariableContext,
   resolveConfigWithVariables,
-} from "@/utils/variableResolver";
+} from "@/workflow/variables/variableResolver";
 
 interface Props {
   modelValue?: boolean;

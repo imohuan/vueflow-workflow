@@ -125,28 +125,32 @@ export interface ExecutionSnapshot {
 
 // ==================== 事件类型 ====================
 
-/** 工作流事件类型枚举 */
-export enum WorkflowEventType {
+/** 工作流事件类型常量 */
+export const WorkflowEventType = {
   // 执行生命周期
-  STARTED = "workflow:started",
-  COMPLETED = "workflow:completed",
-  ERROR = "workflow:error",
-  PAUSED = "workflow:paused",
-  RESUMED = "workflow:resumed",
+  STARTED: "workflow:started",
+  COMPLETED: "workflow:completed",
+  ERROR: "workflow:error",
+  PAUSED: "workflow:paused",
+  RESUMED: "workflow:resumed",
 
   // 节点状态
-  NODE_STATUS = "workflow:node:status",
-  NODE_PROGRESS = "workflow:node:progress",
-  NODE_LOG = "workflow:node:log",
+  NODE_STATUS: "workflow:node:status",
+  NODE_PROGRESS: "workflow:node:progress",
+  NODE_LOG: "workflow:node:log",
 
   // 边状态
-  EDGE_ACTIVE = "workflow:edge:active",
-  EDGE_INACTIVE = "workflow:edge:inactive",
+  EDGE_ACTIVE: "workflow:edge:active",
+  EDGE_INACTIVE: "workflow:edge:inactive",
 
   // 恢复机制
-  RESTORE_REQUEST = "workflow:restore:request",
-  RESTORE_DATA = "workflow:restore:data",
-}
+  RESTORE_REQUEST: "workflow:restore:request",
+  RESTORE_DATA: "workflow:restore:data",
+} as const;
+
+/** 工作流事件类型 */
+export type WorkflowEventType =
+  (typeof WorkflowEventType)[keyof typeof WorkflowEventType];
 
 // ==================== 事件 Payload ====================
 
@@ -266,6 +270,9 @@ export interface WorkflowEvents {
   [WorkflowEventType.EDGE_INACTIVE]: EdgeInactivePayload;
   [WorkflowEventType.RESTORE_REQUEST]: RestoreRequestPayload;
   [WorkflowEventType.RESTORE_DATA]: RestoreDataPayload;
+  // 索引签名，用于满足 mitt 的类型约束
+  [key: string]: unknown;
+  [key: symbol]: unknown;
 }
 
 // ==================== 状态管理 ====================
