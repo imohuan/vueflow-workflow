@@ -1,18 +1,23 @@
 /**
  * 节点注册表 Hooks
- * 统一管理节点元数据，支持从 @workflow-imohuan/browser-nodes 加载和动态注册
+ * 统一管理节点元数据，支持从多个注册表（nodeRegistryList）加载和动态注册
  * 未来将完全基于 JSON 数据，不依赖节点实例
  */
 
 import { ref, computed } from "vue";
+import { BrowserNodeRegistry } from "@workflow-imohuan/browser-nodes";
 import {
-  getAllNodes,
-  getNodeByType as getBrowserNodeByType,
+  type BaseNode,
   type PortDefinition,
-} from "@workflow-imohuan/browser-nodes";
-import { type BaseNode } from "@workflow-imohuan/node-executor";
-import { getNodeByType as getCoreNodeByType } from "@/workflow/nodes";
+  type NodeRegistry,
+  CoreNodeRegistry,
+} from "@workflow-imohuan/node-executor";
 import type { NodeData } from "@/typings/nodeEditor";
+
+const nodeRegistryList: NodeRegistry[] = [
+  new CoreNodeRegistry(),
+  new BrowserNodeRegistry(),
+];
 
 /**
  * 节点元数据
@@ -53,7 +58,7 @@ const state = ref<NodeRegistryState>({
  * 从节点实例提取元数据
  * 使用 createNodeData 方法获取完整的节点数据（包含默认端口逻辑）
  */
-function extractMetadata(node: BaseNode | any): NodeMetadata {
+function extractMetadata(node: BaseNode): NodeMetadata {
   // 使用 createNodeData 方法获取完整的节点数据
   const nodeData = node.createNodeData();
 
@@ -70,27 +75,20 @@ function extractMetadata(node: BaseNode | any): NodeMetadata {
 
 /**
  * 初始化节点注册表
- * 从 @workflow-imohuan/browser-nodes 和核心节点加载所有节点元数据
+ * 从 nodeRegistryList 中的所有注册表加载节点元数据
+ * 注意：核心节点（start, end, if, for）由 workflowExecutor 管理，不在此处加载
  */
 function initializeRegistry() {
   // 清空现有数据
   state.value.metadataMap.clear();
 
-  // 加载 @workflow-imohuan/browser-nodes 包中的节点
-  const browserNodes = getAllNodes();
-  browserNodes.forEach((node) => {
-    const metadata = extractMetadata(node);
-    state.value.metadataMap.set(metadata.type, metadata);
-  });
-
-  // 加载核心节点（StartNode, EndNode, IfNode, ForNode）
-  const coreNodeTypes = ["start", "end", "if", "for"];
-  coreNodeTypes.forEach((type) => {
-    const node = getCoreNodeByType(type);
-    if (node) {
+  // 遍历所有注册表，加载节点元数据
+  nodeRegistryList.forEach((registry) => {
+    const nodes = registry.getAllNodes();
+    nodes.forEach((node: BaseNode) => {
       const metadata = extractMetadata(node);
       state.value.metadataMap.set(metadata.type, metadata);
-    }
+    });
   });
 }
 
@@ -245,10 +243,28 @@ function createNodeData(type: string): NodeData | null {
 }
 
 /**
- * 获取节点实例（向后兼容，仅在需要执行时使用）
+ * 获取节点实例（从 nodeRegistryList 中查找）
+ * 遍历所有注册表，返回第一个匹配的节点实例
+ * 注意：核心节点（start, end, if, for）由 workflowExecutor 管理，不在此处处理
  */
 function getNodeInstance(type: string): BaseNode | undefined {
-  return getCoreNodeByType(type) || getBrowserNodeByType(type);
+  for (const registry of nodeRegistryList) {
+    const node = registry.getNodeByType(type);
+    if (node) {
+      return node;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * 获取节点实例（统一入口，从 nodeRegistryList 中查找）
+ * 注意：核心节点（start, end, if, for）由 workflowExecutor 管理，不在此处处理
+ * @param type - 节点类型
+ * @returns 节点实例
+ */
+export function getNodeByType(type: string): BaseNode | undefined {
+  return getNodeInstance(type);
 }
 
 /**
@@ -300,6 +316,7 @@ export function useNodeRegistry() {
 
     // 向后兼容方法（仅在需要节点实例时使用）
     getNodeInstance,
+    getNodeByType, // 统一入口，推荐使用
 
     // 工具方法
     getDynamicNodes: computed(() => getDynamicNodes()),

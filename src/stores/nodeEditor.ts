@@ -12,9 +12,8 @@ import type {
   Connection,
   NodeResultOutput,
 } from "@/typings/nodeEditor";
-import { getNodeByType } from "@/workflow/nodes";
-import type { WorkflowExecutionContext } from "@/workflow/nodes";
-import { useNodeRegistry } from "@/composables/useNodeRegistry";
+import type { WorkflowExecutionContext } from "@workflow-imohuan/node-executor";
+import { useNodeRegistry, getNodeByType } from "@/composables/useNodeRegistry";
 import {
   buildVariableContext,
   resolveConfigWithVariables,

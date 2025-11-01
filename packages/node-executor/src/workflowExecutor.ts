@@ -13,6 +13,18 @@ import type {
   WorkflowExecutionContext,
 } from "./types.ts";
 import { WorkflowEventType } from "./events.ts";
+import { StartNode } from "./nodes/StartNode.ts";
+import { EndNode } from "./nodes/EndNode.ts";
+import { IfNode } from "./nodes/IfNode.ts";
+import { ForNode } from "./nodes/ForNode.ts";
+
+// 核心节点注册表
+const CORE_NODE_MAP: Record<string, BaseNode> = {
+  start: new StartNode(),
+  end: new EndNode(),
+  if: new IfNode(),
+  for: new ForNode(),
+};
 
 /**
  * 收集节点输入的上下文选项
@@ -50,13 +62,17 @@ export async function executeWorkflow<TNode extends BaseNode = BaseNode>(
     nodes,
     edges,
     startNodeId,
-    nodeFactory,
+    nodeFactory: __nodeFactory,
     signal,
     logId,
     emitter,
     executionId,
     workflowId,
   } = options;
+
+  const nodeFactory = (type: string): BaseNode | undefined => {
+    return CORE_NODE_MAP[type] ?? __nodeFactory?.(type);
+  };
 
   if (!Array.isArray(nodes) || nodes.length === 0) {
     throw new Error("执行失败：至少需要一个节点");
