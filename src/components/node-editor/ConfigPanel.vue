@@ -27,15 +27,30 @@
     </div>
 
     <!-- 配置内容 - JSON 驱动渲染 -->
-    <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+    <div class="flex-1 overflow-y-auto px-4 py-3 space-y-6">
+      <!-- 执行模式设置 -->
+      <div class="space-y-3">
+        <div
+          class="flex items-center gap-1.5 pb-2 border-b border-slate-200 text-[11px] font-semibold text-slate-600 tracking-wide"
+        >
+          <IconCog class="w-4 h-4 shrink-0" />
+          <span>执行模式</span>
+        </div>
+
+        <div>
+          <ExecutionModeSettings />
+        </div>
+      </div>
+
+      <!-- 其他配置项 -->
       <div
         v-for="section in configSchema"
         :key="section.title"
-        class="p-4 bg-white/90 border border-slate-200 rounded-md shadow-sm space-y-3"
+        class="space-y-3"
       >
         <!-- 分组标题 -->
         <div
-          class="flex items-center gap-1.5 pb-2 border-b border-slate-100 text-[11px] font-semibold text-slate-600 tracking-wide"
+          class="flex items-center gap-1.5 pb-2 border-b border-slate-200 text-[11px] font-semibold text-slate-600 tracking-wide"
         >
           <component :is="resolveSectionIcon(section.icon)" class="shrink-0" />
           <span>{{ section.title }}</span>
@@ -120,7 +135,9 @@ import Checkbox from "@/components/common/Checkbox.vue";
 import Select from "@/components/common/Select.vue";
 import InputText from "@/components/common/InputText.vue";
 import Slider from "@/components/common/Slider.vue";
+import ExecutionModeSettings from "@/components/node-editor/ExecutionModeSettings.vue";
 import IconReset from "@/icons/IconReset.vue";
+import IconCog from "@/icons/IconCog.vue";
 import IconEdgeStyle from "@/icons/IconEdgeStyle.vue";
 import IconCanvas from "@/icons/IconCanvas.vue";
 import IconWidget from "@/icons/IconWidget.vue";

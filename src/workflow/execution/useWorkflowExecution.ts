@@ -29,6 +29,7 @@ import {
   type IterationCompletedPayload,
   type LoopCompletedPayload,
 } from "@/typings/workflowExecution";
+import { useNotifyStore } from "@/stores/notify";
 
 // ==================== 状态定义 ====================
 
@@ -83,6 +84,7 @@ export function useWorkflowExecution(
 
   // 类型断言：确保 emitter 不为 undefined
   const safeEmitter = emitter as Emitter<WorkflowEvents>;
+  const notify = useNotifyStore();
 
   // ==================== 状态 ====================
 
@@ -262,6 +264,12 @@ export function useWorkflowExecution(
       `[WorkflowExecution] 工作流执行错误: ${payload.executionId}`,
       payload.error
     );
+
+    const errorTitle = payload.error.nodeId
+      ? `节点 ${payload.error.nodeId} 执行失败`
+      : "工作流执行失败";
+    const detailText = payload.error.stack || undefined;
+    notify.showError(errorTitle, payload.error.message, detailText);
   }
 
   /** 处理节点状态变化事件 */

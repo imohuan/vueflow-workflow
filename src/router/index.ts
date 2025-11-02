@@ -21,6 +21,11 @@ const router = createRouter({
       name: "MCPTest",
       component: () => import("@/views/MCPTest.vue"),
     },
+    {
+      path: "/server-mode",
+      name: "ServerMode",
+      component: () => import("@/views/ServerModeDemo.vue"),
+    },
   ],
 });
 

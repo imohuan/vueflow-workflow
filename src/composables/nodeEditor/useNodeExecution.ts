@@ -30,7 +30,10 @@ import {
   type WorkflowEdge,
 } from "workflow-node-executor";
 import { getNodeTypeKey } from "./utils";
-import { useWorkflowExecutor } from "@/composables/useWorkflowExecutor";
+import { useWorkflowExecutionManager } from "@/composables/useWorkflowExecutionManager";
+import { useNotifyStore } from "@/stores/notify";
+
+export { resolveConfigWithVariables };
 
 export function useNodeExecution(
   nodes: Ref<Node<NodeData>[]>,
@@ -42,8 +45,57 @@ export function useNodeExecution(
   const lastExecutionLog = ref<ExecutionLog | null>(null);
   const lastExecutionError = ref<string | null>(null);
 
-  // 在 setup 上下文中创建 workflowExecutor（只创建一次）
-  const workflowExecutor = useWorkflowExecutor();
+  // 使用统一的执行管理器（支持 Worker 和 Server 模式）
+  const executionManager = useWorkflowExecutionManager();
+  const notify = useNotifyStore();
+
+  async function ensureExecutorReady(): Promise<boolean> {
+    if (executionManager.mode.value === "server") {
+      const status = executionManager.status.value;
+      if (status === "error" || status === "disconnected") {
+        notify.showError(
+          "执行服务器未连接",
+          `请检查服务器地址：${executionManager.serverUrl.value}`
+        );
+        return false;
+      }
+    }
+
+    if (executionManager.isReady.value) {
+      return true;
+    }
+
+    let timeoutId: number | null = null;
+
+    try {
+      await Promise.race([
+        executionManager.waitForReady(),
+        new Promise((_, reject) => {
+          timeoutId = window.setTimeout(() => {
+            reject(new Error("执行器在 5 秒内未就绪"));
+          }, 5000);
+        }),
+      ]);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error ?? "执行器未就绪");
+      notify.showError("执行器未就绪", message);
+      return false;
+    } finally {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    }
+
+    if (!executionManager.isReady.value) {
+      notify.showError("执行器未就绪", "请稍后重试或检查连接状态");
+      return false;
+    }
+
+    return true;
+  }
 
   /** 收集节点输入数据 */
   function collectNodeInputs(nodeId: string): Record<string, any> {
@@ -137,6 +189,7 @@ export function useNodeExecution(
     options: { clearPreviousResult?: boolean } = {}
   ) {
     if (isExecutingWorkflow.value) {
+      notify.showWarning("正在执行工作流", "请等待当前执行完成");
       return;
     }
 
@@ -150,6 +203,7 @@ export function useNodeExecution(
 
     if (actionableNodes.length === 0) {
       lastExecutionError.value = "画布中没有可执行的节点";
+      notify.showError("无法执行工作流", "画布中没有可执行的节点");
       return;
     }
 
@@ -159,12 +213,13 @@ export function useNodeExecution(
 
     if (!startNode) {
       lastExecutionError.value = "请先添加开始节点";
+      notify.showError("无法执行工作流", "请先添加开始节点");
       return;
     }
 
-    // 检查 Worker 是否就绪（workflowExecutor 已在 setup 上下文中创建）
-    if (!workflowExecutor.isReady()) {
-      lastExecutionError.value = "工作流执行器未就绪，请稍后再试";
+    const ready = await ensureExecutorReady();
+    if (!ready) {
+      lastExecutionError.value = "执行器未就绪";
       return;
     }
 
@@ -212,21 +267,26 @@ export function useNodeExecution(
           targetHandle: edge.targetHandle ?? null,
         }));
 
-      // 使用 Worker 执行工作流
+      // 使用执行管理器执行工作流（支持 Worker/Server 模式）
       // 注意：执行是异步的，状态更新通过事件系统（mitt）进行
       // useWorkflowExecution 会监听这些事件并更新节点状态
       console.log(
         `[useNodeExecution] 准备执行工作流 ID: ${workflowId}，节点数: ${workflowNodes.length}，边数: ${workflowEdges.length}`
       );
+      console.log(
+        `[useNodeExecution] 当前执行模式: ${executionManager.mode.value}`
+      );
 
-      const executionId = workflowExecutor.execute(
+      const executionId = `exec_${Date.now()}`;
+      executionManager.executeWorkflow(
+        executionId,
         workflowId,
         workflowNodes,
         workflowEdges
       );
 
       console.log(
-        `[useNodeExecution] 工作流执行已提交到 Worker，执行 ID: ${executionId}，工作流 ID: ${workflowId}`
+        `[useNodeExecution] 工作流执行已提交，执行 ID: ${executionId}，工作流 ID: ${workflowId}`
       );
 
       // 注意：与之前的同步执行不同，现在执行状态通过事件系统异步更新
@@ -237,6 +297,12 @@ export function useNodeExecution(
         error instanceof Error ? error.message : String(error ?? "执行失败");
       lastExecutionError.value = message;
       lastExecutionLog.value = null;
+
+      notify.showError(
+        "执行请求失败",
+        message,
+        error instanceof Error ? error.stack : undefined
+      );
 
       actionableNodes.forEach((node) => {
         if (!node.data) return;

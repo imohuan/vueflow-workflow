@@ -29,7 +29,7 @@
     </div>
 
     <!-- 节点列表 -->
-    <div class="flex-1 overflow-y-auto p-2">
+    <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2">
       <Accordion v-model:value="expandedCategories" multiple>
         <AccordionPanel
           v-for="(nodeList, category) in filteredNodesByCategory"
@@ -48,7 +48,7 @@
                 :draggable="true"
                 @dragstart="onDragStart($event, node)"
                 @dragend="onDragEnd"
-                class="px-3 py-2 rounded border border-slate-200 bg-white hover:bg-slate-50 cursor-move transition-colors group"
+                class="px-2 py-1.5 rounded hover:bg-slate-50 cursor-move transition-colors group"
               >
                 <div class="flex items-start gap-2">
                   <!-- 拖拽图标 -->

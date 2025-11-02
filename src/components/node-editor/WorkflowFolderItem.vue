@@ -455,7 +455,7 @@ function handleDrop(
   font-size: 13px;
   transition: background 0.15s;
   border-radius: 6px;
-  margin: 0 8px;
+  margin: 0;
 }
 
 .tree-row:hover {
@@ -592,8 +592,8 @@ function handleDrop(
 /* 拖拽插入位置指示线 */
 .drop-indicator {
   position: absolute;
-  left: 20px;
-  right: 4px;
+  left: 12px;
+  right: 0px;
   height: 2px;
   background: #3b82f6;
   pointer-events: none;

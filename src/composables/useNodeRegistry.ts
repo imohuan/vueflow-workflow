@@ -35,7 +35,7 @@
 import { ref, computed } from "vue";
 import type { PortDefinition } from "workflow-node-executor";
 import type { NodeData } from "@/typings/nodeEditor";
-import { useWorkflowWorker } from "./useWorkflowWorker";
+import { useWorkflowExecutionManager } from "./useWorkflowExecutionManager";
 
 /**
  * 节点元数据
@@ -76,34 +76,36 @@ const state = ref<NodeRegistryState>({
 });
 
 /**
- * 从 Worker 加载节点元数据（需要在 setup 上下文中调用）
- * 这是唯一的元数据来源，不再本地生成
+ * 从执行管理器加载节点元数据（需要在 setup 上下文中调用）
+ * 支持 Worker 和 Server 模式
  */
-async function loadFromWorker(worker: ReturnType<typeof useWorkflowWorker>) {
+async function loadFromExecutionManager(
+  manager: ReturnType<typeof useWorkflowExecutionManager>
+) {
   if (state.value.loadedFromWorker) {
     return;
   }
 
   try {
-    // 等待 Worker 初始化完成
-    await worker.waitForReady();
+    // 等待执行管理器初始化完成
+    await manager.waitForReady();
 
     // 清空现有数据
     state.value.metadataMap.clear();
 
-    // 从 Worker 获取节点元数据（唯一来源）
-    const metadata = worker.nodeMetadata.value;
+    // 从执行管理器获取节点元数据（唯一来源）
+    const metadata = manager.nodeMetadata.value;
     metadata.forEach((node) => {
       state.value.metadataMap.set(node.type, node as NodeMetadata);
     });
 
     state.value.loadedFromWorker = true;
     console.log(
-      `[NodeRegistry] ✅ 已从 Worker 加载 ${metadata.length} 个节点元数据`
+      `[NodeRegistry] ✅ 已加载 ${metadata.length} 个节点元数据 (模式: ${manager.mode.value})`
     );
   } catch (error) {
     console.error(
-      "[NodeRegistry] ❌ 从 Worker 加载节点失败，这会导致节点列表为空",
+      "[NodeRegistry] ❌ 加载节点失败，这会导致节点列表为空",
       error
     );
     throw error; // 抛出错误，不回退到本地
@@ -283,20 +285,19 @@ function clearDynamicNodes() {
  * - 懒加载本地注册表（仅用于单节点执行）
  */
 export function useNodeRegistry() {
-  // 从 Worker 加载节点元数据（唯一来源）
+  // 从执行管理器加载节点元数据（支持 Worker/Server 模式）
   if (state.value.metadataMap.size === 0 && !state.value.loadedFromWorker) {
     try {
       // 必须在 setup 上下文中调用
-      const worker = useWorkflowWorker();
+      const manager = useWorkflowExecutionManager();
 
-      // 异步从 Worker 加载节点元数据
-      loadFromWorker(worker).catch((error) => {
-        console.error("[NodeRegistry] ❌ 无法从 Worker 加载节点元数据", error);
-        // 不再回退到本地，因为元数据应该由 Worker 提供
+      // 异步加载节点元数据
+      loadFromExecutionManager(manager).catch((error) => {
+        console.error("[NodeRegistry] ❌ 无法加载节点元数据", error);
       });
     } catch (error) {
       console.error(
-        "[NodeRegistry] ❌ useWorkflowWorker() 必须在 setup 上下文中调用",
+        "[NodeRegistry] ❌ useWorkflowExecutionManager() 必须在 setup 上下文中调用",
         error
       );
     }

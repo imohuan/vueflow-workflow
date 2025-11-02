@@ -8,7 +8,7 @@
  * 4. 管理节点元数据
  */
 
-import { ref, inject, type Ref } from "vue";
+import { ref, computed, inject, type Ref } from "vue";
 import type { Emitter } from "mitt";
 import type { WorkflowEvents } from "@/typings/workflowExecution";
 import type { WorkflowNode, WorkflowEdge } from "workflow-node-executor";
@@ -176,6 +176,9 @@ export interface UseWorkflowWorkerReturn {
   /** Worker 状态 */
   status: Readonly<Ref<WorkerStatus>>;
 
+  /** 是否已就绪 */
+  isReady: Readonly<Ref<boolean>>;
+
   /** 节点元数据列表 */
   nodeMetadata: Readonly<Ref<NodeMetadata[]>>;
 
@@ -192,6 +195,33 @@ export interface UseWorkflowWorkerReturn {
 }
 
 /**
+ * 创建或获取工作流 Worker 实例
+ */
+export function createWorkflowWorker(
+  emitter: Emitter<WorkflowEvents>
+): UseWorkflowWorkerReturn {
+  if (!emitter) {
+    throw new Error(
+      "workflowEmitter not provided. Make sure it's provided in main.ts"
+    );
+  }
+
+  if (!workerInstance && workerStatus.value === "initializing") {
+    initializeWorker(emitter).catch((error) => {
+      console.error("[WorkflowWorker] 初始化失败", error);
+    });
+  }
+
+  return {
+    status: workerStatus,
+    isReady: computed(() => workerStatus.value === "ready"),
+    nodeMetadata: nodeMetadataList,
+    executeWorkflow,
+    waitForReady: () => initializeWorker(emitter),
+  };
+}
+
+/**
  * 使用工作流 Worker
  */
 export function useWorkflowWorker(): UseWorkflowWorkerReturn {
@@ -204,22 +234,7 @@ export function useWorkflowWorker(): UseWorkflowWorkerReturn {
     );
   }
 
-  // 如果 Worker 还未初始化，立即初始化
-  if (!workerInstance && workerStatus.value === "initializing") {
-    initializeWorker(emitter).catch((error) => {
-      console.error("[WorkflowWorker] 初始化失败", error);
-    });
-  }
-
-  // 组件卸载时不终止 Worker（Worker 是全局单例）
-  // 只在应用关闭时才终止 Worker
-
-  return {
-    status: workerStatus,
-    nodeMetadata: nodeMetadataList,
-    executeWorkflow,
-    waitForReady: () => initializeWorker(emitter),
-  };
+  return createWorkflowWorker(emitter);
 }
 
 // ==================== 导出清理函数（用于应用关闭时） ====================

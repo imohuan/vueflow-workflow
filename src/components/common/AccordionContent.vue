@@ -8,7 +8,7 @@
     @after-leave="onAfterLeave"
   >
     <div v-show="isExpanded" class="overflow-hidden">
-      <div class="p-2 pt-2">
+      <div class="pt-2">
         <slot />
       </div>
     </div>

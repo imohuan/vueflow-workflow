@@ -1,6 +1,6 @@
 <!-- 纯 Tailwind CSS 手风琴面板组件 -->
 <template>
-  <div class="border border-slate-200 rounded-lg overflow-hidden bg-white">
+  <div class="overflow-hidden">
     <slot />
   </div>
 </template>

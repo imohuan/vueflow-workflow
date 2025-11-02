@@ -1,0 +1,41 @@
+{
+  "name": "workflow-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for workflow execution - alternative to Web Worker",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "dev": "tsx watch src/start.ts",
+    "build": "tsup",
+    "start": "node dist/index.cjs"
+  },
+  "dependencies": {
+    "workflow-node-executor": "workspace:*",
+    "workflow-browser-nodes": "workspace:*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/ws": "^8.5.13",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "keywords": [
+    "workflow",
+    "websocket",
+    "server",
+    "node-execution"
+  ],
+  "author": "",
+  "license": "MIT"
+}

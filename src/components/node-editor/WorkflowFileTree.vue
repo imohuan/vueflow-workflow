@@ -417,7 +417,7 @@ function handleDrop(target: any, position: "before" | "after" | "inside") {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 8px 0;
+  padding: 8px 16px;
   min-height: 0;
 }
 
