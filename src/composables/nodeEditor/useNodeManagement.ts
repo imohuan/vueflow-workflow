@@ -70,9 +70,9 @@ export function useNodeManagement(
     position: { x: number; y: number },
     options: { parentNodeId?: string } = {}
   ): string | null {
-    const nodeData = nodeRegistry.createNodeData(nodeType);
+    const metadata = nodeRegistry.getNodeMetadata(nodeType);
 
-    if (!nodeData) {
+    if (!metadata) {
       console.error(
         `无法创建节点数据: ${nodeType}，请确保 Worker 已加载节点元数据`
       );
@@ -83,20 +83,24 @@ export function useNodeManagement(
       .toString(36)
       .substr(2, 9)}`;
 
-    if (nodeData.label) {
-      nodeData.label = generateUniqueName(nodeData.label);
+    let label = metadata.label;
+    if (label) {
+      label = generateUniqueName(label);
     }
 
     const node: Node<NodeData> = {
       id,
       type: "custom",
       position: { ...position },
-      data: nodeData,
+      data: {
+        config: { ...metadata.defaultConfig },
+        inputs: metadata.inputs,
+        outputs: metadata.outputs,
+        label,
+        category: metadata.category,
+        variant: nodeType,
+      },
     };
-
-    if (node.data) {
-      node.data.variant = nodeType as any;
-    }
 
     if (options.parentNodeId) {
       node.parentNode = options.parentNodeId;

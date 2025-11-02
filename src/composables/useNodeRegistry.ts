@@ -34,7 +34,6 @@
 
 import { ref, computed } from "vue";
 import type { PortDefinition } from "workflow-node-executor";
-import type { NodeData } from "@/typings/nodeEditor";
 import { useWorkflowExecutionManager } from "./useWorkflowExecutionManager";
 
 /**
@@ -201,64 +200,6 @@ function hasNodeType(type: string): boolean {
 }
 
 /**
- * 创建节点数据（用于创建新节点）
- * 基于元数据创建节点的初始数据
- */
-function createNodeData(type: string): NodeData | null {
-  const metadata = getNodeMetadata(type);
-  if (!metadata) {
-    return null;
-  }
-
-  // 检查是否有自定义端口
-  const hasCustomInputPorts = metadata.inputs.some((input) => input.isPort);
-  const hasCustomOutputPorts = metadata.outputs.some((output) => output.isPort);
-
-  // 配置项（非端口的输入）
-  const configOnlyInputs = metadata.inputs.filter((input) => !input.isPort);
-
-  // 如果没有自定义输入端口，添加默认输入端口
-  const finalInputs = hasCustomInputPorts
-    ? metadata.inputs
-    : [
-        ...configOnlyInputs,
-        {
-          id: "__input__",
-          name: "输入",
-          type: "any",
-          isPort: true,
-        },
-      ];
-
-  // 如果没有自定义输出端口，添加默认输出端口
-  const finalOutputs = hasCustomOutputPorts
-    ? metadata.outputs
-    : [
-        {
-          id: "__output__",
-          name: "输出",
-          type: "any",
-          isPort: true,
-        },
-      ];
-
-  return {
-    config: { ...metadata.defaultConfig },
-    inputs: finalInputs,
-    outputs: finalOutputs,
-    label: metadata.label,
-    category: metadata.category,
-    variant:
-      metadata.type === "start" ||
-      metadata.type === "end" ||
-      metadata.type === "condition" ||
-      metadata.type === "custom"
-        ? metadata.type
-        : "custom",
-  };
-}
-
-/**
  * 获取动态注册的节点（来自后端）
  */
 function getDynamicNodes(): NodeMetadata[] {
@@ -319,9 +260,6 @@ export function useNodeRegistry() {
     registerNode,
     registerNodes,
     clearDynamicNodes,
-
-    // 创建方法
-    createNodeData,
 
     // 工具方法
     getDynamicNodes: computed(() => getDynamicNodes()),
