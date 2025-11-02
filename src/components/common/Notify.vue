@@ -1,6 +1,6 @@
 <template>
   <div class="notify-container" aria-live="assertive">
-    <TransitionGroup name="notify-slide" tag="div">
+    <TransitionGroup name="notify-slide" tag="div" class="notify-list">
       <div
         v-for="item in visibleItems"
         :key="item.id"
@@ -62,10 +62,13 @@ function close(id: string) {
   position: fixed;
   top: 16px;
   right: 16px;
+  z-index: 9999;
+}
+
+.notify-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  z-index: 9999;
+  gap: 12px;
 }
 
 .notify-item {

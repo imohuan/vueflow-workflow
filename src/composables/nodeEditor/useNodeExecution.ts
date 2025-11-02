@@ -48,12 +48,27 @@ export function useNodeExecution(
   // 使用统一的执行管理器（支持 Worker 和 Server 模式）
   const executionManager = useWorkflowExecutionManager();
   const notify = useNotifyStore();
+  let lastReadyErrorMessage = "";
+  let lastReadyErrorTimestamp = 0;
+
+  function notifyExecutorError(title: string, message: string) {
+    const now = Date.now();
+    if (
+      message === lastReadyErrorMessage &&
+      now - lastReadyErrorTimestamp < 2000
+    ) {
+      return;
+    }
+    lastReadyErrorMessage = message;
+    lastReadyErrorTimestamp = now;
+    notify.showError(title, message);
+  }
 
   async function ensureExecutorReady(): Promise<boolean> {
     if (executionManager.mode.value === "server") {
       const status = executionManager.status.value;
       if (status === "error" || status === "disconnected") {
-        notify.showError(
+        notifyExecutorError(
           "执行服务器未连接",
           `请检查服务器地址：${executionManager.serverUrl.value}`
         );
@@ -81,7 +96,7 @@ export function useNodeExecution(
         error instanceof Error
           ? error.message
           : String(error ?? "执行器未就绪");
-      notify.showError("执行器未就绪", message);
+      notifyExecutorError("执行器未就绪", message);
       return false;
     } finally {
       if (timeoutId) {
@@ -90,7 +105,7 @@ export function useNodeExecution(
     }
 
     if (!executionManager.isReady.value) {
-      notify.showError("执行器未就绪", "请稍后重试或检查连接状态");
+      notifyExecutorError("执行器未就绪", "请稍后重试或检查连接状态");
       return false;
     }
 
