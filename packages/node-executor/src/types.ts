@@ -126,7 +126,8 @@ export interface NodeData {
     | "custom"
     | "if"
     | "for"
-    | "loop-container";
+    | "loop-container"
+    | string;
   /** 是否为容器节点 */
   isContainer?: boolean;
   /** 容器是否处于高亮状态（拖拽交集提示） */

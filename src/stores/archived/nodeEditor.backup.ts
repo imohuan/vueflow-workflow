@@ -690,26 +690,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     };
 
     if (node.data) {
-      // 确保 variant 是有效的类型
-      const validVariants = [
-        "start",
-        "condition",
-        "end",
-        "custom",
-        "if",
-        "for",
-        "loop-container",
-      ] as const;
-      if (validVariants.includes(nodeType as any)) {
-        node.data.variant = nodeType as
-          | "start"
-          | "condition"
-          | "end"
-          | "custom"
-          | "if"
-          | "for"
-          | "loop-container";
-      }
+      node.data.variant = nodeType as any;
     }
 
     if (options.parentNodeId) {
