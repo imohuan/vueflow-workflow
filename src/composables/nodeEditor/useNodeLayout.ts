@@ -470,6 +470,42 @@ export function useNodeLayout(
       layoutContainerChildren(container.id);
       notifyContainerInternals(container.id);
     } else {
+      // 节点移出容器时，移除与容器及其内部节点的连接线
+      let removedContainerEdges = false;
+      const relatedNodeIds = new Set<string>();
+      if (state.containerId) {
+        relatedNodeIds.add(state.containerId);
+      }
+
+      nodes.value.forEach((n) => {
+        if (n.parentNode === state.containerId) {
+          relatedNodeIds.add(n.id);
+        }
+      });
+
+      if (relatedNodeIds.size > 0) {
+        const filteredEdges = edges.value.filter((edge) => {
+          const isSourceNode = edge.source === nodeId;
+          const isTargetNode = edge.target === nodeId;
+
+          if (!isSourceNode && !isTargetNode) {
+            return true;
+          }
+
+          const otherNodeId = isSourceNode ? edge.target : edge.source;
+          if (relatedNodeIds.has(otherNodeId)) {
+            removedContainerEdges = true;
+            return false;
+          }
+
+          return true;
+        });
+
+        if (removedContainerEdges) {
+          edges.value = filteredEdges;
+        }
+      }
+
       if (container) {
         const absolutePosition = {
           x: container.position.x + node.position.x,

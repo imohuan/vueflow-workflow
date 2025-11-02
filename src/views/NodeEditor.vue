@@ -126,7 +126,7 @@
       <!-- 底部中央控制按钮组 -->
       <div
         v-if="config.showControls"
-        class="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-1.5 px-1.5 py-1.5 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-md shadow-lg z-5"
+        class="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-lg shadow-xl z-10"
       >
         <!-- 历史记录按钮 -->
         <Button
@@ -149,7 +149,7 @@
         </Button>
 
         <!-- 分隔线 -->
-        <div class="w-px h-6 bg-slate-200 my-auto"></div>
+        <div class="w-px h-5 bg-slate-300/60"></div>
 
         <!-- <Button variant="outlined" icon-only @click="zoomIn" title="放大">
           <IconZoomIn />
