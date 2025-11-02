@@ -9,4 +9,5 @@ export default defineConfig({
   clean: true,
   outDir: "dist",
   target: "ES2020",
+  noExternal: ["lodash-es"],
 });

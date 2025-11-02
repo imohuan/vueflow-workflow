@@ -3,7 +3,7 @@
  * 管理所有浏览器节点实例的加载和访问
  */
 
-import { BaseNode, NodeRegistry } from "@workflow-imohuan/node-executor";
+import { BaseNode, NodeRegistry } from "workflow-node-executor";
 
 // 浏览器管理
 import { InitializeMCPNode } from "./nodes/core/InitializeMCPNode.ts";

@@ -5,13 +5,13 @@
  */
 
 import { ref, computed } from "vue";
-import { BrowserNodeRegistry } from "@workflow-imohuan/browser-nodes";
+import { BrowserNodeRegistry } from "workflow-browser-nodes";
 import {
   type BaseNode,
   type PortDefinition,
   type NodeRegistry,
   CoreNodeRegistry,
-} from "@workflow-imohuan/node-executor";
+} from "workflow-node-executor";
 import type { NodeData } from "@/typings/nodeEditor";
 
 const nodeRegistryList: NodeRegistry[] = [

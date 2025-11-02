@@ -60,6 +60,26 @@ export interface NodeResult {
   timestamp: number;
   /** 执行结果数据 */
   data: NodeResultData;
+  /** For 循环节点的迭代执行结果 */
+  iterations?: IterationResult[];
+}
+
+/**
+ * For 循环迭代结果
+ */
+export interface IterationResult {
+  /** 迭代索引（0-based） */
+  index: number;
+  /** 当前迭代变量 */
+  variables: Record<string, any>;
+  /** 容器内节点的执行结果 */
+  nodeResults: Record<string, NodeResult>;
+  /** 单次迭代耗时（毫秒） */
+  duration: number;
+  /** 迭代执行状态 */
+  status: "success" | "error";
+  /** 迭代错误信息 */
+  error?: string;
 }
 
 /**
@@ -154,8 +174,49 @@ export type NodeExecutionStatus =
  */
 export interface WorkflowExecutionContext {
   /** MCP 客户端实例（由初始化节点设置） */
+  mcpClient?: any;
+  /** For 循环注入的当前迭代变量 */
+  loopVariables?: Record<string, any>;
   /** 其他共享数据 */
   [key: string]: unknown;
+}
+
+/**
+ * 执行栈帧
+ */
+export interface ExecutionFrame {
+  /** 帧类型 */
+  type: "normal" | "loop";
+  /** 帧内待执行节点队列 */
+  queue: string[];
+  /** 已访问节点集合 */
+  visited: Set<string>;
+  /** 帧级上下文数据 */
+  context: WorkflowExecutionContext;
+  /** 循环执行上下文 */
+  loopContext?: LoopExecutionContext;
+}
+
+/**
+ * 循环执行上下文
+ */
+export interface LoopExecutionContext {
+  /** For 节点 ID */
+  forNodeId: string;
+  /** 容器节点 ID */
+  containerId: string;
+  /** 迭代列表 */
+  iterations: Record<string, any>[];
+  /** 总迭代次数 */
+  totalIterations: number;
+  /** 当前迭代索引 */
+  currentIteration: number;
+  /** 当前迭代变量 */
+  iterationVariables?: Record<string, any>;
+  /** 每次迭代的执行结果 */
+  iterationResults: IterationResult[];
+  /** 是否在错误后继续执行 */
+  continueOnError: boolean;
 }
 
 /**

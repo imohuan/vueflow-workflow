@@ -134,6 +134,12 @@ export const WorkflowEventType = {
   PAUSED: "workflow:paused",
   RESUMED: "workflow:resumed",
 
+  // 循环事件
+  LOOP_STARTED: "workflow:loop:started",
+  ITERATION_STARTED: "workflow:loop:iteration-started",
+  ITERATION_COMPLETED: "workflow:loop:iteration-completed",
+  LOOP_COMPLETED: "workflow:loop:completed",
+
   // 节点状态
   NODE_STATUS: "workflow:node:status",
   NODE_PROGRESS: "workflow:node:progress",
@@ -170,6 +176,47 @@ export interface WorkflowCompletedPayload {
   duration: number;
   successNodes: number;
   failedNodes: number;
+}
+
+/** 循环开始事件 */
+export interface LoopStartedPayload {
+  executionId: string;
+  forNodeId: string;
+  containerId: string;
+  totalIterations: number;
+  timestamp: number;
+}
+
+/** 迭代开始事件 */
+export interface IterationStartedPayload {
+  executionId: string;
+  forNodeId: string;
+  iterationIndex: number;
+  variables: Record<string, any>;
+  timestamp: number;
+}
+
+/** 迭代完成事件 */
+export interface IterationCompletedPayload {
+  executionId: string;
+  forNodeId: string;
+  iterationIndex: number;
+  duration: number;
+  status: "success" | "error";
+  error?: string;
+  timestamp: number;
+}
+
+/** 循环完成事件 */
+export interface LoopCompletedPayload {
+  executionId: string;
+  forNodeId: string;
+  containerId: string;
+  totalIterations: number;
+  successCount: number;
+  errorCount: number;
+  duration: number;
+  timestamp: number;
 }
 
 /** 工作流错误事件 */
@@ -263,6 +310,10 @@ export interface WorkflowEvents {
   [WorkflowEventType.ERROR]: WorkflowErrorPayload;
   [WorkflowEventType.PAUSED]: WorkflowPausedPayload;
   [WorkflowEventType.RESUMED]: WorkflowResumedPayload;
+  [WorkflowEventType.LOOP_STARTED]: LoopStartedPayload;
+  [WorkflowEventType.ITERATION_STARTED]: IterationStartedPayload;
+  [WorkflowEventType.ITERATION_COMPLETED]: IterationCompletedPayload;
+  [WorkflowEventType.LOOP_COMPLETED]: LoopCompletedPayload;
   [WorkflowEventType.NODE_STATUS]: NodeStatusPayload;
   [WorkflowEventType.NODE_PROGRESS]: NodeProgressPayload;
   [WorkflowEventType.NODE_LOG]: NodeLogPayload;

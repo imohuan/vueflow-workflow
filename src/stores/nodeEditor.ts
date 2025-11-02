@@ -12,7 +12,7 @@ import type {
   Connection,
   NodeResultOutput,
 } from "@/typings/nodeEditor";
-import type { WorkflowExecutionContext } from "@workflow-imohuan/node-executor";
+import type { WorkflowExecutionContext } from "workflow-node-executor";
 import { useNodeRegistry, getNodeByType } from "@/composables/useNodeRegistry";
 import {
   buildVariableContext,
@@ -20,7 +20,7 @@ import {
 } from "@/workflow/variables/variableResolver";
 import type { VariableTreeNode } from "@/workflow/variables/variableResolver";
 import { nodeEditorLayoutConfig, type ContainerPaddingConfig } from "@/config";
-import { IfNode } from "@workflow-imohuan/node-executor";
+import { IfNode } from "workflow-node-executor";
 import type { IfConfig } from "@/workflow/nodes";
 import {
   executeWorkflow as runWorkflow,
@@ -28,7 +28,7 @@ import {
   type WorkflowNode,
   type WorkflowEdge,
   type WorkflowExecutionResult,
-} from "@workflow-imohuan/node-executor";
+} from "workflow-node-executor";
 import { workflowEmitter } from "@/main";
 
 const { containerDefaults, childEstimate } = nodeEditorLayoutConfig;
@@ -1285,6 +1285,12 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
           return;
         }
 
+        if (isDragging) {
+          node.position = position;
+          notifyContainerInternals(node.id);
+          return;
+        }
+
         const configForExpansion = ensureContainerCapacity(
           container,
           node,
@@ -1293,10 +1299,8 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
         const clamped = clampChildPosition(position, configForExpansion, node);
         node.position = clamped;
         notifyContainerInternals(node.id);
-        updateContainerBounds(container);
-        if (!isDragging) {
-          layoutContainerChildren(container.id);
-        }
+
+        layoutContainerChildren(container.id);
         if (recordHistory) {
           recordHistoryDebounced();
         }
@@ -1338,7 +1342,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
   ) {
     moveNodeInternal(nodeId, position, {
       isDragging: false,
-      recordHistory: false,
+      recordHistory: true,
     });
   }
 

@@ -9,8 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@workflow-imohuan/browser-nodes": "workspace:*",
-    "@workflow-imohuan/node-executor": "workspace:*",
+    "workflow-browser-nodes": "workspace:*",
+    "workflow-node-executor": "workspace:*",
     "@dagrejs/dagre": "^1.1.5",
     "@primevue/icons": "^4.4.1",
     "@vue-flow/background": "^1.3.2",

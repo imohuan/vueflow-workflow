@@ -8,7 +8,7 @@ export type {
   NodeResult,
   NodeResultOutput,
   NodeResultData,
-} from "@workflow-imohuan/node-executor";
+} from "workflow-node-executor";
 
 /**
  * 节点类型

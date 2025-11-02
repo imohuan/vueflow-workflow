@@ -9,6 +9,12 @@ export enum WorkflowEventType {
   PAUSED = "workflow:paused",
   RESUMED = "workflow:resumed",
 
+  // 循环事件
+  LOOP_STARTED = "workflow:loop:started",
+  ITERATION_STARTED = "workflow:loop:iteration-started",
+  ITERATION_COMPLETED = "workflow:loop:iteration-completed",
+  LOOP_COMPLETED = "workflow:loop:completed",
+
   // 节点状态
   NODE_STATUS = "workflow:node:status",
   NODE_PROGRESS = "workflow:node:progress",

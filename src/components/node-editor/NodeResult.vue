@@ -34,7 +34,7 @@
         <!-- 成功结果 -->
         <div
           v-if="result.status === 'success'"
-          class="relative p-3 rounded-md text-xs bg-green-50 border border-green-200 w-full space-y-2"
+          class="relative p-3 rounded-md text-xs bg-green-50 border border-green-200 w-full space-y-3"
         >
           <button
             class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-md border border-green-200/80 bg-white/80 text-green-600 hover:bg-white transition"
@@ -62,9 +62,154 @@
             <span class="text-green-400">({{ branchInfo.id }})</span>
           </div>
 
+          <div v-if="hasIterations" class="space-y-3">
+            <div
+              class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-green-100 bg-white px-3 py-2"
+            >
+              <div class="text-[11px] text-slate-600">
+                循环执行: 共 {{ totalIterations }} 次迭代
+                <span
+                  v-if="iterationSummary.success"
+                  class="ml-2 text-green-500"
+                  >成功 {{ iterationSummary.success }} 次</span
+                >
+                <span v-if="iterationSummary.error" class="ml-2 text-red-500"
+                  >失败 {{ iterationSummary.error }} 次</span
+                >
+              </div>
+              <div class="flex items-center gap-2 text-[11px]">
+                <button
+                  class="px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="currentIterationIndex === 0"
+                  @click="prevIteration"
+                >
+                  ◀
+                </button>
+                <span>
+                  第
+                  {{ totalIterations === 0 ? 0 : currentIterationIndex + 1 }} /
+                  {{ totalIterations }} 次
+                </span>
+                <button
+                  class="px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="currentIterationIndex >= totalIterations - 1"
+                  @click="nextIteration"
+                >
+                  ▶
+                </button>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap gap-1">
+              <button
+                v-for="(_, idx) in iterationList"
+                :key="idx"
+                class="px-2 py-0.5 text-[10px] rounded border transition"
+                :class="[
+                  idx === currentIterationIndex
+                    ? 'bg-indigo-500 text-white border-indigo-500'
+                    : 'bg-white text-slate-500 border-slate-200',
+                  iterationList[idx]?.status === 'error' &&
+                  idx !== currentIterationIndex
+                    ? 'border-red-300 text-red-500'
+                    : '',
+                ]"
+                @click="gotoIteration(idx)"
+              >
+                {{ idx + 1 }}
+              </button>
+            </div>
+
+            <div
+              v-if="currentIteration"
+              class="space-y-3 rounded-md border border-green-100 bg-white p-3"
+            >
+              <div
+                class="flex items-center justify-between text-[11px] text-slate-500"
+              >
+                <span
+                  >状态：
+                  <span
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium"
+                    :class="iterationStatusClass(currentIteration.status)"
+                  >
+                    {{ formatIterationStatus(currentIteration.status) }}
+                  </span>
+                </span>
+                <span
+                  >耗时：{{ formatDuration(currentIteration.duration) }}</span
+                >
+              </div>
+
+              <div class="space-y-1">
+                <div class="text-[11px] font-semibold text-slate-600">
+                  迭代变量
+                </div>
+                <div class="grid gap-2">
+                  <div
+                    v-for="(value, key) in currentIteration.variables"
+                    :key="key"
+                    class="rounded border border-slate-200 bg-slate-50 p-2"
+                  >
+                    <div class="text-[10px] font-semibold text-slate-500">
+                      {{ key }}
+                    </div>
+                    <div class="mt-1">
+                      <JsonViewer :data="value" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="currentIterationNodes.length > 0" class="space-y-1">
+                <div class="text-[11px] font-semibold text-slate-600">
+                  容器节点执行结果
+                </div>
+                <div class="space-y-1.5">
+                  <div
+                    v-for="node in currentIterationNodes"
+                    :key="node.nodeId"
+                    class="flex items-center justify-between rounded border border-slate-200 bg-white px-2 py-1"
+                  >
+                    <span
+                      class="text-[11px] font-mono text-slate-500 truncate mr-2"
+                    >
+                      {{ node.nodeId }}
+                    </span>
+                    <span class="flex items-center gap-2">
+                      <span class="text-[10px] text-slate-400">
+                        {{ formatDuration(node.result.duration) }}
+                      </span>
+                      <span
+                        class="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                        :class="iterationStatusClass(node.result.status)"
+                      >
+                        {{ formatIterationStatus(node.result.status) }}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="currentIterationOutput" class="space-y-1">
+                <div class="text-[11px] font-semibold text-slate-600">
+                  输出结果
+                </div>
+                <div
+                  class="max-h-[220px] overflow-auto rounded border border-slate-200 bg-white p-2"
+                >
+                  <JsonViewer
+                    :data="currentIterationOutput"
+                    root-name="output"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div v-if="hasOutputs" class="space-y-2">
             <div
-              v-for="output in outputList"
+              v-for="output in displayOutputList"
               :key="output.id"
               class="bg-white border border-slate-200 rounded-md"
             >
@@ -230,6 +375,11 @@ const emit = defineEmits<{
 }>();
 
 const expanded = ref(props.expanded);
+const iterationList = computed(() => props.result?.iterations ?? []);
+const hasIterations = computed(() => iterationList.value.length > 0);
+const totalIterations = computed(() => iterationList.value.length);
+const currentIterationIndex = ref(0);
+
 const outputList = computed<NodeResultOutput[]>(() => {
   const outputs = props.result?.data?.outputs;
   if (!outputs) return [];
@@ -238,9 +388,26 @@ const outputList = computed<NodeResultOutput[]>(() => {
   );
 });
 
-const hasOutputs = computed(() => outputList.value.length > 0);
+const displayOutputList = computed(() => {
+  if (!hasIterations.value) {
+    return outputList.value;
+  }
+  return outputList.value.filter((output) => output.id !== "loop");
+});
+
+const hasOutputs = computed(() => displayOutputList.value.length > 0);
 const rawData = computed(() => props.result?.data?.raw);
-const fullScreenData = computed(() => props.result?.data ?? null);
+const fullScreenData = computed(() => {
+  if (!props.result) return null;
+  return {
+    status: props.result.status,
+    duration: props.result.duration,
+    timestamp: props.result.timestamp,
+    error: props.result.error,
+    data: props.result.data,
+    iterations: props.result.iterations,
+  };
+});
 const showFullScreen = ref(false);
 const viewerExpandMode = ref<"none" | "first" | "all">("none");
 const viewerExpandTrigger = ref(0);
@@ -259,7 +426,7 @@ const branchInfo = computed(() => {
   }
 
   if (!branchId) {
-    const activeOutput = outputList.value.find(
+    const activeOutput = displayOutputList.value.find(
       (output) => output?.value && typeof output.value === "object"
     );
     if (activeOutput) {
@@ -280,12 +447,69 @@ const branchInfo = computed(() => {
   };
 });
 
+const currentIteration = computed(() => {
+  if (!hasIterations.value) return null;
+  return iterationList.value[currentIterationIndex.value] ?? null;
+});
+
+const currentIterationNodes = computed(() => {
+  if (!currentIteration.value) {
+    return [] as Array<{ nodeId: string; result: NodeResult }>;
+  }
+  const nodeResults = currentIteration.value.nodeResults ?? {};
+  return Object.entries(nodeResults).map(([nodeId, result]) => ({
+    nodeId,
+    result,
+  }));
+});
+
+const currentIterationOutput = computed(() => {
+  if (!currentIteration.value) return null;
+  const nodeResults = currentIteration.value.nodeResults ?? {};
+  const results = Object.values(nodeResults);
+  if (results.length === 0) {
+    return null;
+  }
+  const last = results[results.length - 1];
+  return last?.data ?? null;
+});
+
+const iterationSummary = computed(() => {
+  if (!hasIterations.value) {
+    return { success: 0, error: 0 };
+  }
+  const success = iterationList.value.filter(
+    (item) => item.status === "success"
+  ).length;
+  const error = iterationList.value.filter(
+    (item) => item.status === "error"
+  ).length;
+  return { success, error };
+});
+
 watch(
   () => props.expanded,
   (value) => {
     expanded.value = value;
   }
 );
+
+watch(
+  () => props.result?.iterations,
+  () => {
+    currentIterationIndex.value = 0;
+  }
+);
+
+watch(totalIterations, (count) => {
+  if (count === 0) {
+    currentIterationIndex.value = 0;
+    return;
+  }
+  if (currentIterationIndex.value > count - 1) {
+    currentIterationIndex.value = count - 1;
+  }
+});
 
 function toggleExpanded() {
   expanded.value = !expanded.value;
@@ -321,6 +545,38 @@ function collapseAll() {
   triggerViewerExpand("none");
 }
 
+function prevIteration() {
+  if (currentIterationIndex.value > 0) {
+    currentIterationIndex.value -= 1;
+  }
+}
+
+function nextIteration() {
+  if (currentIterationIndex.value < totalIterations.value - 1) {
+    currentIterationIndex.value += 1;
+  }
+}
+
+function gotoIteration(index: number) {
+  if (index >= 0 && index < totalIterations.value) {
+    currentIterationIndex.value = index;
+  }
+}
+
+function formatIterationStatus(status: string): string {
+  return status === "success" ? "成功" : status === "error" ? "失败" : status;
+}
+
+function iterationStatusClass(status: string): string {
+  if (status === "success") {
+    return "bg-green-100 text-green-600";
+  }
+  if (status === "error") {
+    return "bg-red-100 text-red-600";
+  }
+  return "bg-slate-100 text-slate-500";
+}
+
 function formatDuration(ms: number): string {
   if (ms < 1000) {
     return `${ms.toFixed(0)}ms`;
@@ -337,34 +593,25 @@ function formatTimestamp(timestamp: number): string {
  * 处理滚轮事件，防止滚动内容时缩放画布
  */
 function handleWheel(event: WheelEvent) {
-  // 检查事件路径中的所有元素
   const path = event.composedPath() as HTMLElement[];
 
   for (const element of path) {
-    // 跳过非 HTMLElement
     if (!(element instanceof HTMLElement)) continue;
 
     const { scrollTop, scrollHeight, clientHeight, scrollWidth, clientWidth } =
       element;
 
-    // 检查是否有垂直滚动条
     const hasVerticalScroll = scrollHeight > clientHeight;
-    // 检查是否有水平滚动条
     const hasHorizontalScroll = scrollWidth > clientWidth;
 
-    // 如果没有滚动条，继续检查下一个元素
     if (!hasVerticalScroll && !hasHorizontalScroll) continue;
 
-    // 判断滚动方向
     const isScrollingDown = event.deltaY > 0;
     const isScrollingUp = event.deltaY < 0;
-
-    // 检查是否可以继续垂直滚动
     const canScrollDown =
       hasVerticalScroll && scrollTop < scrollHeight - clientHeight - 1;
     const canScrollUp = hasVerticalScroll && scrollTop > 1;
 
-    // 如果可以滚动，阻止事件冒泡到画布
     if ((isScrollingDown && canScrollDown) || (isScrollingUp && canScrollUp)) {
       event.stopPropagation();
       return;

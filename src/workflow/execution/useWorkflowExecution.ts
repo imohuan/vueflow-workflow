@@ -24,6 +24,10 @@ import {
   type NodeLogPayload,
   type EdgeActivePayload,
   type RestoreDataPayload,
+  type LoopStartedPayload,
+  type IterationStartedPayload,
+  type IterationCompletedPayload,
+  type LoopCompletedPayload,
 } from "@/typings/workflowExecution";
 
 // ==================== 状态定义 ====================
@@ -96,6 +100,11 @@ export function useWorkflowExecution(
 
   /** 执行历史快照（用于恢复，最多保留 5 个） */
   const snapshots = ref(new Map<string, ExecutionSnapshot>());
+
+  /** 循环执行进度 */
+  const loopProgress = ref(
+    new Map<string, { total: number; completed: number }>()
+  );
 
   // 当前工作流 ID（支持响应式和普通字符串）
   const workflowId = computed(() => {
@@ -324,6 +333,96 @@ export function useWorkflowExecution(
     }
   }
 
+  /** 处理循环开始事件 */
+  function handleLoopStarted(payload: LoopStartedPayload): void {
+    if (!shouldHandleEvent(payload)) return;
+
+    ensureNodeStatesMap(payload.executionId);
+    const key = `${payload.executionId}:${payload.forNodeId}`;
+    loopProgress.value.set(key, {
+      total: payload.totalIterations,
+      completed: 0,
+    });
+
+    const nodesMap = nodeStates.value.get(payload.executionId)!;
+    const existingState = nodesMap.get(payload.forNodeId);
+
+    if (existingState) {
+      existingState.progress = payload.totalIterations === 0 ? 100 : 0;
+      nodesMap.set(payload.forNodeId, existingState);
+    }
+
+    console.log(
+      `[WorkflowExecution] 循环开始: ${payload.forNodeId}, 总迭代 ${payload.totalIterations}`
+    );
+  }
+
+  /** 处理迭代开始事件 */
+  function handleIterationStarted(payload: IterationStartedPayload): void {
+    if (!shouldHandleEvent(payload)) return;
+    console.log(
+      `[WorkflowExecution] 迭代开始: ${payload.forNodeId}, 第 ${
+        payload.iterationIndex + 1
+      } 次`,
+      payload.variables
+    );
+  }
+
+  /** 处理迭代完成事件 */
+  function handleIterationCompleted(payload: IterationCompletedPayload): void {
+    if (!shouldHandleEvent(payload)) return;
+
+    const key = `${payload.executionId}:${payload.forNodeId}`;
+    const progressState = loopProgress.value.get(key);
+    if (progressState) {
+      progressState.completed = Math.max(
+        progressState.completed,
+        payload.iterationIndex + 1
+      );
+      loopProgress.value.set(key, progressState);
+
+      const nodesMap = nodeStates.value.get(payload.executionId);
+      if (nodesMap) {
+        const state = nodesMap.get(payload.forNodeId);
+        if (state && progressState.total > 0) {
+          const percentage = Math.min(
+            100,
+            Math.round((progressState.completed / progressState.total) * 100)
+          );
+          state.progress = percentage;
+          nodesMap.set(payload.forNodeId, state);
+        }
+      }
+    }
+
+    console.log(
+      `[WorkflowExecution] 迭代完成: ${payload.forNodeId}, 第 ${
+        payload.iterationIndex + 1
+      } 次, 状态: ${payload.status}`
+    );
+  }
+
+  /** 处理循环完成事件 */
+  function handleLoopCompleted(payload: LoopCompletedPayload): void {
+    if (!shouldHandleEvent(payload)) return;
+
+    const key = `${payload.executionId}:${payload.forNodeId}`;
+    loopProgress.value.delete(key);
+
+    const nodesMap = nodeStates.value.get(payload.executionId);
+    if (nodesMap) {
+      const state = nodesMap.get(payload.forNodeId);
+      if (state) {
+        state.progress = 100;
+        nodesMap.set(payload.forNodeId, state);
+      }
+    }
+
+    console.log(
+      `[WorkflowExecution] 循环完成: ${payload.forNodeId}, 成功 ${payload.successCount} 次, 失败 ${payload.errorCount} 次`
+    );
+  }
+
   /** 处理边激活事件 */
   function handleEdgeActive(payload: EdgeActivePayload): void {
     if (!shouldHandleEvent(payload)) return;
@@ -444,6 +543,13 @@ export function useWorkflowExecution(
     safeEmitter.on(WorkflowEventType.NODE_LOG, handleNodeLog);
     safeEmitter.on(WorkflowEventType.EDGE_ACTIVE, handleEdgeActive);
     safeEmitter.on(WorkflowEventType.RESTORE_DATA, handleRestoreData);
+    safeEmitter.on(WorkflowEventType.LOOP_STARTED, handleLoopStarted);
+    safeEmitter.on(WorkflowEventType.ITERATION_STARTED, handleIterationStarted);
+    safeEmitter.on(
+      WorkflowEventType.ITERATION_COMPLETED,
+      handleIterationCompleted
+    );
+    safeEmitter.on(WorkflowEventType.LOOP_COMPLETED, handleLoopCompleted);
 
     console.log("[WorkflowExecution] 状态管理器已初始化");
   });
@@ -458,6 +564,16 @@ export function useWorkflowExecution(
     safeEmitter.off(WorkflowEventType.NODE_LOG, handleNodeLog);
     safeEmitter.off(WorkflowEventType.EDGE_ACTIVE, handleEdgeActive);
     safeEmitter.off(WorkflowEventType.RESTORE_DATA, handleRestoreData);
+    safeEmitter.off(WorkflowEventType.LOOP_STARTED, handleLoopStarted);
+    safeEmitter.off(
+      WorkflowEventType.ITERATION_STARTED,
+      handleIterationStarted
+    );
+    safeEmitter.off(
+      WorkflowEventType.ITERATION_COMPLETED,
+      handleIterationCompleted
+    );
+    safeEmitter.off(WorkflowEventType.LOOP_COMPLETED, handleLoopCompleted);
 
     console.log("[WorkflowExecution] 状态管理器已卸载");
   });

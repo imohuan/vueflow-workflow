@@ -20,6 +20,13 @@ export interface ForConfig {
   indexName: string;
   /** 循环体容器 ID（由编辑器自动填充） */
   containerId?: string | null;
+  /** 错误处理策略 */
+  errorHandling?: {
+    /** 迭代失败时是否继续执行后续迭代 */
+    continueOnError: boolean;
+    /** 最大允许错误次数 */
+    maxErrors?: number;
+  };
 }
 
 /**
@@ -74,6 +81,9 @@ export class ForNode extends BaseNode {
       itemName: "item",
       indexName: "index",
       containerId: null,
+      errorHandling: {
+        continueOnError: false,
+      },
     };
   }
 
@@ -100,6 +110,7 @@ export class ForNode extends BaseNode {
       itemName: config.itemName,
       indexName: config.indexName,
       containerId: config.containerId || null,
+      errorHandling: config.errorHandling,
       iterations,
     };
 

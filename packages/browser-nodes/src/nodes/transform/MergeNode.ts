@@ -1,8 +1,5 @@
-﻿import { BaseNode } from "@workflow-imohuan/node-executor";
-import type {
-  PortDefinition,
-  WorkflowExecutionContext,
-} from "@workflow-imohuan/node-executor";
+﻿import { BaseNode } from "../base-node.ts";
+import type { PortDefinition, WorkflowExecutionContext } from "../base-node.ts";
 
 /**
  * 变量聚合节点

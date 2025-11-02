@@ -1,9 +1,9 @@
-import { BaseNode } from "@workflow-imohuan/node-executor";
+import { BaseNode } from "../base-node.ts";
 import type {
   PortDefinition,
   WorkflowExecutionContext,
   NodeResult,
-} from "@workflow-imohuan/node-executor";
+} from "../base-node.ts";
 import { createMCPClient } from "../../mcp-client.ts";
 import type { MCPClient } from "../../types.ts";
 

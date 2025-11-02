@@ -11,12 +11,13 @@ import type {
   WorkflowStatus,
   NodeExecutionStatus,
   WorkflowExecutionContext,
+  IterationResult,
 } from "./types.ts";
 import { WorkflowEventType } from "./events.ts";
 import { StartNode } from "./nodes/StartNode.ts";
 import { EndNode } from "./nodes/EndNode.ts";
 import { IfNode } from "./nodes/IfNode.ts";
-import { ForNode } from "./nodes/ForNode.ts";
+import { ForNode, type ForConfig } from "./nodes/ForNode.ts";
 
 // 核心节点注册表
 const CORE_NODE_MAP: Record<string, BaseNode> = {
@@ -189,18 +190,42 @@ export async function executeWorkflow<TNode extends BaseNode = BaseNode>(
       // 传递执行上下文给节点
       const result = await executor.run(config, inputs, context);
 
-      nodeResults[currentNode.id] = result;
+      let finalResult = result;
+      let forLoopHandled = false;
+
+      if (deriveNodeType(currentNode) === "for") {
+        const loopExecution = await handleForLoopExecution({
+          currentNode,
+          result,
+          context,
+          nodeMap,
+          edges,
+          nodeResults,
+          nodeFactory,
+          incomingMap,
+          outgoingMap,
+          emitter,
+          executionId: taskExecutionId,
+          nodeLogMap,
+          executedNodeIds,
+        });
+
+        finalResult = loopExecution.result;
+        forLoopHandled = loopExecution.handled;
+      }
+
+      nodeResults[currentNode.id] = finalResult;
       executedNodeIds.add(currentNode.id);
       currentNode.data = {
         ...currentNode.data,
-        result,
+        result: finalResult,
       };
 
       const endTime = Date.now();
       logEntry.status = "success";
       logEntry.endTime = endTime;
       logEntry.input = inputs;
-      logEntry.output = result;
+      logEntry.output = finalResult;
 
       // 发送节点执行成功事件
       if (emitter) {
@@ -209,7 +234,7 @@ export async function executeWorkflow<TNode extends BaseNode = BaseNode>(
           nodeId,
           status: "success" as NodeExecutionStatus,
           timestamp: endTime,
-          output: result,
+          output: finalResult,
           duration: endTime - logEntry.startTime,
         });
       }
@@ -222,13 +247,17 @@ export async function executeWorkflow<TNode extends BaseNode = BaseNode>(
       const nextEdges = outgoingMap.get(nodeId) ?? [];
 
       const activeHandles = new Set<string>();
-      const outputEntries = Object.entries(result.data?.outputs ?? {});
+      const outputEntries = Object.entries(finalResult.data?.outputs ?? {});
       outputEntries.forEach(([handleId, output]) => {
         const outputValue = output as NodeResultOutput | undefined;
         if (outputValue && outputValue.value !== undefined) {
           activeHandles.add(handleId);
         }
       });
+
+      if (forLoopHandled) {
+        activeHandles.delete("loop");
+      }
 
       let edgesToQueue = nextEdges;
       if (activeHandles.size > 0) {
@@ -467,6 +496,566 @@ function collectNodeInputs(
   });
 
   return inputs;
+}
+
+interface ForLoopExecutionOptions {
+  currentNode: WorkflowNode;
+  result: NodeResult;
+  context: WorkflowExecutionContext;
+  nodeMap: Map<string, WorkflowNode>;
+  edges: WorkflowEdge[];
+  nodeResults: Record<string, NodeResult>;
+  nodeFactory: (type: string) => BaseNode | undefined;
+  incomingMap: Map<string, WorkflowEdge[]>;
+  outgoingMap: Map<string, WorkflowEdge[]>;
+  emitter?: WorkflowExecutorOptions["emitter"];
+  executionId: string;
+  nodeLogMap: Map<string, NodeExecutionLog>;
+  executedNodeIds: Set<string>;
+}
+
+interface ForLoopExecutionResult {
+  result: NodeResult;
+  handled: boolean;
+}
+
+interface ContainerExecutionOptions {
+  containerId: string;
+  context: WorkflowExecutionContext;
+  nodeMap: Map<string, WorkflowNode>;
+  nodeResults: Record<string, NodeResult>;
+  nodeFactory: (type: string) => BaseNode | undefined;
+  incomingMap: Map<string, WorkflowEdge[]>;
+  outgoingMap: Map<string, WorkflowEdge[]>;
+  edges: WorkflowEdge[];
+  childNodeIds: Set<string>;
+  nodeLogMap: Map<string, NodeExecutionLog>;
+  executedNodeIds: Set<string>;
+  emitter?: WorkflowExecutorOptions["emitter"];
+  executionId: string;
+}
+
+async function handleForLoopExecution(
+  options: ForLoopExecutionOptions
+): Promise<ForLoopExecutionResult> {
+  const {
+    currentNode,
+    result,
+    context,
+    nodeMap,
+    edges,
+    nodeResults,
+    nodeFactory,
+    incomingMap,
+    outgoingMap,
+    emitter,
+    executionId,
+    nodeLogMap,
+    executedNodeIds,
+  } = options;
+
+  const forConfig = (currentNode.data.config || {}) as ForConfig;
+  const containerId = forConfig.containerId;
+
+  if (!containerId) {
+    return { result, handled: false };
+  }
+
+  const iterations = extractIterations(result);
+  if (!Array.isArray(iterations)) {
+    return { result, handled: true };
+  }
+
+  const childNodeIds = getContainerChildIds(containerId, nodeMap);
+
+  if (childNodeIds.size === 0) {
+    return { result, handled: true };
+  }
+
+  const continueOnError = Boolean(forConfig.errorHandling?.continueOnError);
+  const iterationResults: IterationResult[] = [];
+  const loopStartTime = Date.now();
+
+  if (emitter) {
+    emitter.emit(WorkflowEventType.LOOP_STARTED, {
+      executionId,
+      forNodeId: currentNode.id,
+      containerId,
+      totalIterations: iterations.length,
+      timestamp: loopStartTime,
+    });
+  }
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (let i = 0; i < iterations.length; i++) {
+    const iterationVars = iterations[i] ?? {};
+    const iterationStart = Date.now();
+
+    if (emitter) {
+      emitter.emit(WorkflowEventType.ITERATION_STARTED, {
+        executionId,
+        forNodeId: currentNode.id,
+        iterationIndex: i,
+        variables: iterationVars,
+        timestamp: iterationStart,
+      });
+    }
+
+    const previousLoopVariables = context.loopVariables;
+    context.loopVariables = iterationVars;
+
+    resetContainerNodeState(childNodeIds, nodeMap, nodeResults, nodeLogMap);
+
+    try {
+      const { containerResults } = await executeContainer({
+        containerId,
+        context,
+        nodeMap,
+        nodeResults,
+        nodeFactory,
+        incomingMap,
+        outgoingMap,
+        edges,
+        childNodeIds,
+        nodeLogMap,
+        executedNodeIds,
+        emitter,
+        executionId,
+      });
+
+      const iterationDuration = Date.now() - iterationStart;
+
+      iterationResults.push({
+        index: i,
+        variables: iterationVars,
+        nodeResults: containerResults,
+        duration: iterationDuration,
+        status: "success",
+      });
+
+      successCount += 1;
+
+      if (emitter) {
+        emitter.emit(WorkflowEventType.ITERATION_COMPLETED, {
+          executionId,
+          forNodeId: currentNode.id,
+          iterationIndex: i,
+          duration: iterationDuration,
+          status: "success",
+          timestamp: Date.now(),
+        });
+      }
+    } catch (error) {
+      const iterationDuration = Date.now() - iterationStart;
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error ?? "迭代执行失败");
+
+      iterationResults.push({
+        index: i,
+        variables: iterationVars,
+        nodeResults: {},
+        duration: iterationDuration,
+        status: "error",
+        error: message,
+      });
+
+      errorCount += 1;
+
+      if (emitter) {
+        emitter.emit(WorkflowEventType.ITERATION_COMPLETED, {
+          executionId,
+          forNodeId: currentNode.id,
+          iterationIndex: i,
+          duration: iterationDuration,
+          status: "error",
+          error: message,
+          timestamp: Date.now(),
+        });
+      }
+
+      if (!continueOnError) {
+        context.loopVariables = previousLoopVariables;
+        throw error;
+      }
+    } finally {
+      context.loopVariables = previousLoopVariables;
+    }
+  }
+
+  const loopDuration = Date.now() - loopStartTime;
+
+  if (emitter) {
+    emitter.emit(WorkflowEventType.LOOP_COMPLETED, {
+      executionId,
+      forNodeId: currentNode.id,
+      containerId,
+      totalIterations: iterations.length,
+      successCount,
+      errorCount,
+      duration: loopDuration,
+      timestamp: Date.now(),
+    });
+  }
+
+  const totalDuration = iterationResults.reduce(
+    (sum, item) => sum + item.duration,
+    0
+  );
+
+  const summaryParts = [
+    `循环执行 ${iterations.length} 次`,
+    `总耗时 ${totalDuration}ms`,
+  ];
+
+  const nextResult: NodeResult = {
+    ...result,
+    iterations: iterationResults,
+    data: {
+      ...result.data,
+      summary: summaryParts.join("，"),
+    },
+  };
+
+  return {
+    result: nextResult,
+    handled: true,
+  };
+}
+
+async function executeContainer(options: ContainerExecutionOptions): Promise<{
+  containerResults: Record<string, NodeResult>;
+  exitNodeId: string | null;
+}> {
+  const {
+    containerId,
+    context,
+    nodeMap,
+    nodeResults,
+    nodeFactory,
+    incomingMap,
+    outgoingMap,
+    edges,
+    childNodeIds,
+    nodeLogMap,
+    executedNodeIds,
+    emitter,
+    executionId,
+  } = options;
+
+  const nodesSnapshot = Array.from(nodeMap.values());
+  const entryNodeId = getContainerEntryNode(containerId, nodesSnapshot, edges);
+  const exitNodeId = getContainerExitNode(containerId, nodesSnapshot, edges);
+
+  if (!entryNodeId) {
+    throw new Error(`容器 ${containerId} 没有入口节点`);
+  }
+
+  if (!exitNodeId) {
+    throw new Error(`容器 ${containerId} 没有出口节点`);
+  }
+
+  const containerQueue: string[] = [entryNodeId];
+  const containerVisited = new Set<string>();
+  const containerResults: Record<string, NodeResult> = {};
+
+  while (containerQueue.length > 0) {
+    const nodeId = containerQueue.shift();
+    if (!nodeId || containerVisited.has(nodeId)) {
+      continue;
+    }
+    containerVisited.add(nodeId);
+
+    const currentNode = nodeMap.get(nodeId);
+    if (!currentNode) {
+      continue;
+    }
+
+    const logEntry = nodeLogMap.get(nodeId);
+    const startTime = Date.now();
+    if (logEntry) {
+      logEntry.status = "running";
+      logEntry.startTime = startTime;
+      logEntry.endTime = undefined;
+      logEntry.error = undefined;
+      logEntry.output = undefined;
+      logEntry.input = null;
+    }
+
+    if (emitter) {
+      emitter.emit(WorkflowEventType.NODE_STATUS, {
+        executionId,
+        nodeId,
+        status: "running" as NodeExecutionStatus,
+        timestamp: startTime,
+      });
+    }
+
+    try {
+      const executor = resolveNodeExecutor(currentNode, nodeFactory);
+      if (!executor) {
+        throw new Error(`未找到节点执行器: ${deriveNodeType(currentNode)}`);
+      }
+
+      const inputs = collectNodeInputs(nodeId, {
+        incomingMap,
+        nodeResults: {
+          ...nodeResults,
+          ...containerResults,
+        },
+      });
+
+      if (logEntry) {
+        logEntry.input = inputs;
+      }
+
+      const config = { ...currentNode.data.config };
+      const nodeResult = await executor.run(config, inputs, context);
+
+      containerResults[nodeId] = nodeResult;
+      nodeResults[nodeId] = nodeResult;
+      executedNodeIds.add(nodeId);
+      currentNode.data = {
+        ...currentNode.data,
+        result: nodeResult,
+      };
+
+      const endTime = Date.now();
+      if (logEntry) {
+        logEntry.status = "success";
+        logEntry.endTime = endTime;
+        logEntry.output = nodeResult;
+      }
+
+      if (emitter) {
+        emitter.emit(WorkflowEventType.NODE_STATUS, {
+          executionId,
+          nodeId,
+          status: "success" as NodeExecutionStatus,
+          timestamp: endTime,
+          output: nodeResult,
+          duration: endTime - startTime,
+        });
+      }
+
+      if (nodeId === exitNodeId) {
+        break;
+      }
+
+      const nextEdges = outgoingMap.get(nodeId) ?? [];
+      let edgesToQueue = nextEdges;
+
+      const activeHandles = new Set<string>();
+      const outputEntries = Object.entries(nodeResult.data?.outputs ?? {});
+      outputEntries.forEach(([handleId, output]) => {
+        const outputValue = output as NodeResultOutput | undefined;
+        if (outputValue && outputValue.value !== undefined) {
+          activeHandles.add(handleId);
+        }
+      });
+
+      if (activeHandles.size > 0) {
+        edgesToQueue = nextEdges.filter((edge) => {
+          const handleId = edge.sourceHandle ?? null;
+          if (!handleId) {
+            return activeHandles.size === 1;
+          }
+          if (activeHandles.has(handleId)) {
+            return true;
+          }
+          return handleId === "__output__" || handleId === "result";
+        });
+      }
+
+      edgesToQueue.forEach((edge) => {
+        if (!edge.target) return;
+        if (
+          childNodeIds.has(edge.target) &&
+          !containerVisited.has(edge.target)
+        ) {
+          containerQueue.push(edge.target);
+        }
+
+        if (emitter && edge.id) {
+          emitter.emit(WorkflowEventType.EDGE_ACTIVE, {
+            executionId,
+            edgeId: edge.id,
+            fromNodeId: edge.source,
+            toNodeId: edge.target,
+            timestamp: Date.now(),
+          });
+        }
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error ?? "迭代执行失败");
+      const errorTime = Date.now();
+
+      if (logEntry) {
+        logEntry.status = "error";
+        logEntry.endTime = errorTime;
+        logEntry.error = message;
+      }
+
+      if (emitter) {
+        emitter.emit(WorkflowEventType.NODE_STATUS, {
+          executionId,
+          nodeId,
+          status: "error" as NodeExecutionStatus,
+          timestamp: errorTime,
+          error: {
+            message,
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+          duration: errorTime - startTime,
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  return {
+    containerResults,
+    exitNodeId,
+  };
+}
+
+function getContainerChildIds(
+  containerId: string,
+  nodeMap: Map<string, WorkflowNode>
+): Set<string> {
+  const childIds = new Set<string>();
+  nodeMap.forEach((node) => {
+    if (node.parentNode === containerId) {
+      childIds.add(node.id);
+    }
+  });
+  return childIds;
+}
+
+function resetContainerNodeState(
+  childNodeIds: Set<string>,
+  nodeMap: Map<string, WorkflowNode>,
+  nodeResults: Record<string, NodeResult>,
+  nodeLogMap: Map<string, NodeExecutionLog>
+): void {
+  childNodeIds.forEach((id) => {
+    delete nodeResults[id];
+    const childNode = nodeMap.get(id);
+    if (childNode) {
+      childNode.data = {
+        ...childNode.data,
+        result: undefined,
+      };
+    }
+
+    const logEntry = nodeLogMap.get(id);
+    if (logEntry) {
+      logEntry.status = "pending";
+      logEntry.startTime = 0;
+      logEntry.endTime = undefined;
+      logEntry.error = undefined;
+      logEntry.output = undefined;
+      logEntry.input = null;
+    }
+  });
+}
+
+function extractIterations(result: NodeResult): Record<string, any>[] {
+  const loopOutput = result.data?.outputs?.loop;
+  if (loopOutput && Array.isArray(loopOutput.value)) {
+    return loopOutput.value as Record<string, any>[];
+  }
+
+  const raw = result.data?.raw as Record<string, any> | undefined;
+  if (raw && Array.isArray(raw.iterations)) {
+    return raw.iterations as Record<string, any>[];
+  }
+
+  return [];
+}
+
+function getContainerEntryNode(
+  containerId: string,
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[]
+): string | null {
+  const childNodes = nodes.filter((node) => node.parentNode === containerId);
+  if (childNodes.length === 0) {
+    return null;
+  }
+
+  const entryEdge = edges.find(
+    (edge) =>
+      edge.source === containerId &&
+      (edge.sourceHandle === "loop-left" || edge.sourceHandle === "input")
+  );
+
+  if (entryEdge) {
+    return entryEdge.target ?? null;
+  }
+
+  const childNodeIds = new Set(childNodes.map((node) => node.id));
+
+  for (const childNode of childNodes) {
+    const hasIncomingFromSibling = edges.some(
+      (edge) =>
+        edge.target === childNode.id &&
+        edge.source !== containerId &&
+        childNodeIds.has(edge.source)
+    );
+
+    if (!hasIncomingFromSibling) {
+      return childNode.id;
+    }
+  }
+
+  return childNodes[0]?.id ?? null;
+}
+
+function getContainerExitNode(
+  containerId: string,
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[]
+): string | null {
+  const childNodes = nodes.filter((node) => node.parentNode === containerId);
+  if (childNodes.length === 0) {
+    return null;
+  }
+
+  const exitEdge = edges.find(
+    (edge) =>
+      edge.target === containerId &&
+      (edge.targetHandle === "loop-right" || edge.targetHandle === "output")
+  );
+
+  if (exitEdge) {
+    return exitEdge.source ?? null;
+  }
+
+  const childNodeIds = new Set(childNodes.map((node) => node.id));
+
+  for (let i = childNodes.length - 1; i >= 0; i--) {
+    const childNode = childNodes[i];
+    const hasOutgoingToSibling = edges.some(
+      (edge) =>
+        edge.source === childNode.id &&
+        edge.target !== containerId &&
+        childNodeIds.has(edge.target)
+    );
+
+    if (!hasOutgoingToSibling) {
+      return childNode.id;
+    }
+  }
+
+  return childNodes[childNodes.length - 1]?.id ?? null;
 }
 
 /**

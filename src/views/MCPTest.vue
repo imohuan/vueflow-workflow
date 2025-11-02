@@ -252,8 +252,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, h, type Component } from "vue";
-import type { MCPClient } from "@workflow-imohuan/browser-nodes";
-import { createMCPClient } from "@workflow-imohuan/browser-nodes";
+import type { MCPClient } from "workflow-browser-nodes";
+import { createMCPClient } from "workflow-browser-nodes";
 import IconDocument from "@/icons/IconDocument.vue";
 
 // 创建 MCP 客户端实例
