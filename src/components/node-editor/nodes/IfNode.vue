@@ -85,7 +85,7 @@ function setConditionRef(el: HTMLElement | null, index: number) {
 // 计算每个端口的位置
 function customGetHandleStyle(
   index: number,
-  total: number,
+  _total: number,
   portType: "input" | "output"
 ): Record<string, string> {
   // 输入端口使用默认居中
@@ -178,7 +178,7 @@ function getConditionSummary(condition: Condition): string {
       return `${field} ${operator}`;
     }
 
-    return `${field} ${operator} ${truncate(value, 20)}`;
+    return `${field} ${operator} ${truncate(String(value), 20)}`;
   }
 
   const logicText = condition.logic === "and" ? " 且 " : " 或 ";
@@ -203,7 +203,7 @@ function getConditionSummary(condition: Condition): string {
         return `${field} ${operator}`;
       }
 
-      return `${field} ${operator} ${truncate(value, 15)}`;
+      return `${field} ${operator} ${truncate(String(value), 15)}`;
     })
     .filter(Boolean);
 

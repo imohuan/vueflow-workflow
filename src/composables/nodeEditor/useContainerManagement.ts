@@ -5,13 +5,11 @@
 import type { Ref } from "vue";
 import type { Node } from "@vue-flow/core";
 import type { NodeData } from "@/typings/nodeEditor";
-import type { ContainerVisualConfig, PaddingValues } from "./types";
+import type { ContainerVisualConfig } from "./types";
 import {
   CONTAINER_DEFAULT_WIDTH,
   CONTAINER_DEFAULT_HEIGHT,
   CONTAINER_HEADER_HEIGHT,
-  DEFAULT_CONTAINER_PADDING,
-  clonePadding,
   normalizePadding,
   getNodeApproxWidth,
   getNodeApproxHeight,
@@ -279,10 +277,12 @@ export function useContainerManagement(nodes: Ref<Node<NodeData>[]>) {
       const resetWidth = CONTAINER_DEFAULT_WIDTH;
       const resetHeight = CONTAINER_DEFAULT_HEIGHT;
 
-      const widthChanged =
-        Math.abs((container.width ?? config.width) - resetWidth) > 0.5;
-      const heightChanged =
-        Math.abs((container.height ?? config.height) - resetHeight) > 0.5;
+      const currentWidth =
+        typeof container.width === "number" ? container.width : config.width;
+      const currentHeight =
+        typeof container.height === "number" ? container.height : config.height;
+      const widthChanged = Math.abs(currentWidth - resetWidth) > 0.5;
+      const heightChanged = Math.abs(currentHeight - resetHeight) > 0.5;
       if (widthChanged || heightChanged) {
         skipDimensionUpdate.add(container.id);
       }
@@ -335,10 +335,12 @@ export function useContainerManagement(nodes: Ref<Node<NodeData>[]>) {
       maxBottom + config.padding.bottom
     );
 
-    const widthChanged =
-      Math.abs((container.width ?? config.width) - newWidth) > 0.5;
-    const heightChanged =
-      Math.abs((container.height ?? config.height) - newHeight) > 0.5;
+    const currentWidth =
+      typeof container.width === "number" ? container.width : config.width;
+    const currentHeight =
+      typeof container.height === "number" ? container.height : config.height;
+    const widthChanged = Math.abs(currentWidth - newWidth) > 0.5;
+    const heightChanged = Math.abs(currentHeight - newHeight) > 0.5;
     if (widthChanged || heightChanged) {
       skipDimensionUpdate.add(container.id);
     }
@@ -369,10 +371,12 @@ export function useContainerManagement(nodes: Ref<Node<NodeData>[]>) {
       const resetWidth = CONTAINER_DEFAULT_WIDTH;
       const resetHeight = CONTAINER_DEFAULT_HEIGHT;
 
-      const widthChanged =
-        Math.abs((container.width ?? config.width) - resetWidth) > 0.5;
-      const heightChanged =
-        Math.abs((container.height ?? config.height) - resetHeight) > 0.5;
+      const currentWidth =
+        typeof container.width === "number" ? container.width : config.width;
+      const currentHeight =
+        typeof container.height === "number" ? container.height : config.height;
+      const widthChanged = Math.abs(currentWidth - resetWidth) > 0.5;
+      const heightChanged = Math.abs(currentHeight - resetHeight) > 0.5;
 
       if (widthChanged || heightChanged) {
         skipDimensionUpdate.add(container.id);
@@ -418,10 +422,12 @@ export function useContainerManagement(nodes: Ref<Node<NodeData>[]>) {
       maxBottom + config.padding.bottom
     );
 
-    const widthChanged =
-      Math.abs((container.width ?? config.width) - newWidth) > 0.5;
-    const heightChanged =
-      Math.abs((container.height ?? config.height) - newHeight) > 0.5;
+    const currentWidth =
+      typeof container.width === "number" ? container.width : config.width;
+    const currentHeight =
+      typeof container.height === "number" ? container.height : config.height;
+    const widthChanged = Math.abs(currentWidth - newWidth) > 0.5;
+    const heightChanged = Math.abs(currentHeight - newHeight) > 0.5;
 
     if (widthChanged || heightChanged) {
       skipDimensionUpdate.add(container.id);

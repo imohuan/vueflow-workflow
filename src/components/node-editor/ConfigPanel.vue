@@ -130,7 +130,6 @@ import {
   editorConfigSchema,
   type ConfigSectionIcon,
 } from "@/config/editorConfig";
-import Button from "@/components/common/Button.vue";
 import Checkbox from "@/components/common/Checkbox.vue";
 import Select from "@/components/common/Select.vue";
 import InputText from "@/components/common/InputText.vue";

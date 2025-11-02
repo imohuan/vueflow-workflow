@@ -13,7 +13,7 @@ import type {
   NodeResultOutput,
 } from "@/typings/nodeEditor";
 import type { WorkflowExecutionContext } from "workflow-node-executor";
-import { useNodeRegistry, getNodeByType } from "@/composables/useNodeRegistry";
+import { useNodeRegistry } from "@/composables/useNodeRegistry";
 import {
   buildVariableContext,
   resolveConfigWithVariables,
@@ -661,14 +661,10 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     // 优先使用节点注册表创建节点数据（支持 JSON 数据）
     let nodeData = nodeRegistry.createNodeData(nodeType);
 
-    // 如果注册表中没有，尝试使用节点实例（向后兼容）
+    // 如果注册表中没有，返回 null
     if (!nodeData) {
-      const nodeClass = getNodeByType(nodeType);
-      if (!nodeClass) {
-        console.error(`未找到节点类型: ${nodeType}`);
-        return null;
-      }
-      nodeData = nodeClass.createNodeData();
+      console.error(`未找到节点类型: ${nodeType}`);
+      return null;
     }
 
     if (!nodeData) {
@@ -694,7 +690,26 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     };
 
     if (node.data) {
-      node.data.variant = nodeType;
+      // 确保 variant 是有效的类型
+      const validVariants = [
+        "start",
+        "condition",
+        "end",
+        "custom",
+        "if",
+        "for",
+        "loop-container",
+      ] as const;
+      if (validVariants.includes(nodeType as any)) {
+        node.data.variant = nodeType as
+          | "start"
+          | "condition"
+          | "end"
+          | "custom"
+          | "if"
+          | "for"
+          | "loop-container";
+      }
     }
 
     if (options.parentNodeId) {
@@ -1799,17 +1814,14 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     const node = nodes.value.find((n) => n.id === nodeId);
     if (!node?.data) return;
 
-    const nodeClass = getNodeByType("if");
-    if (!nodeClass || !(nodeClass instanceof IfNode)) {
-      return;
-    }
+    const ifNodeInstance = new IfNode();
 
     const rawConfig = (node.data.config || {}) as Partial<IfConfig>;
     const conditions = Array.isArray(rawConfig.conditions)
       ? rawConfig.conditions
       : [];
 
-    const nextOutputs = nodeClass.getOutputsForConfig({
+    const nextOutputs = ifNodeInstance.getOutputsForConfig({
       conditions,
     });
 
@@ -2739,7 +2751,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
         nodes: workflowNodes,
         edges: workflowEdges,
         startNodeId: startNode.id,
-        nodeFactory: getNodeByType, // 使用包含核心节点的 getNodeByType
+        nodeFactory: undefined, // 节点工厂函数（已废弃，使用核心节点注册表）
         emitter: workflowEmitter,
         executionId,
         workflowId,
@@ -2814,7 +2826,8 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
 
     // 2. 获取节点类型
     const nodeType = node.id.split("_")[0] || ""; // 从节点 ID 中提取类型
-    const nodeClass = getNodeByType(nodeType);
+    // 注意：此备份文件中节点执行逻辑已迁移到 Worker，这里仅保留接口兼容性
+    const nodeClass = undefined;
 
     if (!nodeClass) {
       console.error(`未找到节点类型: ${nodeType}`);

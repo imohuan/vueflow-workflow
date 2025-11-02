@@ -71,7 +71,7 @@
               <div class="flex-1 min-w-0">
                 <VariableTextInput
                   preview-mode="dropdown"
-                  :model-value="subCond.field"
+                  :model-value="normalizeConditionOperand(subCond.field)"
                   @update:model-value="
                     (val) => updateSubConditionField(condIndex, subIndex, val)
                   "
@@ -98,7 +98,7 @@
               <div v-if="needsValue(subCond.operator)" class="flex-1 min-w-0">
                 <VariableTextInput
                   preview-mode="dropdown"
-                  :model-value="subCond.value"
+                  :model-value="normalizeConditionOperand(subCond.value)"
                   placeholder="目标值"
                   class="compact-editor"
                   @update:model-value="
@@ -158,6 +158,7 @@ import type {
   SubCondition,
   OperatorType,
   IfConfig,
+  ConditionOperand,
 } from "@/workflow/nodes";
 import { OPERATOR_LABELS, OPERATORS_BY_TYPE } from "@/workflow/nodes";
 import VariableTextInput from "./VariableTextInput.vue";
@@ -274,6 +275,17 @@ function createDefaultSubCondition(): SubCondition {
   };
 }
 
+// 规范化 ConditionOperand 为字符串（用于 VariableTextInput）
+function normalizeConditionOperand(operand: ConditionOperand): string | number {
+  if (operand === null || operand === undefined) {
+    return "";
+  }
+  if (typeof operand === "string" || typeof operand === "number") {
+    return operand;
+  }
+  return String(operand);
+}
+
 // 添加条件
 function addCondition() {
   config.conditions.push(createDefaultCondition());
@@ -333,7 +345,7 @@ function updateSubConditionField(
 ) {
   const condition = config.conditions[condIndex];
   if (condition && condition.subConditions[subIndex]) {
-    condition.subConditions[subIndex].field = value;
+    condition.subConditions[subIndex].field = value as any;
     emitUpdate();
   }
 }
@@ -346,7 +358,7 @@ function updateSubConditionValue(
 ) {
   const condition = config.conditions[condIndex];
   if (condition && condition.subConditions[subIndex]) {
-    condition.subConditions[subIndex].value = value;
+    condition.subConditions[subIndex].value = value as any;
     emitUpdate();
   }
 }

@@ -25,7 +25,6 @@ export function useNodeManagement(
   layoutContainerChildren: (containerId: string) => void,
   onBatchStart: () => void,
   onBatchEnd: () => void,
-  onRecordHistory: () => void,
   onRecordHistoryDebounced: () => void,
   onSchedulePersist: (immediate?: boolean) => void,
   onSelectNode: (nodeId: string | null) => void,
@@ -96,7 +95,26 @@ export function useNodeManagement(
     };
 
     if (node.data) {
-      node.data.variant = nodeType;
+      // 确保 variant 是有效的类型
+      const validVariants = [
+        "start",
+        "condition",
+        "end",
+        "custom",
+        "if",
+        "for",
+        "loop-container",
+      ] as const;
+      if (validVariants.includes(nodeType as any)) {
+        node.data.variant = nodeType as
+          | "start"
+          | "condition"
+          | "end"
+          | "custom"
+          | "if"
+          | "for"
+          | "loop-container";
+      }
     }
 
     if (options.parentNodeId) {

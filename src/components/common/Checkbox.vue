@@ -2,7 +2,13 @@
 <template>
   <input
     type="checkbox"
-    :checked="binary ? modelValue : modelValue?.includes(value)"
+    :checked="
+      binary
+        ? modelValue
+        : Array.isArray(modelValue)
+        ? modelValue.includes(value)
+        : false
+    "
     :disabled="disabled"
     :class="checkboxClasses"
     @change="handleChange"

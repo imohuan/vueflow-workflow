@@ -281,7 +281,7 @@ async function executeTestWorkflow() {
       data: {
         label: "开始",
         category: "控制",
-        variant: "start",
+        variant: "start" as const,
         inputs: [],
         outputs: [
           { id: "__output__", name: "输出", type: "any", isPort: true },
@@ -296,7 +296,7 @@ async function executeTestWorkflow() {
       data: {
         label: "HTTP 请求",
         category: "网络",
-        variant: "custom",
+        variant: "custom" as const,
         inputs: [
           { id: "url", name: "URL", type: "string", isPort: false },
           { id: "method", name: "方法", type: "string", isPort: false },
@@ -321,7 +321,7 @@ async function executeTestWorkflow() {
       data: {
         label: "结束",
         category: "控制",
-        variant: "end",
+        variant: "end" as const,
         inputs: [{ id: "__input__", name: "输入", type: "any", isPort: true }],
         outputs: [],
         config: {},

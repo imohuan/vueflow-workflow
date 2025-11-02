@@ -43,7 +43,7 @@ export function useWorkflowExecutionManager() {
   function ensureWorkerExecutor(): UseWorkflowWorkerReturn {
     if (!workerExecutor) {
       console.log(`[ExecutionManager] 初始化 Worker 执行器`);
-      workerExecutor = createWorkflowWorker(emitter);
+      workerExecutor = createWorkflowWorker(emitter!);
     }
     return workerExecutor;
   }
@@ -53,7 +53,7 @@ export function useWorkflowExecutionManager() {
   ): UseWorkflowServerClientReturn {
     if (!serverExecutor || serverExecutorUrl !== serverUrl) {
       console.log(`[ExecutionManager] 初始化/更新 Server 执行器: ${serverUrl}`);
-      serverExecutor = ensureWorkflowServerClient(emitter, serverUrl);
+      serverExecutor = ensureWorkflowServerClient(emitter!, serverUrl);
       serverExecutorUrl = serverUrl;
     }
     return serverExecutor;

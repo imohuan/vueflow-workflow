@@ -9,8 +9,6 @@ import type { NodeData } from "@/typings/nodeEditor";
 import { workflowEmitter } from "@/main";
 import { WorkflowEventType } from "@/typings/workflowExecution";
 import {
-  // 类型
-  type AutoLayoutOptions,
   // 工具函数
   normalizePadding,
   // Hooks
@@ -34,10 +32,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
   const edges = ref<Edge[]>(persistedData.edges);
 
   // ========== 持久化 ==========
-  const { schedulePersist, flushPersistentState } = useNodePersistence(
-    nodes,
-    edges
-  );
+  const { schedulePersist } = useNodePersistence(nodes, edges);
 
   // ========== 层级管理 ==========
   const {
@@ -159,7 +154,6 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     layoutContainerChildren,
     batchStart,
     batchEnd,
-    recordHistory,
     recordHistoryDebounced,
     schedulePersist,
     selectNode,
