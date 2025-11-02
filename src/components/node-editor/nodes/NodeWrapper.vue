@@ -1,5 +1,6 @@
 <template>
   <div
+    ref="nodeWrapperRef"
     :class="[
       'node-wrapper min-w-[280px] max-w-[400px] bg-white border-2 rounded-md shadow-lg cursor-pointer text-sm overflow-visible backdrop-blur-xl transition-all duration-300 ease-out relative',
       'border-slate-200 hover:shadow-xl',
@@ -170,7 +171,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, type Component } from "vue";
+import {
+  computed,
+  ref,
+  watch,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  type Component,
+} from "vue";
 import { Handle, Position, useVueFlow } from "@vue-flow/core";
 import type { NodeData } from "@/typings/nodeEditor";
 import { useNodeEditorStore } from "@/stores/nodeEditor";
@@ -179,6 +188,7 @@ import NodeResult from "../NodeResult.vue";
 import { getNodeTheme } from "@/config/nodeTheme";
 import { PORT_STYLE } from "../ports";
 import { usePortPositionUpdate } from "./usePortPositionUpdate";
+import { useDebounceFn } from "@vueuse/core";
 
 // 导入所有图标组件
 import IconBell from "@/icons/IconBell.vue";
@@ -271,8 +281,9 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const store = useNodeEditorStore();
-const { getSelectedNodes } = useVueFlow();
+const { getSelectedNodes, updateNodeInternals, getNodes } = useVueFlow();
 const contentRef = ref<HTMLDivElement | null>(null);
+const nodeWrapperRef = ref<HTMLDivElement | null>(null);
 
 const nodeTheme = computed(() => getNodeTheme(props.data.category || ""));
 
@@ -472,6 +483,100 @@ usePortPositionUpdate({
   watchSource: [inputPortsCount, outputPortsCount],
 });
 
+// ==================== 节点高度监听和更新 ====================
+let resizeObserver: ResizeObserver | null = null;
+let lastHeight = 0;
+
+/**
+ * 延迟执行更新函数（nextTick + setTimeout）
+ * @param callback 要执行的函数
+ * @param delay 延迟时间（毫秒），默认 0
+ */
+function scheduleUpdate(callback: () => void, delay = 0) {
+  nextTick(() => {
+    setTimeout(() => {
+      callback();
+    }, delay);
+  });
+}
+
+/**
+ * 更新节点高度到 VueFlow（只更新高度，保持宽度不变）
+ */
+function updateNodeHeight() {
+  if (!nodeWrapperRef.value) return;
+
+  const rect = nodeWrapperRef.value.getBoundingClientRect();
+  const height = Math.ceil(rect.height);
+
+  // 仅在高度确实变化时更新，避免无效调用
+  if (height === lastHeight) {
+    return;
+  }
+
+  lastHeight = height;
+
+  // 获取当前节点的宽度（保持宽度不变）
+  const node = getNodes.value.find((n) => n.id === props.id);
+  // 如果节点有宽度，使用节点的宽度（可能是数字或字符串），否则使用当前 DOM 宽度
+  const nodeWidth = node?.width;
+  const width =
+    typeof nodeWidth === "number"
+      ? nodeWidth
+      : typeof nodeWidth === "string"
+      ? parseFloat(nodeWidth) || Math.ceil(rect.width)
+      : Math.ceil(rect.width);
+
+  // 更新 VueFlow 节点尺寸（只更新高度）
+  store.updateNodeDimensions(props.id, { width, height });
+
+  // 更新端口位置
+  scheduleUpdate(() => updateNodeInternals([props.id]), 50);
+}
+
+/**
+ * 防抖版本的高度更新函数
+ */
+const debouncedUpdateNodeHeight = useDebounceFn(updateNodeHeight, 100);
+
+/**
+ * ResizeObserver 回调
+ * 当 DOM 高度变化时触发更新
+ */
+function handleResize() {
+  // ResizeObserver 已经检测到尺寸变化，直接触发防抖更新
+  // updateNodeHeight 内部会检查实际高度变化，避免无效更新
+  debouncedUpdateNodeHeight();
+}
+
+// 监听 result 和 resultExpanded 的变化（折叠展开）
+watch(
+  () => [props.data.result, props.data.resultExpanded],
+  () => {
+    // 结果出现或展开状态变化时，延迟更新高度
+    // 给 Transition 动画一些时间，确保 DOM 完全渲染
+    scheduleUpdate(() => updateNodeHeight(), 200);
+  },
+  { deep: true }
+);
+
+// 组件挂载后初始化
+onMounted(() => {
+  if (!nodeWrapperRef.value) return;
+  scheduleUpdate(() => updateNodeHeight(), 100);
+  // 创建 ResizeObserver 监听 DOM 高度变化
+  resizeObserver = new ResizeObserver(handleResize);
+  resizeObserver.observe(nodeWrapperRef.value);
+});
+
+// 组件卸载时清理
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
+});
+
 const hoveredPortId = ref<string | null>(null);
 const isHoveredPortValid = ref<boolean>(true);
 
@@ -597,10 +702,7 @@ function getHandleStyle(
 <style scoped>
 /* ==================== 执行状态样式 ==================== */
 
-/* pending: 无特殊样式 */
-.execution-pending {
-  /* 保持默认样式 */
-}
+/* pending: 无特殊样式，保持默认样式 */
 
 /* running: 蓝色边框 */
 .execution-running {
@@ -608,10 +710,7 @@ function getHandleStyle(
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
-/* success: 无特殊边框 */
-.execution-success {
-  /* 通过右上角徽章显示状态 */
-}
+/* success: 无特殊边框，通过右上角徽章显示状态 */
 
 /* error: 红色边框 */
 .execution-error {
