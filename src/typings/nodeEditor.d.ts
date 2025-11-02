@@ -34,6 +34,13 @@ export interface Connection {
   targetHandle: string | null;
 }
 
+export interface ConnectionValidationOptions {
+  /** 是否忽略已存在连接的检测 */
+  ignoreExisting?: boolean;
+  /** 在忽略检测时排除的连接线 ID */
+  ignoreEdgeId?: string | null;
+}
+
 /**
  * 画布状态
  */

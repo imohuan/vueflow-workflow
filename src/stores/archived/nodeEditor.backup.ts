@@ -659,7 +659,7 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     options: { parentNodeId?: string } = {}
   ): string | null {
     // 优先使用节点注册表创建节点数据（支持 JSON 数据）
-    let nodeData = nodeRegistry.createNodeData(nodeType);
+    let nodeData = nodeRegistry.getNodeMetadata(nodeType);
 
     // 如果注册表中没有，返回 null
     if (!nodeData) {
@@ -686,7 +686,14 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
       id,
       type: "custom",
       position: { ...position },
-      data: nodeData,
+      data: {
+        config: { ...nodeData.defaultConfig },
+        inputs: nodeData.inputs,
+        outputs: nodeData.outputs,
+        label: nodeData.label,
+        category: nodeData.category,
+        variant: nodeType,
+      },
     };
 
     if (node.data) {

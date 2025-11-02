@@ -154,7 +154,7 @@
         ref="contentRef"
         :class="[
           'p-3 min-h-[80px] bg-linear-to-b from-slate-50 to-white',
-          data.result ? '' : 'rounded-b-xl',
+          data.result ? '' : 'rounded-b',
         ]"
       >
         <slot />
@@ -281,7 +281,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const store = useNodeEditorStore();
-const { getSelectedNodes, updateNodeInternals, getNodes } = useVueFlow();
+const { getSelectedNodes, getNodes, updateNodeDimensions } = useVueFlow();
 const contentRef = ref<HTMLDivElement | null>(null);
 const nodeWrapperRef = ref<HTMLDivElement | null>(null);
 
@@ -488,22 +488,10 @@ let resizeObserver: ResizeObserver | null = null;
 let lastHeight = 0;
 
 /**
- * 延迟执行更新函数（nextTick + setTimeout）
- * @param callback 要执行的函数
- * @param delay 延迟时间（毫秒），默认 0
- */
-function scheduleUpdate(callback: () => void, delay = 0) {
-  nextTick(() => {
-    setTimeout(() => {
-      callback();
-    }, delay);
-  });
-}
-
-/**
+ * @deprecated 废弃，使用 updateNodeDimensions 替代
  * 更新节点高度到 VueFlow（只更新高度，保持宽度不变）
  */
-function updateNodeHeight() {
+function _updateNodeHeight() {
   if (!nodeWrapperRef.value) return;
 
   const rect = nodeWrapperRef.value.getBoundingClientRect();
@@ -513,9 +501,14 @@ function updateNodeHeight() {
   if (height === lastHeight) {
     return;
   }
-
+  console.log(
+    "updateNodeHeight",
+    lastHeight,
+    height,
+    nodeWrapperRef.value,
+    rect
+  );
   lastHeight = height;
-
   // 获取当前节点的宽度（保持宽度不变）
   const node = getNodes.value.find((n) => n.id === props.id);
   // 如果节点有宽度，使用节点的宽度（可能是数字或字符串），否则使用当前 DOM 宽度
@@ -526,47 +519,34 @@ function updateNodeHeight() {
       : typeof nodeWidth === "string"
       ? parseFloat(nodeWidth) || Math.ceil(rect.width)
       : Math.ceil(rect.width);
-
   // 更新 VueFlow 节点尺寸（只更新高度）
   store.updateNodeDimensions(props.id, { width, height });
-
-  // 更新端口位置
-  scheduleUpdate(() => updateNodeInternals([props.id]), 50);
 }
 
 /**
  * 防抖版本的高度更新函数
  */
-const debouncedUpdateNodeHeight = useDebounceFn(updateNodeHeight, 100);
-
-/**
- * ResizeObserver 回调
- * 当 DOM 高度变化时触发更新
- */
-function handleResize() {
-  // ResizeObserver 已经检测到尺寸变化，直接触发防抖更新
-  // updateNodeHeight 内部会检查实际高度变化，避免无效更新
-  debouncedUpdateNodeHeight();
-}
+const debouncedUpdateNodeHeight = useDebounceFn(() => {
+  nextTick(() => {
+    if (!nodeWrapperRef.value) return;
+    updateNodeDimensions([{ id: props.id, nodeElement: nodeWrapperRef.value }]);
+  });
+}, 300);
 
 // 监听 result 和 resultExpanded 的变化（折叠展开）
 watch(
   () => [props.data.result, props.data.resultExpanded],
-  () => {
-    // 结果出现或展开状态变化时，延迟更新高度
-    // 给 Transition 动画一些时间，确保 DOM 完全渲染
-    scheduleUpdate(() => updateNodeHeight(), 200);
-  },
+  () => debouncedUpdateNodeHeight(),
   { deep: true }
 );
 
 // 组件挂载后初始化
 onMounted(() => {
   if (!nodeWrapperRef.value) return;
-  scheduleUpdate(() => updateNodeHeight(), 100);
+  debouncedUpdateNodeHeight();
   // 创建 ResizeObserver 监听 DOM 高度变化
-  resizeObserver = new ResizeObserver(handleResize);
-  resizeObserver.observe(nodeWrapperRef.value);
+  // resizeObserver = new ResizeObserver(debouncedUpdateNodeHeight);
+  // resizeObserver.observe(nodeWrapperRef.value);
 });
 
 // 组件卸载时清理

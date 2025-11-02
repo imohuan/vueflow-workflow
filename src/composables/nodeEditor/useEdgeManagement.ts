@@ -4,7 +4,11 @@
  */
 import type { Ref } from "vue";
 import type { Node, Edge } from "@vue-flow/core";
-import type { NodeData, Connection } from "@/typings/nodeEditor";
+import type {
+  NodeData,
+  Connection,
+  ConnectionValidationOptions,
+} from "@/typings/nodeEditor";
 
 export function useEdgeManagement(
   nodes: Ref<Node<NodeData>[]>,
@@ -28,7 +32,12 @@ export function useEdgeManagement(
   }
 
   /** 验证连接 */
-  function validateConnection(connection: Connection): boolean {
+  function validateConnection(
+    connection: Connection,
+    options: ConnectionValidationOptions = {}
+  ): boolean {
+    const { ignoreExisting = false, ignoreEdgeId = null } = options;
+
     // 1. 不能连接自己
     if (connection.source === connection.target) {
       console.warn("不能连接自己");
@@ -36,17 +45,23 @@ export function useEdgeManagement(
     }
 
     // 2. 检查是否已存在连接
-    const exists = edges.value.some(
-      (edge) =>
-        edge.source === connection.source &&
-        edge.sourceHandle === connection.sourceHandle &&
-        edge.target === connection.target &&
-        edge.targetHandle === connection.targetHandle
-    );
+    if (!ignoreExisting) {
+      const exists = edges.value.some((edge) => {
+        if (ignoreEdgeId && edge.id === ignoreEdgeId) {
+          return false;
+        }
+        return (
+          edge.source === connection.source &&
+          edge.sourceHandle === connection.sourceHandle &&
+          edge.target === connection.target &&
+          edge.targetHandle === connection.targetHandle
+        );
+      });
 
-    if (exists) {
-      console.warn("连接已存在");
-      return false;
+      if (exists) {
+        console.warn("连接已存在");
+        return false;
+      }
     }
 
     // 3. 验证端口类型

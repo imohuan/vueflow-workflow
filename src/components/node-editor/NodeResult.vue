@@ -2,7 +2,7 @@
 <template>
   <div
     v-if="result"
-    class="border-t border-slate-200 p-3 bg-white w-full rounded-b-xl overflow-hidden"
+    class="border-t border-slate-200 p-3 bg-white w-full rounded-b overflow-hidden"
     @wheel="handleWheel"
     @dblclick.stop
   >
@@ -593,37 +593,32 @@ function formatTimestamp(timestamp: number): string {
  * 处理滚轮事件，防止滚动内容时缩放画布
  */
 function handleWheel(event: WheelEvent) {
-  const path = event.composedPath() as HTMLElement[];
-
-  for (const element of path) {
-    if (!(element instanceof HTMLElement)) continue;
-
-    const { scrollTop, scrollHeight, clientHeight, scrollWidth, clientWidth } =
-      element;
-
-    const hasVerticalScroll = scrollHeight > clientHeight;
-    const hasHorizontalScroll = scrollWidth > clientWidth;
-
-    if (!hasVerticalScroll && !hasHorizontalScroll) continue;
-
-    const isScrollingDown = event.deltaY > 0;
-    const isScrollingUp = event.deltaY < 0;
-    const canScrollDown =
-      hasVerticalScroll && scrollTop < scrollHeight - clientHeight - 1;
-    const canScrollUp = hasVerticalScroll && scrollTop > 1;
-
-    if ((isScrollingDown && canScrollDown) || (isScrollingUp && canScrollUp)) {
-      event.stopPropagation();
-      return;
-    }
-  }
+  // 关闭这个功能
+  // const path = event.composedPath() as HTMLElement[];
+  // for (const element of path) {
+  //   if (!(element instanceof HTMLElement)) continue;
+  //   const { scrollTop, scrollHeight, clientHeight, scrollWidth, clientWidth } =
+  //     element;
+  //   const hasVerticalScroll = scrollHeight > clientHeight;
+  //   const hasHorizontalScroll = scrollWidth > clientWidth;
+  //   if (!hasVerticalScroll && !hasHorizontalScroll) continue;
+  //   const isScrollingDown = event.deltaY > 0;
+  //   const isScrollingUp = event.deltaY < 0;
+  //   const canScrollDown =
+  //     hasVerticalScroll && scrollTop < scrollHeight - clientHeight - 1;
+  //   const canScrollUp = hasVerticalScroll && scrollTop > 1;
+  //   if ((isScrollingDown && canScrollDown) || (isScrollingUp && canScrollUp)) {
+  //     event.stopPropagation();
+  //     return;
+  //   }
+  // }
 }
 </script>
 
 <style scoped>
 .slide-down-enter-active,
 .slide-down-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0s ease;
 }
 
 .slide-down-enter-from,

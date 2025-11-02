@@ -58,7 +58,9 @@
         @connect="onConnect"
         @connect-start="onConnectStart"
         @connect-end="onConnectEnd"
+        @edge-update-start="onEdgeUpdateStart"
         @edge-update="onEdgeUpdate"
+        @edge-update-end="onEdgeUpdateEnd"
         @pane-click="onPaneClick"
         @drop="onDrop"
         @dragover="onDragOver"
@@ -96,6 +98,11 @@
         <!-- 循环容器节点 -->
         <template #node-loopContainer="{ data, id }">
           <LoopContainerNode :id="id" :data="data" />
+        </template>
+
+        <!-- 自定义连接线（拖拽时的临时连接线） -->
+        <template #connection-line="connectionLineProps">
+          <CustomConnectionLine v-bind="connectionLineProps" />
         </template>
 
         <!-- 自定义连线，提供悬浮删除按钮 -->
@@ -247,6 +254,7 @@ import NodeListPanel from "@/components/node-editor/NodeListPanel.vue";
 import InteractiveEdge from "@/components/node-editor/edges/InteractiveEdge.vue";
 import VerticalTabMenu from "@/components/node-editor/VerticalTabMenu.vue";
 import WorkflowFileTree from "@/components/node-editor/WorkflowFileTree.vue";
+import CustomConnectionLine from "@/components/node-editor/CustomConnectionLine.vue";
 import { useNodeEditorStore } from "@/stores/nodeEditor";
 import { useEditorConfigStore } from "@/stores/editorConfig";
 import { useWorkflowStore } from "@/stores/workflow";
@@ -1387,6 +1395,10 @@ const connectingNodeId = ref<string | null>(null);
 const connectingHandleId = ref<string | null>(null);
 const connectingHandleType = ref<"source" | "target" | null>(null);
 
+// 记录边更新状态
+const updatingEdgeId = ref<string | null>(null);
+const edgeUpdateSuccessful = ref<boolean>(false);
+
 /**
  * 连接开始
  */
@@ -1442,9 +1454,11 @@ function checkPortValidity(
     ) ?? false;
 
   // 输出→输入 或 输入→输出 是有效的
-  return Boolean(
+  const result = Boolean(
     (isSourceOutput && isTargetInput) || (isSourceInput && isTargetOutput)
   );
+  console.log("checkPortValidity", result);
+  return result;
 }
 
 // 将函数暴露给子组件使用
@@ -1490,10 +1504,21 @@ function onConnect(connection: Connection) {
 }
 
 /**
+ * 边更新开始处理
+ * 当开始拖拽边的端点时调用
+ */
+function onEdgeUpdateStart(event: any) {
+  const edge = event.edge;
+  updatingEdgeId.value = edge.id;
+  edgeUpdateSuccessful.value = false;
+}
+
+/**
  * 边更新处理
  * 当拖拽边的端点重新连接时调用
  */
 function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
+  console.log("onEdgeUpdate");
   // 禁止编辑 loopContainer 相关的连接线
   const sourceNode = store.nodes.find((node) => node.id === edge.source);
   const targetNode = store.nodes.find((node) => node.id === edge.target);
@@ -1501,6 +1526,7 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
     sourceNode?.type === "loopContainer" ||
     targetNode?.type === "loopContainer"
   ) {
+    edgeUpdateSuccessful.value = false;
     return;
   }
 
@@ -1515,6 +1541,7 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
   );
 
   if (exists) {
+    edgeUpdateSuccessful.value = false;
     return;
   }
 
@@ -1526,7 +1553,13 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
     targetHandle: connection.targetHandle || null,
   };
 
-  if (!store.validateConnection(conn)) {
+  // BUG: 如果恢复链接 则会导致报错, 已存在连接线
+  if (
+    !store.validateConnection(conn, {
+      ignoreEdgeId: edge.id,
+    })
+  ) {
+    edgeUpdateSuccessful.value = false;
     return;
   }
 
@@ -1542,6 +1575,31 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
         }
       : e
   );
+
+  // 标记更新成功
+  edgeUpdateSuccessful.value = true;
+}
+
+/**
+ * 边更新结束处理
+ * 当拖拽边的端点结束时调用（无论是否成功连接）
+ */
+function onEdgeUpdateEnd(event: any) {
+  console.log("onEdgeUpdateEnd");
+
+  const edge = event.edge;
+
+  // 如果边更新未成功（即没有连接到有效端口），则删除该边
+  if (!edgeUpdateSuccessful.value) {
+    store.removeEdge(edge.id);
+    updatingEdgeId.value = null;
+  } else {
+    // 连接成功
+    updatingEdgeId.value = null;
+  }
+
+  // 重置状态
+  edgeUpdateSuccessful.value = false;
 }
 
 /**
@@ -1651,6 +1709,7 @@ async function handleExecuteWorkflow() {
 }
 
 /* 连接预览线样式 - 拖拽创建新连接时的临时线 */
+/* 注意：这个样式现在由 CustomConnectionLine 组件控制，此处保留作为备用 */
 :deep(.vue-flow__connectionline .vue-flow__connection-path) {
   stroke: v-bind("config.edgeDragColor");
   stroke-width: v-bind("config.edgeStrokeWidth + 'px'");
