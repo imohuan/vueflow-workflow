@@ -119,7 +119,7 @@ export interface NodeData {
    *   }
    * }
    */
-  variant?: "start" | "condition" | "end" | "custom";
+  variant?: "start" | "condition" | "end" | "custom" | "if" | "for";
   /** 是否为容器节点 */
   isContainer?: boolean;
   /** 容器是否处于高亮状态（拖拽交集提示） */

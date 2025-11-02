@@ -936,61 +936,124 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
     return { x, y };
   }
 
+  function applyContainerDimensions(
+    container: Node<NodeData>,
+    width: number,
+    height: number
+  ) {
+    const normalizedWidth = Math.max(width, CONTAINER_DEFAULT_WIDTH);
+    const normalizedHeight = Math.max(height, CONTAINER_DEFAULT_HEIGHT);
+
+    const visualConfig = getContainerVisualConfig(container);
+    const currentWidth =
+      typeof container.width === "number"
+        ? container.width
+        : visualConfig.width;
+    const currentHeight =
+      typeof container.height === "number"
+        ? container.height
+        : visualConfig.height;
+
+    const widthChanged = Math.abs(currentWidth - normalizedWidth) > 0.5;
+    const heightChanged = Math.abs(currentHeight - normalizedHeight) > 0.5;
+
+    if (widthChanged || heightChanged) {
+      skipDimensionUpdate.add(container.id);
+    }
+
+    container.data = {
+      ...container.data,
+      config: container.data?.config || {},
+      inputs: container.data?.inputs || [],
+      outputs: container.data?.outputs || [],
+      width: normalizedWidth,
+      height: normalizedHeight,
+    };
+    container.width = normalizedWidth;
+    container.height = normalizedHeight;
+    container.style = {
+      ...(container.style || {}),
+      width: `${normalizedWidth}px`,
+      height: `${normalizedHeight}px`,
+    };
+  }
+
   function ensureContainerCapacity(
     container: Node<NodeData>,
     child: Node<NodeData>,
     desiredPosition: { x: number; y: number }
-  ) {
-    let config = getContainerVisualConfig(container);
+  ): {
+    config: ReturnType<typeof getContainerVisualConfig>;
+    position: { x: number; y: number };
+  } {
+    const configBefore = getContainerVisualConfig(container);
+    const padding = configBefore.padding;
+    const baseTop = configBefore.headerHeight + padding.top;
+
     const childWidth = getNodeApproxWidth(child);
     const childHeight = getNodeApproxHeight(child);
 
-    let newWidth = config.width;
-    let newHeight = config.height;
+    let shiftX = padding.left - desiredPosition.x;
+    let shiftY = baseTop - desiredPosition.y;
 
-    const requiredRight = desiredPosition.x + childWidth + config.padding.right;
-    const requiredBottom =
-      desiredPosition.y + childHeight + config.padding.bottom;
+    shiftX = shiftX > 0 ? shiftX : 0;
+    shiftY = shiftY > 0 ? shiftY : 0;
 
-    if (requiredRight > newWidth) {
-      newWidth = requiredRight;
-    }
+    if (shiftX !== 0 || shiftY !== 0) {
+      const siblings = nodes.value.filter(
+        (item) => item.parentNode === container.id && item.id !== child.id
+      );
 
-    if (requiredBottom > newHeight) {
-      newHeight = requiredBottom;
-    }
-
-    newWidth = Math.max(newWidth, CONTAINER_DEFAULT_WIDTH);
-    newHeight = Math.max(newHeight, CONTAINER_DEFAULT_HEIGHT);
-
-    const widthChanged = Math.abs(newWidth - config.width) > 0.5;
-    const heightChanged = Math.abs(newHeight - config.height) > 0.5;
-
-    if (widthChanged || heightChanged) {
-      skipDimensionUpdate.add(container.id);
-
-      container.data = {
-        ...container.data,
-        config: container.data?.config || {},
-        inputs: container.data?.inputs || [],
-        outputs: container.data?.outputs || [],
-        width: newWidth,
-        height: newHeight,
-      };
-      container.width = newWidth;
-      container.height = newHeight;
-      container.style = {
-        ...(container.style || {}),
-        width: `${newWidth}px`,
-        height: `${newHeight}px`,
+      const ensurePosition = () => {
+        if (!container.position) {
+          container.position = { x: 0, y: 0 };
+        }
       };
 
-      notifyContainerInternals(container.id);
+      if (shiftX !== 0) {
+        ensurePosition();
+        container.position!.x -= shiftX;
+      }
 
-      config = getContainerVisualConfig(container);
+      if (shiftY !== 0) {
+        ensurePosition();
+        container.position!.y -= shiftY;
+      }
+
+      if (siblings.length > 0) {
+        siblings.forEach((sibling) => {
+          const currentX = sibling.position?.x ?? 0;
+          const currentY = sibling.position?.y ?? 0;
+          sibling.position = {
+            x: currentX + shiftX,
+            y: currentY + shiftY,
+          };
+        });
+      }
     }
 
-    return config;
+    const adjustedPosition = {
+      x: desiredPosition.x + shiftX,
+      y: desiredPosition.y + shiftY,
+    };
+
+    let requiredWidth = Math.max(
+      configBefore.width,
+      adjustedPosition.x + childWidth + padding.right
+    );
+    let requiredHeight = Math.max(
+      configBefore.height,
+      adjustedPosition.y + childHeight + padding.bottom
+    );
+
+    applyContainerDimensions(container, requiredWidth, requiredHeight);
+
+    const config = getContainerVisualConfig(container);
+
+    return {
+      config,
+      position: adjustedPosition,
+    };
   }
 
   function centerChildInContainer(
@@ -1006,7 +1069,11 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
       ),
       y: configBefore.headerHeight + configBefore.padding.top,
     };
-    const config = ensureContainerCapacity(container, child, initialDesired);
+    const { config } = ensureContainerCapacity(
+      container,
+      child,
+      initialDesired
+    );
     const width = getNodeApproxWidth(child);
 
     const x = Math.max(config.padding.left, (config.width - width) / 2);
@@ -1291,16 +1358,17 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
           return;
         }
 
-        const configForExpansion = ensureContainerCapacity(
-          container,
-          node,
-          position
+        const { config: adjustedConfig, position: adjustedPosition } =
+          ensureContainerCapacity(container, node, position);
+        node.position = clampChildPosition(
+          adjustedPosition,
+          adjustedConfig,
+          node
         );
-        const clamped = clampChildPosition(position, configForExpansion, node);
-        node.position = clamped;
         notifyContainerInternals(node.id);
 
-        layoutContainerChildren(container.id);
+        updateContainerBounds(container);
+        notifyContainerInternals(container.id);
         if (recordHistory) {
           recordHistoryDebounced();
         }
@@ -1448,17 +1516,11 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
           layoutConfig.padding,
       };
 
-      containerConfig = ensureContainerCapacity(
-        container,
-        child,
-        desiredPosition
-      );
-      const clamped = clampChildPosition(
-        desiredPosition,
-        containerConfig,
-        child
-      );
+      const { config: nextConfig, position: adjustedPosition } =
+        ensureContainerCapacity(container, child, desiredPosition);
+      const clamped = clampChildPosition(adjustedPosition, nextConfig, child);
       child.position = clamped;
+      containerConfig = nextConfig;
       notifyContainerInternals(child.id);
     });
 
@@ -1869,8 +1931,12 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
         y: node.position.y,
       };
 
-      const config = ensureContainerCapacity(container, node, desiredPosition);
-      const clamped = clampChildPosition(desiredPosition, config, node);
+      const { config, position: adjustedPosition } = ensureContainerCapacity(
+        container,
+        node,
+        desiredPosition
+      );
+      const clamped = clampChildPosition(adjustedPosition, config, node);
       node.position = clamped;
       notifyContainerInternals(node.id);
 
@@ -1889,7 +1955,6 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
         notifyContainerInternals(node.id);
 
         updateContainerBounds(container);
-        layoutContainerChildren(container.id);
         notifyContainerInternals(container.id);
       } else {
         node.parentNode = undefined;
@@ -1924,12 +1989,9 @@ export const useNodeEditorStore = defineStore("nodeEditor", () => {
       y: relativeY,
     };
 
-    const adjustedConfig = ensureContainerCapacity(
-      container,
-      node,
-      node.position
-    );
-    node.position = clampChildPosition(node.position, adjustedConfig, node);
+    const { config: adjustedConfig, position: adjustedPosition } =
+      ensureContainerCapacity(container, node, node.position);
+    node.position = clampChildPosition(adjustedPosition, adjustedConfig, node);
     notifyContainerInternals(nodeId);
 
     updateContainerBounds(container);
