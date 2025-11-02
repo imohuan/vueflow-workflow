@@ -285,8 +285,10 @@ const workflowStore = useWorkflowStore();
 const { currentWorkflow } = storeToRefs(workflowStore);
 
 // 初始化工作流执行状态管理器
-// TODO: 后续需要根据实际工作流ID传入，当前使用固定ID作为示例
-const workflowId = ref("default-workflow");
+// 使用当前工作流 ID（如果没有则使用默认 ID）
+const workflowId = computed(
+  () => currentWorkflow.value?.id || "default-workflow"
+);
 const workflowExecution = useWorkflowExecution(workflowId);
 
 // 响应式更新节点和边的执行状态
@@ -1622,7 +1624,9 @@ async function handleExecuteWorkflow() {
   }
 
   try {
-    await store.executeWorkflow();
+    // 使用 computed 的 workflowId，确保和监听器一致
+    await store.executeWorkflow(workflowId.value);
+    console.log(`[NodeEditor] 执行工作流 ID: ${workflowId.value}`);
   } catch (error) {
     console.error("执行工作流失败", error);
   }

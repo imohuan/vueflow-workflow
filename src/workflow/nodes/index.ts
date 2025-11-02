@@ -14,9 +14,6 @@ export {
   OPERATORS_BY_TYPE,
 } from "workflow-node-executor";
 
-// 从 useNodeRegistry 统一导入（包含核心节点和 browser-nodes 包中的节点）
-export { getNodeByType } from "@/composables/useNodeRegistry";
-
 // 导出 BaseNode 从 workflow-node-executor
 export { BaseNode } from "workflow-node-executor";
 

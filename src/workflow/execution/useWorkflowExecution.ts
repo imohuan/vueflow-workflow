@@ -206,8 +206,21 @@ export function useWorkflowExecution(
     executions.value.set(payload.executionId, execution);
 
     // 如果是当前工作流的执行，设置为活跃任务
-    if (payload.workflowId === workflowId.value) {
+    const isCurrentWorkflow = payload.workflowId === workflowId.value;
+    console.log(
+      `[WorkflowExecution] 工作流 ID 匹配检查:`,
+      `\n  执行的工作流 ID: ${payload.workflowId}`,
+      `\n  监听的工作流 ID: ${workflowId.value}`,
+      `\n  是否匹配: ${isCurrentWorkflow}`
+    );
+
+    if (isCurrentWorkflow) {
       activeExecutionId.value = payload.executionId;
+      console.log(
+        `[WorkflowExecution] ✅ 设置活跃执行 ID: ${payload.executionId}`
+      );
+    } else {
+      console.warn(`[WorkflowExecution] ⚠️  工作流 ID 不匹配，忽略此执行`);
     }
 
     // 初始化状态映射

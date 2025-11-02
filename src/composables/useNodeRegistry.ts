@@ -1,23 +1,41 @@
 /**
  * 节点注册表 Hooks
- * 统一管理节点元数据，支持从多个注册表（nodeRegistryList）加载和动态注册
- * 未来将完全基于 JSON 数据，不依赖节点实例
+ *
+ * ============================================================
+ * 架构说明：纯元数据管理
+ * ============================================================
+ *
+ * 📦 Worker (workflowWorker.ts)：
+ *   ✅ 初始化节点注册表
+ *   ✅ 执行所有工作流和单节点（统一在 Worker 中）
+ *   ✅ 管理节点实例和工厂函数
+ *   ✅ 提取并发送节点元数据到主线程
+ *
+ * 🎨 主线程 (useNodeRegistry.ts)：
+ *   ✅ 接收 Worker 发来的节点元数据（纯数据，不包含实例）
+ *   ✅ 提供元数据查询功能（搜索、过滤、分类）
+ *   ✅ 管理动态注册的节点元数据
+ *   ❌ 不再管理节点实例
+ *   ❌ 不再执行节点
+ *
+ * ============================================================
+ * 设计原则：职责单一
+ * ============================================================
+ *
+ * 主线程只负责 UI 相关的元数据操作：
+ * - 显示节点列表
+ * - 搜索和过滤节点
+ * - 获取节点的配置定义
+ *
+ * 所有执行逻辑（工作流 + 单节点）都在 Worker 中完成。
+ *
+ * ============================================================
  */
 
 import { ref, computed } from "vue";
-import { BrowserNodeRegistry } from "workflow-browser-nodes";
-import {
-  type BaseNode,
-  type PortDefinition,
-  type NodeRegistry,
-  CoreNodeRegistry,
-} from "workflow-node-executor";
+import type { PortDefinition } from "workflow-node-executor";
 import type { NodeData } from "@/typings/nodeEditor";
-
-const nodeRegistryList: NodeRegistry[] = [
-  new CoreNodeRegistry(),
-  new BrowserNodeRegistry(),
-];
+import { useWorkflowWorker } from "./useWorkflowWorker";
 
 /**
  * 节点元数据
@@ -47,49 +65,49 @@ interface NodeRegistryState {
   metadataMap: Map<string, NodeMetadata>;
   /** 动态注册的节点元数据（来自后端） */
   dynamicNodes: Map<string, NodeMetadata>;
+  /** 是否已从 Worker 加载 */
+  loadedFromWorker: boolean;
 }
 
 const state = ref<NodeRegistryState>({
   metadataMap: new Map(),
   dynamicNodes: new Map(),
+  loadedFromWorker: false,
 });
 
 /**
- * 从节点实例提取元数据
- * 使用 createNodeData 方法获取完整的节点数据（包含默认端口逻辑）
+ * 从 Worker 加载节点元数据（需要在 setup 上下文中调用）
+ * 这是唯一的元数据来源，不再本地生成
  */
-function extractMetadata(node: BaseNode): NodeMetadata {
-  // 使用 createNodeData 方法获取完整的节点数据
-  const nodeData = node.createNodeData();
+async function loadFromWorker(worker: ReturnType<typeof useWorkflowWorker>) {
+  if (state.value.loadedFromWorker) {
+    return;
+  }
 
-  return {
-    type: node.type,
-    label: node.label,
-    description: node.description,
-    category: node.category,
-    inputs: nodeData.inputs, // 使用 createNodeData 返回的 inputs（已包含默认端口）
-    outputs: nodeData.outputs, // 使用 createNodeData 返回的 outputs（已包含默认端口）
-    defaultConfig: nodeData.config, // 使用 createNodeData 返回的 config
-  };
-}
+  try {
+    // 等待 Worker 初始化完成
+    await worker.waitForReady();
 
-/**
- * 初始化节点注册表
- * 从 nodeRegistryList 中的所有注册表加载节点元数据
- * 注意：核心节点（start, end, if, for）由 workflowExecutor 管理，不在此处加载
- */
-function initializeRegistry() {
-  // 清空现有数据
-  state.value.metadataMap.clear();
+    // 清空现有数据
+    state.value.metadataMap.clear();
 
-  // 遍历所有注册表，加载节点元数据
-  nodeRegistryList.forEach((registry) => {
-    const nodes = registry.getAllNodes();
-    nodes.forEach((node: BaseNode) => {
-      const metadata = extractMetadata(node);
-      state.value.metadataMap.set(metadata.type, metadata);
+    // 从 Worker 获取节点元数据（唯一来源）
+    const metadata = worker.nodeMetadata.value;
+    metadata.forEach((node) => {
+      state.value.metadataMap.set(node.type, node as NodeMetadata);
     });
-  });
+
+    state.value.loadedFromWorker = true;
+    console.log(
+      `[NodeRegistry] ✅ 已从 Worker 加载 ${metadata.length} 个节点元数据`
+    );
+  } catch (error) {
+    console.error(
+      "[NodeRegistry] ❌ 从 Worker 加载节点失败，这会导致节点列表为空",
+      error
+    );
+    throw error; // 抛出错误，不回退到本地
+  }
 }
 
 /**
@@ -182,27 +200,22 @@ function hasNodeType(type: string): boolean {
 
 /**
  * 创建节点数据（用于创建新节点）
- * 优先使用节点实例的 createNodeData 方法，以确保默认端口逻辑正确应用
+ * 基于元数据创建节点的初始数据
  */
 function createNodeData(type: string): NodeData | null {
-  // 优先尝试使用节点实例的 createNodeData 方法（包含默认端口逻辑）
-  const nodeInstance = getNodeInstance(type);
-  if (nodeInstance) {
-    return nodeInstance.createNodeData();
-  }
-
-  // 如果找不到节点实例，回退到使用元数据（适用于动态注册的节点）
   const metadata = getNodeMetadata(type);
   if (!metadata) {
     return null;
   }
 
-  // 对于动态注册的节点，需要手动检查并添加默认端口
+  // 检查是否有自定义端口
   const hasCustomInputPorts = metadata.inputs.some((input) => input.isPort);
   const hasCustomOutputPorts = metadata.outputs.some((output) => output.isPort);
 
+  // 配置项（非端口的输入）
   const configOnlyInputs = metadata.inputs.filter((input) => !input.isPort);
 
+  // 如果没有自定义输入端口，添加默认输入端口
   const finalInputs = hasCustomInputPorts
     ? metadata.inputs
     : [
@@ -215,6 +228,7 @@ function createNodeData(type: string): NodeData | null {
         },
       ];
 
+  // 如果没有自定义输出端口，添加默认输出端口
   const finalOutputs = hasCustomOutputPorts
     ? metadata.outputs
     : [
@@ -243,31 +257,6 @@ function createNodeData(type: string): NodeData | null {
 }
 
 /**
- * 获取节点实例（从 nodeRegistryList 中查找）
- * 遍历所有注册表，返回第一个匹配的节点实例
- * 注意：核心节点（start, end, if, for）由 workflowExecutor 管理，不在此处处理
- */
-function getNodeInstance(type: string): BaseNode | undefined {
-  for (const registry of nodeRegistryList) {
-    const node = registry.getNodeByType(type);
-    if (node) {
-      return node;
-    }
-  }
-  return undefined;
-}
-
-/**
- * 获取节点实例（统一入口，从 nodeRegistryList 中查找）
- * 注意：核心节点（start, end, if, for）由 workflowExecutor 管理，不在此处处理
- * @param type - 节点类型
- * @returns 节点实例
- */
-export function getNodeByType(type: string): BaseNode | undefined {
-  return getNodeInstance(type);
-}
-
-/**
  * 获取动态注册的节点（来自后端）
  */
 function getDynamicNodes(): NodeMetadata[] {
@@ -287,11 +276,30 @@ function clearDynamicNodes() {
 
 /**
  * 节点注册表 Hooks
+ *
+ * 职责：
+ * - 从 Worker 加载节点元数据（UI 显示）
+ * - 提供元数据查询接口
+ * - 懒加载本地注册表（仅用于单节点执行）
  */
 export function useNodeRegistry() {
-  // 初始化（仅在首次调用时）
-  if (state.value.metadataMap.size === 0) {
-    initializeRegistry();
+  // 从 Worker 加载节点元数据（唯一来源）
+  if (state.value.metadataMap.size === 0 && !state.value.loadedFromWorker) {
+    try {
+      // 必须在 setup 上下文中调用
+      const worker = useWorkflowWorker();
+
+      // 异步从 Worker 加载节点元数据
+      loadFromWorker(worker).catch((error) => {
+        console.error("[NodeRegistry] ❌ 无法从 Worker 加载节点元数据", error);
+        // 不再回退到本地，因为元数据应该由 Worker 提供
+      });
+    } catch (error) {
+      console.error(
+        "[NodeRegistry] ❌ useWorkflowWorker() 必须在 setup 上下文中调用",
+        error
+      );
+    }
   }
 
   return {
@@ -313,10 +321,6 @@ export function useNodeRegistry() {
 
     // 创建方法
     createNodeData,
-
-    // 向后兼容方法（仅在需要节点实例时使用）
-    getNodeInstance,
-    getNodeByType, // 统一入口，推荐使用
 
     // 工具方法
     getDynamicNodes: computed(() => getDynamicNodes()),
