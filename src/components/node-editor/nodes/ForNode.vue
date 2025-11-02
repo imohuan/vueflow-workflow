@@ -1,7 +1,12 @@
 <template>
   <NodeWrapper v-bind="props" custom-handles>
     <template
-      #custom-handles="{ getPortHoverClass, handlePortHover, handlePortLeave }"
+      #custom-handles="{
+        getPortHoverClass,
+        handlePortHover,
+        handlePortLeave,
+        getHandleStyle,
+      }"
     >
       <Handle
         v-if="forInput"
@@ -14,6 +19,7 @@
           PORT_STYLE.ellipse,
           getPortHoverClass(forInput.id),
         ]"
+        :style="getHandleStyle(0, 1, 'input')"
         @mouseenter="handlePortHover(forInput.id, true)"
         @mouseleave="handlePortLeave(forInput.id)"
       />
@@ -39,6 +45,7 @@
           PORT_STYLE.ellipse,
           getPortHoverClass(nextOutput.id),
         ]"
+        :style="getHandleStyle(0, 1, 'output')"
         @mouseenter="handlePortHover(nextOutput.id, false)"
         @mouseleave="handlePortLeave(nextOutput.id)"
       />
