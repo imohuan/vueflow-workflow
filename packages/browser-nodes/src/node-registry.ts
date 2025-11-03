@@ -50,6 +50,10 @@ import { DelayNode } from "./nodes/flow/DelayNode.ts";
 import { MergeNode } from "./nodes/transform/MergeNode.ts";
 import { CodeNode } from "./nodes/transform/CodeNode.ts";
 
+// 调试工具
+import { EchoNode } from "./nodes/debug/EchoNode.ts";
+import { ImagePreviewNode } from "./nodes/debug/ImagePreviewNode.ts";
+
 /**
  * 节点注册表
  * 按分类组织所有节点（内部使用）
@@ -108,6 +112,11 @@ const NODE_REGISTRY = {
   transform: {
     merge: new MergeNode(),
     code: new CodeNode(),
+  },
+  /** 调试工具 */
+  debug: {
+    echo: new EchoNode(),
+    imagePreview: new ImagePreviewNode(),
   },
 } as const;
 

@@ -36,11 +36,21 @@ export function useEdgeManagement(
     connection: Connection,
     options: ConnectionValidationOptions = {}
   ): boolean {
-    const { ignoreExisting = false, ignoreEdgeId = null } = options;
+    const {
+      ignoreExisting = false,
+      ignoreEdgeId = null,
+      silent = false,
+    } = options;
+
+    const warn = (message: string) => {
+      if (!silent) {
+        console.warn(message);
+      }
+    };
 
     // 1. 不能连接自己
     if (connection.source === connection.target) {
-      console.warn("不能连接自己");
+      warn("不能连接自己");
       return false;
     }
 
@@ -59,7 +69,7 @@ export function useEdgeManagement(
       });
 
       if (exists) {
-        console.warn("连接已存在");
+        warn("连接已存在");
         return false;
       }
     }
@@ -69,7 +79,7 @@ export function useEdgeManagement(
     const targetNode = nodes.value.find((n) => n.id === connection.target);
 
     if (!sourceNode || !targetNode) {
-      console.warn("找不到节点");
+      warn("找不到节点");
       return false;
     }
 
@@ -88,11 +98,11 @@ export function useEdgeManagement(
         | string
         | undefined;
       if (expectedContainerId !== connection.target) {
-        console.warn("批处理循环出口只能连接到对应的循环体节点");
+        warn("批处理循环出口只能连接到对应的循环体节点");
         return false;
       }
       if (connection.targetHandle !== "loop-in") {
-        console.warn("批处理循环出口只能连接到循环体入口端口");
+        warn("批处理循环出口只能连接到循环体入口端口");
         return false;
       }
     }
@@ -102,11 +112,11 @@ export function useEdgeManagement(
         | string
         | undefined;
       if (expectedForNodeId !== connection.source) {
-        console.warn("循环体入口只能连接到对应的批处理节点");
+        warn("循环体入口只能连接到对应的批处理节点");
         return false;
       }
       if (connection.sourceHandle !== "loop") {
-        console.warn("循环体入口只能连接批处理节点的循环端口");
+        warn("循环体入口只能连接批处理节点的循环端口");
         return false;
       }
     }
@@ -116,7 +126,7 @@ export function useEdgeManagement(
       containerSideHandles.has(connection.sourceHandle || "") &&
       targetParent !== sourceNode.id
     ) {
-      console.warn("容器侧边端口只能连接到容器内部节点");
+      warn("容器侧边端口只能连接到容器内部节点");
       return false;
     }
 
@@ -125,7 +135,7 @@ export function useEdgeManagement(
       containerSideHandles.has(connection.targetHandle || "") &&
       sourceParent !== targetNode.id
     ) {
-      console.warn("容器侧边端口只能连接到容器内部节点");
+      warn("容器侧边端口只能连接到容器内部节点");
       return false;
     }
 
@@ -155,22 +165,22 @@ export function useEdgeManagement(
       isTargetContainer && connection.targetHandle === "loop-right";
 
     if (isSourceLoopLeft && !isTargetInput) {
-      console.warn("批处理左侧端口只能连接到子节点的输入端口");
+      warn("批处理左侧端口只能连接到子节点的输入端口");
       return false;
     }
 
     if (isTargetLoopLeft) {
-      console.warn("批处理左侧端口仅支持连接到子节点的输入端口");
+      warn("批处理左侧端口仅支持连接到子节点的输入端口");
       return false;
     }
 
     if (isTargetLoopRight && !isSourceOutput) {
-      console.warn("批处理右侧端口只能连接到子节点的输出端口");
+      warn("批处理右侧端口只能连接到子节点的输出端口");
       return false;
     }
 
     if (isSourceLoopRight) {
-      console.warn("批处理右侧端口仅支持作为子节点输出的目标端口");
+      warn("批处理右侧端口仅支持作为子节点输出的目标端口");
       return false;
     }
 
@@ -182,7 +192,7 @@ export function useEdgeManagement(
 
     // 必须是其中一种有效情况
     if (!isOutputToInput && !isInputToOutput) {
-      console.warn("只能连接输入端口和输出端口");
+      warn("只能连接输入端口和输出端口");
       return false;
     }
 
@@ -192,7 +202,7 @@ export function useEdgeManagement(
       !isTargetContainer &&
       targetParent !== sourceParent
     ) {
-      console.warn("容器内部节点只能连接同容器的节点");
+      warn("容器内部节点只能连接同容器的节点");
       return false;
     }
 
@@ -202,7 +212,7 @@ export function useEdgeManagement(
       !isTargetContainer &&
       sourceParent !== targetParent
     ) {
-      console.warn("容器内部节点只能连接同容器的节点");
+      warn("容器内部节点只能连接同容器的节点");
       return false;
     }
 

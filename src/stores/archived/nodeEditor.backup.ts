@@ -30,6 +30,7 @@ import {
   type WorkflowExecutionResult,
 } from "workflow-node-executor";
 import { workflowEmitter } from "@/main";
+import { getNodeEditorBridge } from "@/components/node-editor/nodeEditorBridge";
 
 const { containerDefaults, childEstimate } = nodeEditorLayoutConfig;
 
@@ -207,10 +208,9 @@ const skipDimensionUpdate = new Set<string>();
 
 function notifyContainerInternals(id: string) {
   if (!id) return;
-  const updater = (window as any)?.__updateNodeInternals;
-  if (typeof updater === "function") {
-    requestAnimationFrame(() => updater(id));
-  }
+  const bridge = getNodeEditorBridge();
+  if (!bridge) return;
+  requestAnimationFrame(() => bridge.updateNodeInternals(id));
 }
 
 const STORAGE_KEYS = {

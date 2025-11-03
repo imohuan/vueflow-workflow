@@ -228,6 +228,7 @@ import {
   onUnmounted,
   onBeforeUnmount,
   nextTick,
+  provide,
 } from "vue";
 import { storeToRefs } from "pinia";
 import { useEventListener, useMagicKeys, whenever } from "@vueuse/core";
@@ -237,7 +238,7 @@ import { MiniMap } from "@vue-flow/minimap";
 import { Controls } from "@vue-flow/controls";
 
 import type {
-  Connection,
+  Connection as FlowConnection,
   Node,
   Edge,
   GraphNode,
@@ -245,6 +246,7 @@ import type {
   NodeSelectionChange,
   EdgeChange,
   EdgeUpdateEvent,
+  HandleElement,
 } from "@vue-flow/core";
 import CustomNode from "@/components/node-editor/CustomNode.vue";
 import LoopContainerNode from "@/components/node-editor/nodes/LoopContainerNode.vue";
@@ -258,7 +260,11 @@ import CustomConnectionLine from "@/components/node-editor/CustomConnectionLine.
 import { useNodeEditorStore } from "@/stores/nodeEditor";
 import { useEditorConfigStore } from "@/stores/editorConfig";
 import { useWorkflowStore } from "@/stores/workflow";
-import type { NodeData, PortDefinition } from "@/typings/nodeEditor";
+import type {
+  NodeData,
+  PortDefinition,
+  Connection as EditorConnection,
+} from "@/typings/nodeEditor";
 import { nodeEditorLayoutConfig } from "@/config";
 import Button from "@/components/common/Button.vue";
 import IconMap from "@/icons/IconMap.vue";
@@ -270,6 +276,16 @@ import IconPlayCircle from "@/icons/IconPlayCircle.vue";
 
 // 引入工作流执行状态管理
 import { useWorkflowExecution } from "@/workflow/execution/useWorkflowExecution";
+import {
+  CTRL_CONNECT_CONTEXT_KEY,
+  type CtrlConnectCandidateState,
+} from "@/components/node-editor/contextKeys";
+import {
+  NODE_EDITOR_BRIDGE_KEY,
+  registerNodeEditorBridge,
+  unregisterNodeEditorBridge,
+} from "@/components/node-editor/nodeEditorBridge";
+import type { NodeEditorBridge } from "@/components/node-editor/nodeEditorBridge";
 
 type DagreLayoutDirection = "TB" | "BT" | "LR" | "RL";
 
@@ -477,47 +493,65 @@ const ctrlDetachContext = ref<{
   isIntersecting: boolean;
 } | null>(null);
 const isCtrlPressed = ref(false);
+const connectingNodeId = ref<string | null>(null);
+const connectingHandleId = ref<string | null>(null);
+const connectingHandleType = ref<"source" | "target" | null>(null);
+const ctrlConnectCandidate = ref<CtrlConnectCandidateState | null>(null);
+const ctrlConnectActive = computed(
+  () =>
+    isCtrlPressed.value &&
+    connectingNodeId.value !== null &&
+    connectingHandleId.value !== null &&
+    connectingHandleType.value !== null
+);
+provide(CTRL_CONNECT_CONTEXT_KEY, {
+  active: ctrlConnectActive,
+  candidate: ctrlConnectCandidate,
+});
+
+watch(ctrlConnectActive, (active) => {
+  if (active) {
+    updateCtrlConnectCandidate();
+  } else {
+    resetCtrlConnectCandidate();
+  }
+});
+
+watch(isCtrlPressed, (pressed) => {
+  if (!pressed) {
+    resetCtrlConnectCandidate();
+    return;
+  }
+
+  if (ctrlConnectActive.value) {
+    updateCtrlConnectCandidate();
+  }
+});
+
+const nodeEditorBridge: NodeEditorBridge = {
+  checkPortValidity: (targetNodeId: string, targetHandleId: string) =>
+    checkPortValidity(targetNodeId, targetHandleId),
+  isConnecting: () =>
+    connectingNodeId.value !== null && connectingHandleId.value !== null,
+  updateNodeInternals: (id: string) => {
+    if (!id) return;
+    vueFlowRef.value?.updateNodeInternals(id);
+  },
+};
+
+provide(NODE_EDITOR_BRIDGE_KEY, nodeEditorBridge);
+registerNodeEditorBridge(nodeEditorBridge);
+
+onBeforeUnmount(() => {
+  unregisterNodeEditorBridge();
+});
 
 type HighlightVariant = "normal" | "warning";
 
 const highlightedContainers = new Map<string, HighlightVariant>();
 const lastDragPositions = new Map<string, { x: number; y: number }>();
 const lastPointerPosition = ref<{ x: number; y: number } | null>(null);
-
-if (typeof window !== "undefined") {
-  const debugKey = "__NODE_EDITOR_DEBUG__";
-  const payload = {
-    get store() {
-      return store;
-    },
-    get lastExecutionLog() {
-      return store.lastExecutionLog ?? null;
-    },
-    get isExecutingWorkflow() {
-      return store.isExecutingWorkflow ?? false;
-    },
-    get nodes() {
-      return store.nodes ?? [];
-    },
-    get edges() {
-      return store.edges ?? [];
-    },
-  };
-
-  Object.defineProperty(window, debugKey, {
-    configurable: true,
-    enumerable: false,
-    get() {
-      return payload;
-    },
-  });
-
-  onBeforeUnmount(() => {
-    if (window && Object.prototype.hasOwnProperty.call(window, debugKey)) {
-      delete (window as unknown as Record<string, unknown>)[debugKey];
-    }
-  });
-}
+const lastClientPointer = ref<{ x: number; y: number } | null>(null);
 const managedSelectedNodeIds = ref<string[]>([]);
 
 function isEditableElement(target: EventTarget | null): boolean {
@@ -587,6 +621,334 @@ function nodeHasConnections(nodeId: string): boolean {
   );
 }
 
+function getGraphNodePosition(
+  graphNode: GraphNode<NodeData> | null,
+  fallbackNode: Node<NodeData> | null
+): { x: number; y: number } {
+  if (graphNode?.computedPosition) {
+    return {
+      x: graphNode.computedPosition.x,
+      y: graphNode.computedPosition.y,
+    };
+  }
+
+  const fallback = fallbackNode?.position;
+  return {
+    x: fallback?.x ?? 0,
+    y: fallback?.y ?? 0,
+  };
+}
+
+function getHandleCandidates(
+  graphNode: GraphNode<NodeData> | null,
+  fallbackNode: Node<NodeData> | null,
+  handleType: "source" | "target"
+): { handle: HandleElement; position: { x: number; y: number } }[] {
+  if (!graphNode) {
+    return [];
+  }
+
+  const handles = graphNode.handleBounds?.[handleType] ?? [];
+  if (!handles || handles.length === 0) {
+    return [];
+  }
+
+  const basePosition = getGraphNodePosition(graphNode, fallbackNode);
+
+  return handles.map((handle) => {
+    const centerX = basePosition.x + handle.x + (handle.width ?? 0) / 2;
+    const centerY = basePosition.y + handle.y + (handle.height ?? 0) / 2;
+    return {
+      handle,
+      position: {
+        x: centerX,
+        y: centerY,
+      },
+    };
+  });
+}
+
+function hasExistingEdge(connection: EditorConnection): boolean {
+  return edges.value.some(
+    (edge) =>
+      edge.source === connection.source &&
+      edge.sourceHandle === connection.sourceHandle &&
+      edge.target === connection.target &&
+      edge.targetHandle === connection.targetHandle
+  );
+}
+
+function resetCtrlConnectCandidate() {
+  if (!ctrlConnectCandidate.value) {
+    return;
+  }
+  ctrlConnectCandidate.value = null;
+}
+
+function updateCtrlConnectCandidate() {
+  if (
+    !ctrlConnectActive.value ||
+    !connectingNodeId.value ||
+    !connectingHandleType.value
+  ) {
+    resetCtrlConnectCandidate();
+    return;
+  }
+
+  const pointer = lastPointerPosition.value;
+  const clientPointer = lastClientPointer.value;
+
+  if (!pointer || !clientPointer) {
+    resetCtrlConnectCandidate();
+    return;
+  }
+
+  const element = document.elementFromPoint(clientPointer.x, clientPointer.y);
+  if (!element) {
+    resetCtrlConnectCandidate();
+    return;
+  }
+
+  const nodeElement = element.closest(".vue-flow__node") as HTMLElement | null;
+
+  if (!nodeElement) {
+    resetCtrlConnectCandidate();
+    return;
+  }
+
+  const nodeId =
+    nodeElement.dataset.id ?? nodeElement.getAttribute("data-id") ?? null;
+
+  if (!nodeId || nodeId === connectingNodeId.value) {
+    resetCtrlConnectCandidate();
+    return;
+  }
+
+  const desiredHandleType =
+    connectingHandleType.value === "source" ? "target" : "source";
+
+  if (!desiredHandleType) {
+    resetCtrlConnectCandidate();
+    return;
+  }
+
+  const handleElement = element.closest(
+    ".vue-flow__handle"
+  ) as HTMLElement | null;
+
+  const handleTypeMatches = handleElement
+    ? desiredHandleType === "source"
+      ? handleElement.classList.contains("source")
+      : handleElement.classList.contains("target")
+    : false;
+
+  const preferredHandleId = handleTypeMatches
+    ? handleElement?.dataset.handleid ??
+      handleElement?.getAttribute("data-handleid") ??
+      null
+    : null;
+
+  const storeNode = nodes.value.find((n) => n.id === nodeId) ?? null;
+  const graphNode = vueFlowApi.findNode?.(nodeId) ?? null;
+  const candidates = getHandleCandidates(
+    graphNode,
+    storeNode,
+    desiredHandleType
+  );
+
+  if (!candidates.length) {
+    resetCtrlConnectCandidate();
+    return;
+  }
+
+  let bestCandidate: {
+    handleId: string | null;
+    position: { x: number; y: number };
+  } | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (const candidate of candidates) {
+    const handleId = candidate.handle.id ?? null;
+    let score = Math.hypot(
+      candidate.position.x - pointer.x,
+      candidate.position.y - pointer.y
+    );
+
+    if (preferredHandleId && handleId === preferredHandleId) {
+      score -= 1000;
+    }
+
+    if (!bestCandidate || score < bestScore) {
+      bestCandidate = {
+        handleId,
+        position: candidate.position,
+      };
+      bestScore = score;
+    }
+  }
+
+  if (!bestCandidate) {
+    resetCtrlConnectCandidate();
+    return;
+  }
+
+  const selectedHandleId =
+    preferredHandleId && preferredHandleId === bestCandidate.handleId
+      ? preferredHandleId
+      : bestCandidate.handleId;
+
+  if (!selectedHandleId) {
+    resetCtrlConnectCandidate();
+    return;
+  }
+
+  const connection: EditorConnection =
+    desiredHandleType === "target"
+      ? {
+          source: connectingNodeId.value,
+          sourceHandle: connectingHandleId.value,
+          target: nodeId,
+          targetHandle: selectedHandleId,
+        }
+      : {
+          source: nodeId,
+          sourceHandle: selectedHandleId,
+          target: connectingNodeId.value,
+          targetHandle: connectingHandleId.value,
+        };
+
+  const exists = hasExistingEdge(connection);
+
+  const isValid = !exists
+    ? store.validateConnection(connection, {
+        ignoreExisting: true,
+        silent: true,
+      })
+    : false;
+
+  ctrlConnectCandidate.value = {
+    nodeId,
+    handleId: selectedHandleId,
+    handleType: desiredHandleType,
+    position: bestCandidate.position,
+    isValid,
+  };
+}
+
+function finalizeCtrlConnection(): boolean {
+  if (!ctrlConnectActive.value) {
+    return false;
+  }
+
+  const candidate = ctrlConnectCandidate.value;
+
+  if (
+    !candidate ||
+    !candidate.isValid ||
+    !candidate.handleId ||
+    !candidate.position ||
+    !connectingNodeId.value ||
+    !connectingHandleId.value ||
+    !connectingHandleType.value
+  ) {
+    return false;
+  }
+
+  const connection: EditorConnection =
+    connectingHandleType.value === "source"
+      ? {
+          source: connectingNodeId.value,
+          sourceHandle: connectingHandleId.value,
+          target: candidate.nodeId,
+          targetHandle: candidate.handleId,
+        }
+      : {
+          source: candidate.nodeId,
+          sourceHandle: candidate.handleId,
+          target: connectingNodeId.value,
+          targetHandle: connectingHandleId.value,
+        };
+
+  if (hasExistingEdge(connection)) {
+    return false;
+  }
+
+  if (!store.validateConnection(connection, { ignoreExisting: true })) {
+    return false;
+  }
+
+  const newEdge: Edge = {
+    id: `edge_${Date.now()}`,
+    source: connection.source,
+    sourceHandle: connection.sourceHandle ?? undefined,
+    target: connection.target,
+    targetHandle: connection.targetHandle ?? undefined,
+    type: config.value.edgeType,
+    animated: config.value.edgeAnimated,
+    style: {
+      stroke: config.value.edgeColor,
+      strokeWidth: config.value.edgeStrokeWidth,
+    },
+  } as Edge;
+
+  store.addEdge(newEdge);
+  return true;
+}
+
+function isTouchEvent(event: MouseEvent | TouchEvent): event is TouchEvent {
+  return typeof TouchEvent !== "undefined" && event instanceof TouchEvent;
+}
+
+function getClientPointerFromEvent(
+  event: MouseEvent | TouchEvent | null
+): { x: number; y: number } | null {
+  if (!event) {
+    return null;
+  }
+
+  if (!isTouchEvent(event)) {
+    if (
+      typeof event.clientX === "number" &&
+      typeof event.clientY === "number"
+    ) {
+      return { x: event.clientX, y: event.clientY };
+    }
+    return null;
+  }
+
+  const touch =
+    event.changedTouches.length > 0
+      ? event.changedTouches.item(0)
+      : event.touches.length > 0
+      ? event.touches.item(0)
+      : null;
+
+  if (!touch) {
+    return null;
+  }
+
+  return { x: touch.clientX, y: touch.clientY };
+}
+
+function getProjectedPositionFromEvent(
+  event: MouseEvent | TouchEvent | null
+): { x: number; y: number } | null {
+  const instance = vueFlowRef.value as any;
+  if (!instance?.project) {
+    return null;
+  }
+
+  const clientPointer = getClientPointerFromEvent(event);
+
+  if (!clientPointer) {
+    return null;
+  }
+
+  lastClientPointer.value = clientPointer;
+
+  return instance.project({ x: clientPointer.x, y: clientPointer.y });
+}
+
 function updateDragTargetHighlight(
   targetId: string | null,
   highlightType: HighlightVariant = "normal"
@@ -652,6 +1014,8 @@ useEventListener(window, "mousemove", (event: MouseEvent) => {
   const projected = instance.project?.({ x: event.clientX, y: event.clientY });
   if (projected) {
     lastPointerPosition.value = projected;
+    lastClientPointer.value = { x: event.clientX, y: event.clientY };
+    updateCtrlConnectCandidate();
   }
 });
 
@@ -679,12 +1043,14 @@ useEventListener(window, "keyup", (event: KeyboardEvent) => {
   if (!event.ctrlKey) {
     restoreCtrlDragContext(false);
     isCtrlPressed.value = false;
+    resetCtrlConnectCandidate();
   }
 });
 
 useEventListener(window, "blur", () => {
   restoreCtrlDragContext(false);
   isCtrlPressed.value = false;
+  resetCtrlConnectCandidate();
 });
 
 // 节点拖拽监听器清理函数
@@ -862,86 +1228,6 @@ onMounted(() => {
       }
     }
   });
-
-  // 调试工具：绑定历史记录查看方法到 window
-  if (typeof window !== "undefined") {
-    (window as any).__nodeEditorDebug = {
-      // 获取历史记录详情
-      getHistory: () => {
-        const info = store.getHistoryDebugInfo();
-        console.log("=== 节点编辑器历史记录 ===");
-        console.log(`总记录数: ${info.totalRecords}`);
-        console.log(`当前索引: ${info.currentIndex}`);
-        console.log(`可撤销: ${info.canUndo}`);
-        console.log(`可重做: ${info.canRedo}`);
-        console.log("\n历史记录列表:");
-        console.table(info.records);
-        return info;
-      },
-
-      // 获取完整的历史记录数据
-      getFullHistory: () => {
-        return store.historyRecords;
-      },
-
-      // 获取当前画布状态
-      getCurrentState: () => {
-        return {
-          nodes: store.nodes,
-          edges: store.edges,
-          nodesCount: store.nodes.length,
-          edgesCount: store.edges.length,
-        };
-      },
-
-      // 测试撤销
-      testUndo: () => {
-        if (store.canUndo) {
-          store.undo();
-          console.log("✅ 已撤销");
-        } else {
-          console.log("❌ 无法撤销");
-        }
-      },
-
-      // 测试重做
-      testRedo: () => {
-        if (store.canRedo) {
-          store.redo();
-          console.log("✅ 已重做");
-        } else {
-          console.log("❌ 无法重做");
-        }
-      },
-
-      // 帮助信息
-      help: () => {
-        console.log(`
-=== 节点编辑器调试工具 ===
-
-可用方法:
-  __nodeEditorDebug.getHistory()       - 查看历史记录摘要
-  __nodeEditorDebug.getFullHistory()   - 查看完整历史记录
-  __nodeEditorDebug.getCurrentState()  - 查看当前画布状态
-  __nodeEditorDebug.testUndo()         - 测试撤销
-  __nodeEditorDebug.testRedo()         - 测试重做
-  __nodeEditorDebug.help()             - 显示此帮助信息
-
-示例:
-  __nodeEditorDebug.getHistory()
-        `);
-      },
-    };
-
-    console.log(
-      "%c节点编辑器调试工具已启用",
-      "color: #10b981; font-weight: bold; font-size: 14px;"
-    );
-    console.log(
-      "%c输入 __nodeEditorDebug.help() 查看可用方法",
-      "color: #6366f1; font-size: 12px;"
-    );
-  }
 });
 
 onUnmounted(() => {
@@ -965,11 +1251,6 @@ onUnmounted(() => {
   updateDragTargetHighlight(null);
   ctrlDetachContext.value = null;
   lastDragPositions.clear();
-
-  // 清理调试工具
-  if (typeof window !== "undefined") {
-    delete (window as any).__nodeEditorDebug;
-  }
 });
 
 // 键盘快捷键
@@ -1391,10 +1672,6 @@ function onEdgesChange(changes: EdgeChange[]) {
   });
 }
 
-const connectingNodeId = ref<string | null>(null);
-const connectingHandleId = ref<string | null>(null);
-const connectingHandleType = ref<"source" | "target" | null>(null);
-
 // 记录边更新状态
 const updatingEdgeId = ref<string | null>(null);
 const edgeUpdateSuccessful = ref<boolean>(false);
@@ -1406,15 +1683,29 @@ function onConnectStart(params: any) {
   connectingNodeId.value = params.nodeId;
   connectingHandleId.value = params.handleId;
   connectingHandleType.value = params.handleType;
+
+  if (ctrlConnectActive.value) {
+    updateCtrlConnectCandidate();
+  }
 }
 
 /**
  * 连接结束
  */
-function onConnectEnd() {
+function onConnectEnd(event?: MouseEvent | TouchEvent | null) {
+  const projected = getProjectedPositionFromEvent(event ?? null);
+
+  if (projected) {
+    lastPointerPosition.value = projected;
+    updateCtrlConnectCandidate();
+  }
+
+  finalizeCtrlConnection();
+
   connectingNodeId.value = null;
   connectingHandleId.value = null;
   connectingHandleType.value = null;
+  resetCtrlConnectCandidate();
 }
 
 /**
@@ -1461,21 +1752,12 @@ function checkPortValidity(
   return result;
 }
 
-// 将函数暴露给子组件使用
-(window as any).__checkPortValidity = checkPortValidity;
-(window as any).__isConnecting = () =>
-  connectingNodeId.value !== null && connectingHandleId.value !== null;
-(window as any).__updateNodeInternals = (id: string) => {
-  if (!id) return;
-  vueFlowRef.value?.updateNodeInternals(id);
-};
-
 /**
  * 连接处理
  * 当连接成功建立时调用
  */
-function onConnect(connection: Connection) {
-  const conn = {
+function onConnect(connection: FlowConnection) {
+  const conn: EditorConnection = {
     source: connection.source,
     sourceHandle: connection.sourceHandle || null,
     target: connection.target,
@@ -1501,6 +1783,7 @@ function onConnect(connection: Connection) {
   };
 
   store.addEdge(newEdge);
+  resetCtrlConnectCandidate();
 }
 
 /**
@@ -1546,7 +1829,7 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
   }
 
   // 验证新连接是否有效
-  const conn = {
+  const conn: EditorConnection = {
     source: connection.source,
     sourceHandle: connection.sourceHandle || null,
     target: connection.target,

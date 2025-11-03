@@ -5,6 +5,7 @@
       'node-wrapper min-w-[280px] max-w-[400px] bg-white border-2 rounded-md shadow-lg cursor-pointer text-sm overflow-visible backdrop-blur-xl transition-all duration-300 ease-out relative',
       'border-slate-200 hover:shadow-xl',
       executionStatusClass,
+      ctrlConnectStateClass,
     ]"
     :style="{
       borderColor: isSelected ? selectedBorderColor : undefined,
@@ -178,6 +179,7 @@ import {
   nextTick,
   onMounted,
   onUnmounted,
+  inject,
   type Component,
 } from "vue";
 import { Handle, Position, useVueFlow } from "@vue-flow/core";
@@ -189,6 +191,14 @@ import { getNodeTheme } from "@/config/nodeTheme";
 import { PORT_STYLE } from "../ports";
 import { usePortPositionUpdate } from "./usePortPositionUpdate";
 import { useDebounceFn } from "@vueuse/core";
+import {
+  CTRL_CONNECT_CONTEXT_KEY,
+  type CtrlConnectContextValue,
+} from "@/components/node-editor/contextKeys";
+import {
+  NODE_EDITOR_BRIDGE_KEY,
+  type NodeEditorBridge,
+} from "@/components/node-editor/nodeEditorBridge";
 
 // 导入所有图标组件
 import IconBell from "@/icons/IconBell.vue";
@@ -281,9 +291,40 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const store = useNodeEditorStore();
-const { getSelectedNodes, getNodes, updateNodeDimensions } = useVueFlow();
+const {
+  getSelectedNodes,
+  getNodes,
+  updateNodeDimensions,
+  updateNodeInternals,
+} = useVueFlow();
 const contentRef = ref<HTMLDivElement | null>(null);
 const nodeWrapperRef = ref<HTMLDivElement | null>(null);
+const ctrlConnectContext = inject<CtrlConnectContextValue | null>(
+  CTRL_CONNECT_CONTEXT_KEY,
+  null
+);
+
+const nodeEditorBridge = inject<NodeEditorBridge | null>(
+  NODE_EDITOR_BRIDGE_KEY,
+  null
+);
+
+const ctrlConnectStateClass = computed(() => {
+  if (!ctrlConnectContext) {
+    return "";
+  }
+
+  const active = ctrlConnectContext.active.value;
+  const candidate = ctrlConnectContext.candidate.value;
+
+  if (!active || !candidate || candidate.nodeId !== props.id) {
+    return "";
+  }
+
+  return candidate.isValid
+    ? "node-wrapper--ctrl-target"
+    : "node-wrapper--ctrl-target-invalid";
+});
 
 const nodeTheme = computed(() => getNodeTheme(props.data.category || ""));
 
@@ -529,7 +570,10 @@ function _updateNodeHeight() {
 const debouncedUpdateNodeHeight = useDebounceFn(() => {
   nextTick(() => {
     if (!nodeWrapperRef.value) return;
+    // 更新节点尺寸
     updateNodeDimensions([{ id: props.id, nodeElement: nodeWrapperRef.value }]);
+    // 更新节点内部状态（端口位置）
+    updateNodeInternals([props.id]);
   });
 }, 300);
 
@@ -619,16 +663,14 @@ function handleToggleResult(expanded: boolean) {
 function handlePortHover(portId: string, _isInput: boolean) {
   hoveredPortId.value = portId;
 
-  const isConnecting = (window as any).__isConnecting?.();
+  const isConnecting = nodeEditorBridge?.isConnecting() ?? false;
   if (!isConnecting) {
     isHoveredPortValid.value = true;
     return;
   }
 
-  const checkValidity = (window as any).__checkPortValidity;
-  if (checkValidity) {
-    isHoveredPortValid.value = checkValidity(props.id, portId);
-  }
+  isHoveredPortValid.value =
+    nodeEditorBridge?.checkPortValidity(props.id, portId) ?? true;
 }
 
 function handlePortLeave(portId: string) {
@@ -641,7 +683,7 @@ function handlePortLeave(portId: string) {
 function getPortHoverClass(portId: string): string {
   if (hoveredPortId.value !== portId) return "";
 
-  const isConnecting = (window as any).__isConnecting?.();
+  const isConnecting = nodeEditorBridge?.isConnecting() ?? false;
   if (!isConnecting) return "";
 
   return isHoveredPortValid.value ? "port-valid-target" : "port-invalid-target";
@@ -703,5 +745,15 @@ function getHandleStyle(
   border-color: rgb(203 213 225);
   border-style: dashed;
   opacity: 0.7;
+}
+
+.node-wrapper--ctrl-target {
+  border-color: rgb(37 99 235) !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.node-wrapper--ctrl-target-invalid {
+  border-color: rgb(239 68 68) !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
 }
 </style>

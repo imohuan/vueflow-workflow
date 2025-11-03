@@ -5,7 +5,7 @@
       <!-- 手掌图标 - 跟随鼠标实时移动 -->
       <div
         v-if="dropTargetState !== 'default'"
-        class="fixed pointer-events-none z-[10001] w-8 h-8 flex items-center justify-center"
+        class="fixed pointer-events-none z-10001 w-8 h-8 flex items-center justify-center"
         :style="{
           left: dragPosition.x + 'px',
           top: dragPosition.y + 'px',
@@ -145,6 +145,17 @@ const showDragFollower = ref(false);
 const dragPosition = ref({ x: 0, y: 0 });
 const dropTargetState = ref<"default" | "empty" | "hasContent">("default");
 const currentEditableElement = ref<HTMLElement | null>(null);
+
+interface DraggedVariableData {
+  payload: {
+    reference: string;
+    type: string;
+    label: string;
+  };
+  reference: string;
+}
+
+let draggedVariableData: DraggedVariableData | null = null;
 const hasChildren = computed(
   () => Array.isArray(props.node.children) && props.node.children.length > 0
 );
@@ -241,8 +252,8 @@ function handleMouseDown(event: MouseEvent) {
     label: props.node.label,
   };
 
-  // 存储拖拽数据到全局变量，供 drop 时使用
-  (window as any).__draggedVariableData = {
+  // 存储拖拽数据供 drop 时使用
+  draggedVariableData = {
     payload,
     reference: variableRef,
   };
@@ -334,12 +345,12 @@ function handleMouseUp(event: MouseEvent) {
     // 创建自定义事件传递数据
     const dropEvent = new CustomEvent("variable-drop", {
       bubbles: true,
-      detail: (window as any).__draggedVariableData,
+      detail: draggedVariableData,
     });
     target.dispatchEvent(dropEvent);
   }
 
   // 清理拖拽数据
-  delete (window as any).__draggedVariableData;
+  draggedVariableData = null;
 }
 </script>

@@ -1,5 +1,6 @@
 import type { BaseNode } from "./BaseNode.ts";
 import type {
+  PortDefinition,
   NodeResult,
   NodeResultOutput,
   ExecutionLog,
@@ -18,6 +19,21 @@ import { StartNode } from "./nodes/StartNode.ts";
 import { EndNode } from "./nodes/EndNode.ts";
 import { IfNode } from "./nodes/IfNode.ts";
 import { ForNode, type ForConfig } from "./nodes/ForNode.ts";
+import {
+  buildVariableContext,
+  resolveConfigWithVariables,
+} from "./variableResolver.ts";
+
+const DEBUG_PREFIX = "[NODE_EXECUTOR_DEBUG]";
+
+function debugLog(message: string, payload?: unknown): void {
+  if (payload === undefined) {
+    console.log(`${DEBUG_PREFIX} ${message}`);
+    return;
+  }
+
+  console.log(`${DEBUG_PREFIX} ${message}`, payload);
+}
 
 // 核心节点注册表
 const CORE_NODE_MAP: Record<string, BaseNode> = {
@@ -185,10 +201,19 @@ export async function executeWorkflow<TNode extends BaseNode = BaseNode>(
       });
       logEntry.input = inputs;
 
-      const config = { ...currentNode.data.config };
+      const resolvedConfig = resolveNodeConfig({
+        node: currentNode,
+        executor,
+        nodeMap,
+        edges,
+      });
+      debugLog("executeWorkflow:resolvedConfig", {
+        nodeId,
+        resolvedConfig,
+      });
 
       // 传递执行上下文给节点
-      const result = await executor.run(config, inputs, context);
+      const result = await executor.run(resolvedConfig, inputs, context);
 
       let finalResult = result;
       let forLoopHandled = false;
@@ -496,6 +521,57 @@ function collectNodeInputs(
   });
 
   return inputs;
+}
+
+interface ResolveNodeConfigOptions {
+  node: WorkflowNode;
+  executor: BaseNode;
+  nodeMap: Map<string, WorkflowNode>;
+  edges: WorkflowEdge[];
+}
+
+function resolveNodeConfig(
+  options: ResolveNodeConfigOptions
+): Record<string, any> {
+  const { node, executor, nodeMap, edges } = options;
+
+  const baseConfig = node.data?.config ? { ...node.data.config } : {};
+  debugLog("resolveNodeConfig:start", {
+    nodeId: node.id,
+    baseConfig,
+    edgeCount: edges.length,
+  });
+  if (!edges.length) {
+    return baseConfig;
+  }
+
+  const nodes = Array.from(nodeMap.values());
+  const { map: contextMap } = buildVariableContext(node.id, nodes, edges);
+  debugLog("resolveNodeConfig:contextKeys", Array.from(contextMap.keys()));
+
+  if (contextMap.size === 0) {
+    return baseConfig;
+  }
+
+  const definitionsFromExecutor = executor.getInputDefinitions();
+  const fallbackInputs = Array.isArray(node.data?.inputs)
+    ? node.data.inputs
+    : [];
+  const inputDefinitions: PortDefinition[] =
+    definitionsFromExecutor.length > 0
+      ? definitionsFromExecutor
+      : fallbackInputs;
+
+  const resolved = resolveConfigWithVariables(
+    baseConfig,
+    inputDefinitions,
+    contextMap
+  );
+  debugLog("resolveNodeConfig:resolved", {
+    nodeId: node.id,
+    resolved,
+  });
+  return resolved;
 }
 
 interface ForLoopExecutionOptions {
@@ -812,8 +888,17 @@ async function executeContainer(options: ContainerExecutionOptions): Promise<{
         logEntry.input = inputs;
       }
 
-      const config = { ...currentNode.data.config };
-      const nodeResult = await executor.run(config, inputs, context);
+      const resolvedConfig = resolveNodeConfig({
+        node: currentNode,
+        executor,
+        nodeMap,
+        edges,
+      });
+      debugLog("executeContainer:resolvedConfig", {
+        nodeId,
+        resolvedConfig,
+      });
+      const nodeResult = await executor.run(resolvedConfig, inputs, context);
 
       containerResults[nodeId] = nodeResult;
       nodeResults[nodeId] = nodeResult;

@@ -39,6 +39,8 @@ export interface ConnectionValidationOptions {
   ignoreExisting?: boolean;
   /** 在忽略检测时排除的连接线 ID */
   ignoreEdgeId?: string | null;
+  /** 是否静默校验（不输出警告日志） */
+  silent?: boolean;
 }
 
 /**

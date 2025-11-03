@@ -5,6 +5,7 @@ import type { Node } from "@vue-flow/core";
 import type { NodeData } from "@/typings/nodeEditor";
 import type { PaddingValues } from "./types";
 import { nodeEditorLayoutConfig } from "@/config";
+import { getNodeEditorBridge } from "@/components/node-editor/nodeEditorBridge";
 
 const { containerDefaults } = nodeEditorLayoutConfig;
 
@@ -145,10 +146,9 @@ export function getNodeApproxHeight(node: Node<NodeData>): number {
 /** 通知容器内部更新 */
 export function notifyContainerInternals(id: string) {
   if (!id) return;
-  const updater = (window as any)?.__updateNodeInternals;
-  if (typeof updater === "function") {
-    requestAnimationFrame(() => updater(id));
-  }
+  const bridge = getNodeEditorBridge();
+  if (!bridge) return;
+  requestAnimationFrame(() => bridge.updateNodeInternals(id));
 }
 
 /** 获取节点绝对位置 */
