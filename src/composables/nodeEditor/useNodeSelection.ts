@@ -14,6 +14,7 @@ export function useNodeSelection(
   const selectedNodeId = ref<string | null>(null);
   const renamingNodeId = ref<string | null>(null);
   const isNodeEditorVisible = ref(false);
+  const isCodeEditorPanelOpen = ref(false);
 
   const selectedNode = computed(() =>
     nodes.value.find((n) => n.id === selectedNodeId.value)
@@ -39,6 +40,17 @@ export function useNodeSelection(
   /** 关闭节点编辑器 */
   function closeNodeEditor() {
     isNodeEditorVisible.value = false;
+  }
+
+  /** 打开代码编辑器面板 */
+  function openCodeEditorPanel(nodeId: string) {
+    selectedNodeId.value = nodeId;
+    isCodeEditorPanelOpen.value = true;
+  }
+
+  /** 关闭代码编辑器面板 */
+  function closeCodeEditorPanel() {
+    isCodeEditorPanelOpen.value = false;
   }
 
   /** 开始重命名节点 */
@@ -86,9 +98,12 @@ export function useNodeSelection(
     selectedNode,
     renamingNodeId,
     isNodeEditorVisible,
+    isCodeEditorPanelOpen,
     selectNode,
     openNodeEditor,
     closeNodeEditor,
+    openCodeEditorPanel,
+    closeCodeEditorPanel,
     startRenamingNode,
     stopRenamingNode,
     renameNode,

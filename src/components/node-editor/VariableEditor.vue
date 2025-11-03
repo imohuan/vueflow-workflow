@@ -46,7 +46,7 @@ const baseEditorClass =
 const singleLineClass =
   "min-h-[2.5rem] max-h-[2.5rem] overflow-hidden whitespace-nowrap";
 const multilineClass =
-  "min-h-[5.5rem] max-h-64 overflow-y-auto whitespace-pre-wrap";
+  "min-h-[5.5rem] max-h-64 overflow-y-auto variable-scroll whitespace-pre-wrap";
 
 const showPlaceholder = computed(
   () => !internalValue.value && props.placeholder

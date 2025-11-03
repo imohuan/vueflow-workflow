@@ -27,7 +27,7 @@
       </div>
     </div>
 
-    <div v-else class="flex-1 overflow-y-auto p-4 space-y-1 variable-scroll">
+    <div v-else class="flex-1 overflow-y-auto variable-scroll p-4 space-y-1">
       <VariableTreeItem
         v-for="node in variables"
         :key="node.id"
@@ -49,21 +49,4 @@ interface Props {
 defineProps<Props>();
 </script>
 
-<style scoped>
-.variable-scroll {
-  scrollbar-width: thin;
-}
-
-.variable-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.variable-scroll::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
-  border-radius: 9999px;
-}
-
-.variable-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.6);
-}
-</style>
+<style scoped></style>

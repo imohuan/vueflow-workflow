@@ -388,8 +388,12 @@ export function useNodeManagement(
     node.height = height;
     node.style = {
       ...(node.style || {}),
+      // 用不到，这里的节点高度直接根据子节点的高自适应即可（NodeWrapper）这里的高度是设置到 NodeWraper的父节点的，是VueFlow的配置参数
+      // width: `${width}px`,
+      // height: `${height}px`,
+
       width: `${width}px`,
-      height: `${height}px`,
+      height: "auto",
     };
 
     if (node.type === "loopContainer") {

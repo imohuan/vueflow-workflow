@@ -21,8 +21,20 @@
             {{ condition.logic === "and" ? "且" : "或" }}
           </span>
         </div>
-        <div class="text-[11px] text-slate-500 leading-snug wrap-break-word">
-          {{ getConditionSummary(condition) }}
+        <div
+          class="flex flex-wrap items-center gap-1 text-[11px] text-slate-500 leading-snug"
+        >
+          <template
+            v-for="(part, idx) in getConditionSummaryParts(condition)"
+            :key="idx"
+          >
+            <VariableBadge
+              v-if="part.isVariable"
+              :value="part.text"
+              size="default"
+            />
+            <span v-else>{{ part.text }}</span>
+          </template>
         </div>
       </div>
 
@@ -58,11 +70,17 @@ import type { NodeData } from "@/typings/nodeEditor";
 import type { Condition, IfConfig } from "@/workflow/nodes";
 import { OPERATOR_LABELS } from "@/workflow/nodes";
 import NodeWrapper from "./NodeWrapper.vue";
+import VariableBadge from "@/components/common/VariableBadge.vue";
 
 interface Props {
   id: string;
   data: NodeData;
   selected?: boolean;
+}
+
+interface SummaryPart {
+  text: string;
+  isVariable: boolean;
 }
 
 const props = defineProps<Props>();
@@ -149,20 +167,64 @@ function customGetHandleStyle(
   }
 }
 
-function getConditionSummary(condition: Condition): string {
+/**
+ * 检测字符串是否为变量引用
+ */
+function isVariableReference(text: string): boolean {
+  return /^\{\{.+\}\}$/.test(text.trim());
+}
+
+/**
+ * 将文本拆分为变量和普通文本部分
+ */
+function splitTextParts(text: string): SummaryPart[] {
+  const parts: SummaryPart[] = [];
+  const regex = /(\{\{[^{}]+\}\})/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    // 添加变量前的普通文本
+    if (match.index > lastIndex) {
+      const plainText = text.slice(lastIndex, match.index);
+      if (plainText) {
+        parts.push({ text: plainText, isVariable: false });
+      }
+    }
+
+    // 添加变量
+    parts.push({ text: match[0], isVariable: true });
+    lastIndex = regex.lastIndex;
+  }
+
+  // 添加最后剩余的普通文本
+  if (lastIndex < text.length) {
+    const plainText = text.slice(lastIndex);
+    if (plainText) {
+      parts.push({ text: plainText, isVariable: false });
+    }
+  }
+
+  return parts;
+}
+
+/**
+ * 获取条件摘要的各个部分
+ */
+function getConditionSummaryParts(condition: Condition): SummaryPart[] {
   const subConditions = condition.subConditions || [];
 
   if (subConditions.length === 0) {
-    return "未配置子条件";
+    return [{ text: "未配置子条件", isVariable: false }];
   }
 
   if (subConditions.length === 1) {
     const sub = subConditions[0];
-    if (!sub) return "未配置子条件";
+    if (!sub) return [{ text: "未配置子条件", isVariable: false }];
 
-    const field = sub.field || "输入值";
+    const field = String(sub.field || "输入值");
     const operator = OPERATOR_LABELS[sub.operator] || sub.operator;
-    const value = sub.value || "''";
+    const value = String(sub.value ?? "''");
 
     // 不需要值的操作符
     if (
@@ -175,40 +237,87 @@ function getConditionSummary(condition: Condition): string {
         "is false",
       ].includes(sub.operator)
     ) {
-      return `${field} ${operator}`;
-    }
+      const parts: SummaryPart[] = [];
 
-    return `${field} ${operator} ${truncate(String(value), 20)}`;
-  }
-
-  const logicText = condition.logic === "and" ? " 且 " : " 或 ";
-  const summaries = subConditions
-    .map((sub) => {
-      if (!sub) return "";
-
-      const field = sub.field || "输入值";
-      const operator = OPERATOR_LABELS[sub.operator] || sub.operator;
-      const value = sub.value || "''";
-
-      if (
-        [
-          "exists",
-          "does not exist",
-          "is empty",
-          "is not empty",
-          "is true",
-          "is false",
-        ].includes(sub.operator)
-      ) {
-        return `${field} ${operator}`;
+      if (isVariableReference(field)) {
+        parts.push({ text: field, isVariable: true });
+      } else {
+        parts.push(...splitTextParts(field));
       }
 
-      return `${field} ${operator} ${truncate(String(value), 15)}`;
-    })
-    .filter(Boolean);
+      parts.push({ text: " " + operator, isVariable: false });
+      return parts;
+    }
 
-  const result = summaries.join(logicText);
-  return truncate(result, 60);
+    // 需要值的操作符
+    const parts: SummaryPart[] = [];
+
+    if (isVariableReference(field)) {
+      parts.push({ text: field, isVariable: true });
+    } else {
+      parts.push(...splitTextParts(field));
+    }
+
+    parts.push({ text: " " + operator + " ", isVariable: false });
+
+    if (isVariableReference(value)) {
+      parts.push({ text: value, isVariable: true });
+    } else {
+      parts.push(...splitTextParts(truncate(value, 20)));
+    }
+
+    return parts;
+  }
+
+  // 多个子条件
+  const logicText = condition.logic === "and" ? " 且 " : " 或 ";
+  const allParts: SummaryPart[] = [];
+
+  subConditions.forEach((sub, index) => {
+    if (!sub) return;
+
+    if (index > 0) {
+      allParts.push({ text: logicText, isVariable: false });
+    }
+
+    const field = String(sub.field || "输入值");
+    const operator = OPERATOR_LABELS[sub.operator] || sub.operator;
+    const value = String(sub.value ?? "''");
+
+    if (
+      [
+        "exists",
+        "does not exist",
+        "is empty",
+        "is not empty",
+        "is true",
+        "is false",
+      ].includes(sub.operator)
+    ) {
+      if (isVariableReference(field)) {
+        allParts.push({ text: field, isVariable: true });
+      } else {
+        allParts.push(...splitTextParts(field));
+      }
+      allParts.push({ text: " " + operator, isVariable: false });
+    } else {
+      if (isVariableReference(field)) {
+        allParts.push({ text: field, isVariable: true });
+      } else {
+        allParts.push(...splitTextParts(field));
+      }
+
+      allParts.push({ text: " " + operator + " ", isVariable: false });
+
+      if (isVariableReference(value)) {
+        allParts.push({ text: value, isVariable: true });
+      } else {
+        allParts.push(...splitTextParts(truncate(value, 15)));
+      }
+    }
+  });
+
+  return allParts;
 }
 
 function truncate(text: string, maxLength: number): string {

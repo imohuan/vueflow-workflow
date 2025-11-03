@@ -26,6 +26,11 @@ const router = createRouter({
       name: "ServerMode",
       component: () => import("@/views/ServerModeDemo.vue"),
     },
+    {
+      path: "/code-editor-test",
+      name: "CodeEditorTest",
+      component: () => import("@/views/CodeEditorTest.vue"),
+    },
   ],
 });
 

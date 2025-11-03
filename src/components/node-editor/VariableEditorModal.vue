@@ -62,7 +62,7 @@
               </div>
 
               <!-- 编辑器主体 -->
-              <div class="flex-1 p-4 overflow-y-auto">
+              <div class="flex-1 p-4 overflow-y-auto variable-scroll">
                 <div
                   ref="editorRef"
                   contenteditable="true"
@@ -123,7 +123,7 @@
               </div>
 
               <!-- 预览内容 -->
-              <div class="flex-1 overflow-y-auto p-4">
+              <div class="flex-1 overflow-y-auto variable-scroll p-4">
                 <div
                   v-if="previewItems.length"
                   class="p-3 bg-slate-50/50 border border-slate-200 rounded-md"

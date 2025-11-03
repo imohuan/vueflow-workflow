@@ -9,7 +9,7 @@
       class="text-purple-500 shrink-0"
       :class="[size === 'xs' ? 'w-1.5 h-1.5' : 'w-2 h-2']"
     />
-    <span class="font-mono truncate">{{ displayText }}</span>
+    <span class="font-mono truncate leading-2">{{ displayText }}</span>
   </div>
 </template>
 

@@ -100,7 +100,7 @@
 
               <input
                 v-else-if="input.type === 'number'"
-                :value="props.data.config?.[input.id] || ''"
+                :value="getNumberValue(props.data.config?.[input.id])"
                 :readonly="isVariableBound(props.data.config?.[input.id])"
                 @input="
                   updateConfig(
@@ -189,4 +189,20 @@ const {
 const displayInputs = computed(() => {
   return (props.data.inputs ?? []).filter((input) => !input.isPort);
 });
+
+/**
+ * 获取 number 类型输入框的安全值
+ * 如果值包含变量引用，返回空字符串避免浏览器解析错误
+ */
+function getNumberValue(value: unknown): string | number {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  // 如果是变量引用字符串，返回空字符串
+  if (isVariableBound(value)) {
+    return "";
+  }
+  // 返回数值
+  return value as string | number;
+}
 </script>

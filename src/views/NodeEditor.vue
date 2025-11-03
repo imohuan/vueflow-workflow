@@ -7,7 +7,7 @@
     <VerticalTabMenu :active-tab="activeTab" @tab-change="handleTabChange" />
 
     <!-- 第三栏：画布区域（占据剩余空间） -->
-    <div class="flex-1 flex relative overflow-hidden">
+    <div ref="canvasContainerRef" class="flex-1 flex relative overflow-hidden">
       <!-- 第二栏：悬浮面板（绝对定位，悬浮在画布上） -->
       <div v-if="activeTab !== null" class="absolute left-0 top-0 h-full z-30">
         <WorkflowFileTree
@@ -123,6 +123,15 @@
         </template>
       </VueFlow>
 
+      <QuickNodeMenu
+        v-if="quickNodeMenu.visible"
+        :position="quickNodeMenu.position"
+        :visible="quickNodeMenu.visible"
+        :handle-type="quickNodeMenu.sourceHandleType"
+        @select="handleQuickNodeSelect"
+        @close="closeQuickNodeMenu"
+      />
+
       <!-- 底部中央控制按钮组 -->
       <div
         v-if="config.showControls"
@@ -215,6 +224,11 @@
       <Transition name="slide-left">
         <NodeEditorPanel v-if="store.isNodeEditorVisible" />
       </Transition>
+
+      <!-- 代码编辑器面板 -->
+      <Transition name="fade">
+        <CodeEditorPanel v-if="store.isCodeEditorPanelOpen" />
+      </Transition>
     </div>
   </div>
 </template>
@@ -222,6 +236,7 @@
 <script setup lang="ts">
 import {
   ref,
+  reactive,
   computed,
   watch,
   onMounted,
@@ -252,7 +267,9 @@ import CustomNode from "@/components/node-editor/CustomNode.vue";
 import LoopContainerNode from "@/components/node-editor/nodes/LoopContainerNode.vue";
 import ConfigPanel from "@/components/node-editor/ConfigPanel.vue";
 import NodeEditorPanel from "@/components/node-editor/NodeEditorPanel.vue";
+import CodeEditorPanel from "@/components/node-editor/CodeEditorPanel.vue";
 import NodeListPanel from "@/components/node-editor/NodeListPanel.vue";
+import QuickNodeMenu from "@/components/node-editor/QuickNodeMenu.vue";
 import InteractiveEdge from "@/components/node-editor/edges/InteractiveEdge.vue";
 import VerticalTabMenu from "@/components/node-editor/VerticalTabMenu.vue";
 import WorkflowFileTree from "@/components/node-editor/WorkflowFileTree.vue";
@@ -323,7 +340,7 @@ function updateNodesExecutionState() {
   const executionId = workflowExecution.activeExecutionId.value;
   if (!executionId) {
     // 没有活跃执行时，清除所有节点的执行状态
-    nodes.value.forEach((node) => {
+    nodes.value.forEach((node: Node<NodeData>) => {
       if (node.data && node.data.executionStatus) {
         node.data.executionStatus = undefined;
       }
@@ -335,7 +352,7 @@ function updateNodesExecutionState() {
   if (!nodeStates) return;
 
   // 实时更新所有节点的执行状态
-  nodes.value.forEach((node) => {
+  nodes.value.forEach((node: Node<NodeData>) => {
     const state = nodeStates.get(node.id);
     if (state && node.data) {
       // 只在状态真正变化时更新
@@ -376,7 +393,7 @@ function updateEdgesActivationState() {
   const executionId = workflowExecution.activeExecutionId.value;
   if (!executionId) {
     // 没有活跃执行时，清除所有边的激活状态
-    edges.value.forEach((edge) => {
+    edges.value.forEach((edge: Edge) => {
       if (edge.data && edge.data.isActive) {
         edge.data = { ...edge.data, isActive: false };
       }
@@ -388,7 +405,7 @@ function updateEdgesActivationState() {
   if (!activeEdges) return;
 
   // 更新所有边的激活状态
-  edges.value.forEach((edge) => {
+  edges.value.forEach((edge: Edge) => {
     const shouldBeActive = activeEdges.has(edge.id);
     const currentlyActive = edge.data?.isActive || false;
 
@@ -434,6 +451,27 @@ const isLocked = ref(false);
 const fps = ref(0);
 const showMiniMapToggle = ref(config.value.showMiniMap);
 const vueFlowRef = ref();
+const canvasContainerRef = ref<HTMLElement | null>(null);
+
+type QuickNodeMenuState = {
+  visible: boolean;
+  position: { x: number; y: number };
+  flowPosition: { x: number; y: number };
+  sourceNodeId: string | null;
+  sourceHandleId: string | null;
+  sourceHandleType: "source" | "target" | null;
+};
+
+const quickNodeMenu = reactive<QuickNodeMenuState>({
+  visible: false,
+  position: { x: 0, y: 0 },
+  flowPosition: { x: 0, y: 0 },
+  sourceNodeId: null,
+  sourceHandleId: null,
+  sourceHandleType: null,
+});
+
+const pendingConnectionCompleted = ref(false);
 
 // 纵向菜单栏状态
 const activeTab = ref<"folders" | "nodes" | "settings" | null>(null);
@@ -617,7 +655,7 @@ function setContainerHighlightState(
  */
 function nodeHasConnections(nodeId: string): boolean {
   return edges.value.some(
-    (edge) => edge.source === nodeId || edge.target === nodeId
+    (edge: Edge) => edge.source === nodeId || edge.target === nodeId
   );
 }
 
@@ -670,12 +708,169 @@ function getHandleCandidates(
 
 function hasExistingEdge(connection: EditorConnection): boolean {
   return edges.value.some(
-    (edge) =>
+    (edge: Edge) =>
       edge.source === connection.source &&
       edge.sourceHandle === connection.sourceHandle &&
       edge.target === connection.target &&
       edge.targetHandle === connection.targetHandle
   );
+}
+
+function closeQuickNodeMenu() {
+  if (!quickNodeMenu.visible) {
+    quickNodeMenu.sourceNodeId = null;
+    quickNodeMenu.sourceHandleId = null;
+    quickNodeMenu.sourceHandleType = null;
+    return;
+  }
+
+  quickNodeMenu.visible = false;
+  quickNodeMenu.sourceNodeId = null;
+  quickNodeMenu.sourceHandleId = null;
+  quickNodeMenu.sourceHandleType = null;
+}
+
+interface QuickNodeMenuContext {
+  flowPosition: { x: number; y: number };
+  clientPosition: { x: number; y: number };
+  sourceNodeId: string;
+  sourceHandleId: string | null;
+  sourceHandleType: "source" | "target";
+}
+
+function openQuickNodeMenuWithContext(context: QuickNodeMenuContext): boolean {
+  const container = canvasContainerRef.value;
+  if (!container) {
+    return false;
+  }
+
+  const rect = container.getBoundingClientRect();
+  const relativeX = context.clientPosition.x - rect.left;
+  const relativeY = context.clientPosition.y - rect.top;
+
+  quickNodeMenu.position.x = relativeX;
+  quickNodeMenu.position.y = relativeY;
+  quickNodeMenu.flowPosition = {
+    x: context.flowPosition.x,
+    y: context.flowPosition.y,
+  };
+  quickNodeMenu.sourceNodeId = context.sourceNodeId;
+  quickNodeMenu.sourceHandleId = context.sourceHandleId;
+  quickNodeMenu.sourceHandleType = context.sourceHandleType;
+  quickNodeMenu.visible = true;
+
+  return true;
+}
+
+function findFirstPortId(
+  ports: PortDefinition[] | undefined,
+  preferId?: string | null
+): string | null {
+  if (!ports || ports.length === 0) {
+    return null;
+  }
+
+  if (preferId) {
+    const preferred = ports.find((port) => port.id === preferId && port.isPort);
+    if (preferred) {
+      return preferred.id;
+    }
+  }
+
+  const port = ports.find((item) => item.isPort === true);
+  return port?.id ?? null;
+}
+
+function handleQuickNodeSelect(nodeType: string) {
+  if (!quickNodeMenu.sourceNodeId || !quickNodeMenu.sourceHandleType) {
+    closeQuickNodeMenu();
+    return;
+  }
+
+  const newNodePosition = {
+    x: quickNodeMenu.flowPosition.x,
+    y: quickNodeMenu.flowPosition.y,
+  };
+
+  const newNodeId = store.createNodeByType(nodeType, newNodePosition);
+
+  if (!newNodeId) {
+    closeQuickNodeMenu();
+    return;
+  }
+
+  const newNode = nodes.value.find(
+    (node: Node<NodeData>) => node.id === newNodeId
+  );
+  if (!newNode) {
+    closeQuickNodeMenu();
+    return;
+  }
+
+  let connection: EditorConnection | null = null;
+
+  if (quickNodeMenu.sourceHandleType === "source") {
+    const targetHandleId = findFirstPortId(newNode.data?.inputs);
+
+    if (!targetHandleId) {
+      console.warn("[NodeEditor] 选中的节点没有可用的输入端口，无法自动连接");
+    } else {
+      connection = {
+        source: quickNodeMenu.sourceNodeId,
+        sourceHandle: quickNodeMenu.sourceHandleId,
+        target: newNodeId,
+        targetHandle: targetHandleId,
+      };
+    }
+  } else if (quickNodeMenu.sourceHandleType === "target") {
+    const sourceHandleId = findFirstPortId(newNode.data?.outputs);
+
+    if (!sourceHandleId) {
+      console.warn("[NodeEditor] 选中的节点没有可用的输出端口，无法自动连接");
+    } else {
+      connection = {
+        source: newNodeId,
+        sourceHandle: sourceHandleId,
+        target: quickNodeMenu.sourceNodeId,
+        targetHandle: quickNodeMenu.sourceHandleId,
+      };
+    }
+  }
+
+  if (!connection) {
+    closeQuickNodeMenu();
+    return;
+  }
+
+  const isValid = store.validateConnection(connection);
+
+  if (!isValid) {
+    store.removeNode(newNodeId);
+    closeQuickNodeMenu();
+    return;
+  }
+
+  const newEdge: Edge = {
+    id: `edge_${Date.now()}`,
+    source: connection.source,
+    sourceHandle: connection.sourceHandle ?? undefined,
+    target: connection.target,
+    targetHandle: connection.targetHandle ?? undefined,
+    type: config.value.edgeType,
+    animated: config.value.edgeAnimated,
+    style: {
+      stroke: config.value.edgeColor,
+      strokeWidth: config.value.edgeStrokeWidth,
+    },
+  };
+
+  store.addEdge(newEdge);
+  store.selectNode(newNodeId);
+  nextTick(() => {
+    vueFlowRef.value?.updateNodeInternals?.(newNodeId);
+  });
+
+  closeQuickNodeMenu();
 }
 
 function resetCtrlConnectCandidate() {
@@ -748,7 +943,8 @@ function updateCtrlConnectCandidate() {
       null
     : null;
 
-  const storeNode = nodes.value.find((n) => n.id === nodeId) ?? null;
+  const storeNode =
+    nodes.value.find((n: Node<NodeData>) => n.id === nodeId) ?? null;
   const graphNode = vueFlowApi.findNode?.(nodeId) ?? null;
   const candidates = getHandleCandidates(
     graphNode,
@@ -1118,10 +1314,11 @@ onMounted(() => {
 
     store.handleNodeDrag(node.id, position);
 
-    const storeNode = store.nodes.find((n) => n.id === node.id);
-    const intersections = getIntersectingNodes(node);
+    const storeNode = store.nodes.find((n: Node<NodeData>) => n.id === node.id);
+    const intersections = (getIntersectingNodes(node) ??
+      []) as GraphNode<NodeData>[];
     let loopContainers = intersections.filter(
-      (n) => n.type === "loopContainer"
+      (n: GraphNode<NodeData>) => n.type === "loopContainer"
     );
 
     const activeCtrlContext =
@@ -1141,7 +1338,9 @@ onMounted(() => {
         updateDragTargetHighlight(null);
         setContainerHighlightState(containerId, true, "normal");
 
-        loopContainers = loopContainers.filter((n) => n.id !== containerId);
+        loopContainers = loopContainers.filter(
+          (n: GraphNode<NodeData>) => n.id !== containerId
+        );
       }
     }
 
@@ -1152,7 +1351,7 @@ onMounted(() => {
 
     if (ctrlContext) {
       const stillIntersect = intersections.some(
-        (n) => n.id === ctrlContext.containerId
+        (n: GraphNode<NodeData>) => n.id === ctrlContext.containerId
       );
       ctrlContext.isIntersecting = stillIntersect;
 
@@ -1162,7 +1361,7 @@ onMounted(() => {
       setContainerHighlightState(ctrlContext.containerId, true, highlightType);
 
       loopContainers = loopContainers.filter(
-        (n) => n.id !== ctrlContext.containerId
+        (n: GraphNode<NodeData>) => n.id !== ctrlContext.containerId
       );
       updateDragTargetHighlight(null);
     } else if (storeNode?.parentNode) {
@@ -1348,7 +1547,7 @@ whenever(ctrlV, () => {
   // 使用 nextTick + setTimeout 确保节点的 dimensions 和 computedPosition 已计算完成
   nextTick(() => {
     setTimeout(() => {
-      const newNodes = nodes.value.filter((node) =>
+      const newNodes = nodes.value.filter((node: Node<NodeData>) =>
         newNodeIds.includes(node.id)
       );
 
@@ -1362,7 +1561,7 @@ whenever(ctrlV, () => {
           nodesSelectionActive.value = true;
         }
 
-        newNodes.forEach((node) => {
+        newNodes.forEach((node: Node<NodeData>) => {
           vueFlowRef.value?.updateNodeInternals?.(node.id);
         });
 
@@ -1388,7 +1587,7 @@ whenever(deleteKey, () => {
   }
 
   // 删除所有选中的节点
-  selectedNodes.forEach((node) => {
+  selectedNodes.forEach((node: Node<NodeData>) => {
     store.removeNode(node.id);
   });
 });
@@ -1680,9 +1879,15 @@ const edgeUpdateSuccessful = ref<boolean>(false);
  * 连接开始
  */
 function onConnectStart(params: any) {
+  pendingConnectionCompleted.value = false;
+  closeQuickNodeMenu();
+
   connectingNodeId.value = params.nodeId;
   connectingHandleId.value = params.handleId;
-  connectingHandleType.value = params.handleType;
+  connectingHandleType.value = (params.handleType ?? null) as
+    | "source"
+    | "target"
+    | null;
 
   if (ctrlConnectActive.value) {
     updateCtrlConnectCandidate();
@@ -1692,19 +1897,61 @@ function onConnectStart(params: any) {
 /**
  * 连接结束
  */
-function onConnectEnd(event?: MouseEvent | TouchEvent | null) {
-  const projected = getProjectedPositionFromEvent(event ?? null);
+type ConnectEndParams = {
+  event?: MouseEvent | TouchEvent | null;
+};
+
+function onConnectEnd(
+  params?: ConnectEndParams | MouseEvent | TouchEvent | null
+) {
+  const nativeEvent =
+    params && "event" in (params as Record<string, unknown>)
+      ? (params as ConnectEndParams).event ?? null
+      : (params as MouseEvent | TouchEvent | null) ?? null;
+
+  const projected = getProjectedPositionFromEvent(nativeEvent);
+  const clientPointer =
+    nativeEvent !== null ? getClientPointerFromEvent(nativeEvent) : null;
+  if (clientPointer) {
+    lastClientPointer.value = clientPointer;
+  }
+  const effectivePointer = clientPointer ?? lastClientPointer.value;
 
   if (projected) {
     lastPointerPosition.value = projected;
     updateCtrlConnectCandidate();
   }
 
-  finalizeCtrlConnection();
+  const ctrlConnected = finalizeCtrlConnection();
+
+  let menuOpened = false;
+
+  if (
+    !ctrlConnected &&
+    !pendingConnectionCompleted.value &&
+    !ctrlConnectActive.value &&
+    connectingNodeId.value &&
+    connectingHandleType.value &&
+    projected &&
+    effectivePointer
+  ) {
+    menuOpened = openQuickNodeMenuWithContext({
+      flowPosition: projected,
+      clientPosition: effectivePointer,
+      sourceNodeId: connectingNodeId.value,
+      sourceHandleId: connectingHandleId.value ?? null,
+      sourceHandleType: connectingHandleType.value,
+    });
+  }
+
+  if (!menuOpened) {
+    closeQuickNodeMenu();
+  }
 
   connectingNodeId.value = null;
   connectingHandleId.value = null;
   connectingHandleType.value = null;
+  pendingConnectionCompleted.value = false;
   resetCtrlConnectCandidate();
 }
 
@@ -1748,7 +1995,6 @@ function checkPortValidity(
   const result = Boolean(
     (isSourceOutput && isTargetInput) || (isSourceInput && isTargetOutput)
   );
-  console.log("checkPortValidity", result);
   return result;
 }
 
@@ -1757,6 +2003,9 @@ function checkPortValidity(
  * 当连接成功建立时调用
  */
 function onConnect(connection: FlowConnection) {
+  pendingConnectionCompleted.value = true;
+  closeQuickNodeMenu();
+
   const conn: EditorConnection = {
     source: connection.source,
     sourceHandle: connection.sourceHandle || null,
@@ -1801,10 +2050,13 @@ function onEdgeUpdateStart(event: any) {
  * 当拖拽边的端点重新连接时调用
  */
 function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
-  console.log("onEdgeUpdate");
   // 禁止编辑 loopContainer 相关的连接线
-  const sourceNode = store.nodes.find((node) => node.id === edge.source);
-  const targetNode = store.nodes.find((node) => node.id === edge.target);
+  const sourceNode = store.nodes.find(
+    (node: Node<NodeData>) => node.id === edge.source
+  );
+  const targetNode = store.nodes.find(
+    (node: Node<NodeData>) => node.id === edge.target
+  );
   if (
     sourceNode?.type === "loopContainer" ||
     targetNode?.type === "loopContainer"
@@ -1815,7 +2067,7 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
 
   // 检查新连接是否已存在（防止重复连接）
   const exists = edges.value.some(
-    (e) =>
+    (e: Edge) =>
       e.id !== edge.id &&
       e.source === connection.source &&
       e.target === connection.target &&
@@ -1847,7 +2099,7 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
   }
 
   // 更新边的连接信息
-  edges.value = edges.value.map((e) =>
+  edges.value = edges.value.map((e: Edge) =>
     e.id === edge.id
       ? {
           ...e,
@@ -1868,8 +2120,6 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
  * 当拖拽边的端点结束时调用（无论是否成功连接）
  */
 function onEdgeUpdateEnd(event: any) {
-  console.log("onEdgeUpdateEnd");
-
   const edge = event.edge;
 
   // 如果边更新未成功（即没有连接到有效端口），则删除该边
@@ -1891,6 +2141,7 @@ function onEdgeUpdateEnd(event: any) {
 function onPaneClick() {
   store.selectNode(null);
   managedSelectedNodeIds.value = [];
+  closeQuickNodeMenu();
 }
 
 /**

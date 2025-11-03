@@ -27,7 +27,7 @@
     </div>
 
     <!-- 配置内容 - JSON 驱动渲染 -->
-    <div class="flex-1 overflow-y-auto px-4 py-3 space-y-6">
+    <div class="flex-1 overflow-y-auto variable-scroll px-4 py-3 space-y-6">
       <!-- 执行模式设置 -->
       <div class="space-y-3">
         <div

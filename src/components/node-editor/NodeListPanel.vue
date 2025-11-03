@@ -29,7 +29,7 @@
     </div>
 
     <!-- 节点列表 -->
-    <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+    <div class="flex-1 overflow-y-auto variable-scroll px-4 py-3 space-y-2">
       <Accordion v-model:value="expandedCategories" multiple>
         <AccordionPanel
           v-for="(nodeList, category) in filteredNodesByCategory"

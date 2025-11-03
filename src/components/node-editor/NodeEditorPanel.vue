@@ -43,9 +43,13 @@
         </div>
 
         <!-- 内容区域 -->
-        <Splitter class="flex-1 border-0! rounded-none!">
+        <Splitter class="flex-1 border-0! rounded-none! overflow-hidden">
           <!-- 左侧变量面板 -->
-          <SplitterPanel :size="25" :minSize="15" class="border-0!">
+          <SplitterPanel
+            :size="25"
+            :minSize="15"
+            class="border-0! overflow-hidden h-full"
+          >
             <div
               class="w-full h-full overflow-hidden bg-white border-r border-slate-200"
             >
@@ -54,8 +58,14 @@
           </SplitterPanel>
 
           <!-- 右侧配置区域 -->
-          <SplitterPanel :size="75" :minSize="50" class="border-0!">
-            <div class="w-full h-full overflow-y-auto bg-[#f6f6f8]">
+          <SplitterPanel
+            :size="75"
+            :minSize="50"
+            class="border-0! overflow-hidden h-full"
+          >
+            <div
+              class="w-full h-full overflow-y-auto variable-scroll bg-[#f6f6f8]"
+            >
               <div class="max-w-3xl mx-auto p-4 space-y-3">
                 <!-- 基本信息区域 -->
                 <div
@@ -138,14 +148,9 @@ const { selectedNode } = store;
 const nodeLabel = ref("");
 const availableVariables = computed(() => {
   if (!store.selectedNodeId) {
-    console.log("[VariablePanel] 未选中节点");
     return [];
   }
   const variables = store.getAvailableVariables(store.selectedNodeId);
-  console.log(
-    `[VariablePanel] 节点 ${store.selectedNodeId} 可用变量:`,
-    variables
-  );
   return variables;
 });
 

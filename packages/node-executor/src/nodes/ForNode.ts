@@ -3,15 +3,16 @@ import type { PortDefinition } from "../types.ts";
 
 export interface ForConfig {
   /** 数据来源模式 */
-  mode: "input" | "static" | "range";
-  /** 输入数据路径（相对 input） */
-  itemsPath?: string;
-  /** 静态数组 */
-  staticItems?: any[];
+  mode: "variable" | "range";
+  /** 变量模式：变量引用（如 {{ 节点.result.list }}） */
+  variable?: string;
   /** 范围模式配置 */
   range?: {
-    start: number;
-    end: number;
+    /** 起始值（支持变量，如 {{ 节点.start }}） */
+    start: number | string;
+    /** 结束值（支持变量，如 {{ 节点.end }}） */
+    end: number | string;
+    /** 步长 */
     step: number;
   };
   /** 迭代变量名 */
@@ -70,12 +71,11 @@ export class ForNode extends BaseNode {
 
   protected getDefaultConfig(): ForConfig {
     return {
-      mode: "input",
-      itemsPath: "",
-      staticItems: [],
+      mode: "variable",
+      variable: "",
       range: {
         start: 0,
-        end: 5,
+        end: 10,
         step: 1,
       },
       itemName: "item",
@@ -92,7 +92,7 @@ export class ForNode extends BaseNode {
     inputs: Record<string, any>,
     context: any
   ): Promise<any> {
-    const items = this.resolveItems(config, inputs.items);
+    const items = this.resolveItems(config, inputs.items, context);
 
     if (!Array.isArray(items)) {
       throw new Error("循环源数据必须是数组");
@@ -133,29 +133,42 @@ export class ForNode extends BaseNode {
   /**
    * 根据配置解析循环项
    */
-  private resolveItems(config: ForConfig, inputItems: any): any[] {
+  private resolveItems(
+    config: ForConfig,
+    inputItems: any,
+    context: any
+  ): any[] {
     switch (config.mode) {
-      case "input": {
-        if (!config.itemsPath) {
-          return Array.isArray(inputItems) ? inputItems : [];
+      case "variable": {
+        // 如果配置了变量引用，优先使用变量
+        if (config.variable) {
+          const variableValue = this.resolveVariableValue(
+            config.variable,
+            context
+          );
+          return Array.isArray(variableValue) ? variableValue : [];
         }
-        const value = this.resolveByPath(inputItems, config.itemsPath);
-        return Array.isArray(value) ? value : [];
+        // 否则使用输入端口的数据
+        return Array.isArray(inputItems) ? inputItems : [];
       }
-      case "static":
-        return Array.isArray(config.staticItems) ? config.staticItems : [];
       case "range": {
         const { start = 0, end = 0, step = 1 } = config.range || {};
+
+        // 解析 start 和 end（支持变量）
+        const resolvedStart = this.resolveNumberValue(start, context);
+        const resolvedEnd = this.resolveNumberValue(end, context);
+
         if (step === 0) {
           throw new Error("步长不能为 0");
         }
+
         const result: number[] = [];
         if (step > 0) {
-          for (let i = start; i < end; i += step) {
+          for (let i = resolvedStart; i < resolvedEnd; i += step) {
             result.push(i);
           }
         } else {
-          for (let i = start; i > end; i += step) {
+          for (let i = resolvedStart; i > resolvedEnd; i += step) {
             result.push(i);
           }
         }
@@ -164,6 +177,56 @@ export class ForNode extends BaseNode {
       default:
         return [];
     }
+  }
+
+  /**
+   * 解析变量值（从上下文中）
+   */
+  private resolveVariableValue(variable: any, context: any): any {
+    if (!variable) {
+      return undefined;
+    }
+
+    // 如果 variable 不是字符串（可能已经被解析过了），直接返回
+    if (typeof variable !== "string") {
+      return variable;
+    }
+
+    // 如果没有上下文，返回原值
+    if (!context) {
+      return variable;
+    }
+
+    // 检查是否为变量引用格式 {{ xxx }}
+    const match = variable.match(/^\{\{\s*(.+?)\s*\}\}$/);
+    if (!match || !match[1]) {
+      // 不是变量格式，直接返回原值
+      return variable;
+    }
+
+    const path = match[1].trim();
+    const resolved = this.resolveByPath(context, path);
+
+    // 返回解析后的值
+    return resolved;
+  }
+
+  /**
+   * 解析数字值（支持变量）
+   */
+  private resolveNumberValue(value: any, context: any): number {
+    if (typeof value === "number") {
+      return value;
+    }
+
+    // 尝试解析变量（会处理字符串引用和已解析的值）
+    const resolved = this.resolveVariableValue(value, context);
+
+    // 转换为数字
+    const num = Number(resolved);
+
+    // 解析失败返回 0
+    return Number.isNaN(num) ? 0 : num;
   }
 
   /**

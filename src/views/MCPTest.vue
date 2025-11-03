@@ -111,7 +111,7 @@
       </div>
 
       <!-- 下方：工具列表（有滚动条） -->
-      <div class="flex-1 overflow-y-auto">
+      <div class="flex-1 overflow-y-auto variable-scroll">
         <div class="p-4 space-y-3">
           <div
             v-for="tool in currentTools"

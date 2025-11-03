@@ -48,7 +48,9 @@
     <!-- 主内容区 -->
     <div class="flex-1 flex gap-6 p-6 overflow-hidden">
       <!-- 左侧：服务器信息 -->
-      <div class="w-1/3 bg-white rounded-lg shadow-sm p-6 overflow-y-auto">
+      <div
+        class="w-1/3 bg-white rounded-lg shadow-sm p-6 overflow-y-auto variable-scroll"
+      >
         <h2 class="text-lg font-semibold text-gray-900 mb-4">服务器信息</h2>
 
         <div class="space-y-4">
@@ -93,7 +95,7 @@
           <h3 class="text-md font-semibold text-gray-900 mb-3">
             节点列表 ({{ client.nodeMetadata.value.length }})
           </h3>
-          <div class="space-y-2 max-h-96 overflow-y-auto">
+          <div class="space-y-2 max-h-96 overflow-y-auto variable-scroll">
             <div
               v-for="node in client.nodeMetadata.value"
               :key="node.type"
@@ -118,7 +120,9 @@
       </div>
 
       <!-- 右侧：测试区域 -->
-      <div class="flex-1 bg-white rounded-lg shadow-sm p-6 overflow-y-auto">
+      <div
+        class="flex-1 bg-white rounded-lg shadow-sm p-6 overflow-y-auto variable-scroll"
+      >
         <h2 class="text-lg font-semibold text-gray-900 mb-4">工作流测试</h2>
 
         <!-- 测试按钮 -->
@@ -144,7 +148,7 @@
         <div v-if="executionLogs.length > 0" class="mt-6">
           <h3 class="text-md font-semibold text-gray-900 mb-3">执行日志</h3>
           <div
-            class="space-y-2 max-h-96 overflow-y-auto bg-gray-900 rounded-lg p-4"
+            class="space-y-2 max-h-96 overflow-y-auto variable-scroll bg-gray-900 rounded-lg p-4"
           >
             <div
               v-for="(log, index) in executionLogs"

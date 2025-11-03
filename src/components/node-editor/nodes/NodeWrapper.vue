@@ -291,12 +291,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const store = useNodeEditorStore();
-const {
-  getSelectedNodes,
-  getNodes,
-  updateNodeDimensions,
-  updateNodeInternals,
-} = useVueFlow();
+const { getSelectedNodes } = useVueFlow();
 const contentRef = ref<HTMLDivElement | null>(null);
 const nodeWrapperRef = ref<HTMLDivElement | null>(null);
 const ctrlConnectContext = inject<CtrlConnectContextValue | null>(
@@ -522,83 +517,6 @@ const outputPortsCount = computed(() => outputPorts.value.length);
 usePortPositionUpdate({
   nodeId: props.id,
   watchSource: [inputPortsCount, outputPortsCount],
-});
-
-// ==================== 节点高度监听和更新 ====================
-let resizeObserver: ResizeObserver | null = null;
-let lastHeight = 0;
-
-/**
- * @deprecated 废弃，使用 updateNodeDimensions 替代
- * 更新节点高度到 VueFlow（只更新高度，保持宽度不变）
- */
-function _updateNodeHeight() {
-  if (!nodeWrapperRef.value) return;
-
-  const rect = nodeWrapperRef.value.getBoundingClientRect();
-  const height = Math.ceil(rect.height);
-
-  // 仅在高度确实变化时更新，避免无效调用
-  if (height === lastHeight) {
-    return;
-  }
-  console.log(
-    "updateNodeHeight",
-    lastHeight,
-    height,
-    nodeWrapperRef.value,
-    rect
-  );
-  lastHeight = height;
-  // 获取当前节点的宽度（保持宽度不变）
-  const node = getNodes.value.find((n) => n.id === props.id);
-  // 如果节点有宽度，使用节点的宽度（可能是数字或字符串），否则使用当前 DOM 宽度
-  const nodeWidth = node?.width;
-  const width =
-    typeof nodeWidth === "number"
-      ? nodeWidth
-      : typeof nodeWidth === "string"
-      ? parseFloat(nodeWidth) || Math.ceil(rect.width)
-      : Math.ceil(rect.width);
-  // 更新 VueFlow 节点尺寸（只更新高度）
-  store.updateNodeDimensions(props.id, { width, height });
-}
-
-/**
- * 防抖版本的高度更新函数
- */
-const debouncedUpdateNodeHeight = useDebounceFn(() => {
-  nextTick(() => {
-    if (!nodeWrapperRef.value) return;
-    // 更新节点尺寸
-    updateNodeDimensions([{ id: props.id, nodeElement: nodeWrapperRef.value }]);
-    // 更新节点内部状态（端口位置）
-    updateNodeInternals([props.id]);
-  });
-}, 300);
-
-// 监听 result 和 resultExpanded 的变化（折叠展开）
-watch(
-  () => [props.data.result, props.data.resultExpanded],
-  () => debouncedUpdateNodeHeight(),
-  { deep: true }
-);
-
-// 组件挂载后初始化
-onMounted(() => {
-  if (!nodeWrapperRef.value) return;
-  debouncedUpdateNodeHeight();
-  // 创建 ResizeObserver 监听 DOM 高度变化
-  // resizeObserver = new ResizeObserver(debouncedUpdateNodeHeight);
-  // resizeObserver.observe(nodeWrapperRef.value);
-});
-
-// 组件卸载时清理
-onUnmounted(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect();
-    resizeObserver = null;
-  }
 });
 
 const hoveredPortId = ref<string | null>(null);

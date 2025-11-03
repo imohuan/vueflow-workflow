@@ -52,166 +52,68 @@
     </template>
 
     <template #default>
-      <div
-        v-if="(props.data.inputs?.length ?? 0) > 0"
-        class="flex flex-col gap-1.5"
-      >
-        <div v-for="input in props.data.inputs" :key="input.id">
-          <div v-if="input.type === 'boolean'" class="space-y-1" @click.stop>
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex-1 min-w-0">
-                <div
-                  class="text-[10px] font-medium text-slate-700 truncate"
-                  :title="input.name"
-                >
-                  {{ input.name }}
-                  <span v-if="input.required" class="text-red-500">*</span>
-                </div>
-              </div>
-              <button
-                @click="
-                  toggleBoolean(
-                    input.id,
-                    isVariableBound(props.data.config?.[input.id])
-                  )
-                "
-                :disabled="isVariableBound(props.data.config?.[input.id])"
-                :class="[
-                  'relative inline-flex h-4 w-7 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1',
-                  props.data.config?.[input.id]
-                    ? 'bg-purple-600'
-                    : 'bg-slate-300',
-                  isVariableBound(props.data.config?.[input.id])
-                    ? 'opacity-60 cursor-not-allowed'
-                    : '',
-                ]"
-                role="switch"
-                :aria-checked="props.data.config?.[input.id]"
-                :title="
-                  isVariableBound(props.data.config?.[input.id])
-                    ? '已绑定变量'
-                    : undefined
-                "
-              >
-                <span
-                  :class="[
-                    'inline-block h-3 w-3 transform rounded-full bg-white transition-transform',
-                    props.data.config?.[input.id]
-                      ? 'translate-x-3.5'
-                      : 'translate-x-0.5',
-                  ]"
-                />
-              </button>
-            </div>
-            <div
-              v-if="isVariableBound(props.data.config?.[input.id])"
-              class="flex items-center gap-1.5"
+      <div class="flex flex-col gap-2 py-1">
+        <!-- 配置预览 -->
+        <div class="p-2 bg-slate-50 border border-slate-200 rounded-md">
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <span
+              class="text-[10px] font-semibold text-slate-600 uppercase tracking-wide"
             >
-              <VariableBadge :value="props.data.config?.[input.id]" />
-            </div>
+              {{ modeName }}
+            </span>
+            <span class="text-[9px] text-slate-400 font-mono">
+              {{ config.itemName }}, {{ config.indexName }}
+            </span>
           </div>
 
-          <div v-else class="space-y-0.5">
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center gap-1.5 min-w-0 flex-1">
-                <div
-                  class="text-[10px] font-medium text-slate-700 truncate"
-                  :title="input.name"
-                >
-                  {{ input.name }}
-                  <span v-if="input.required" class="text-red-500">*</span>
-                </div>
-                <VariableBadge
-                  v-if="isVariableBound(props.data.config?.[input.id])"
-                  :value="props.data.config?.[input.id]"
-                  size="xs"
-                />
-              </div>
-              <div class="text-[9px] text-slate-400 font-mono shrink-0">
-                {{ input.type }}
-              </div>
-            </div>
+          <div
+            class="flex flex-wrap items-center gap-1 text-[11px] text-slate-500"
+          >
+            <template v-if="config.mode === 'variable'">
+              <span v-if="!config.variable" class="text-slate-400 italic">
+                请配置变量
+              </span>
+              <template v-else>
+                <span>循环</span>
+                <VariableBadge :value="config.variable" size="default" />
+              </template>
+            </template>
 
-            <div @click.stop>
-              <input
-                v-if="input.type === 'string'"
-                :value="props.data.config?.[input.id] || ''"
-                :readonly="isVariableBound(props.data.config?.[input.id])"
-                @input="
-                  updateConfig(
-                    input.id,
-                    ($event.target as HTMLInputElement).value
-                  )
-                "
-                :placeholder="`请输入${input.name}`"
-                :class="[
-                  'w-full text-[10px] px-2 py-1 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-transparent',
-                  isVariableBound(props.data.config?.[input.id])
-                    ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
-                    : '',
-                ]"
+            <template v-else-if="config.mode === 'range'">
+              <span>范围:</span>
+              <VariableBadge
+                v-if="isVariableValue(config.range?.start)"
+                :value="String(config.range?.start ?? 0)"
+                size="default"
               />
+              <span v-else class="font-mono font-semibold text-slate-700">
+                {{ config.range?.start ?? 0 }}
+              </span>
 
-              <input
-                v-else-if="input.type === 'number'"
-                :value="props.data.config?.[input.id] || ''"
-                :readonly="isVariableBound(props.data.config?.[input.id])"
-                @input="
-                  updateConfig(
-                    input.id,
-                    Number(($event.target as HTMLInputElement).value)
-                  )
-                "
-                type="number"
-                :placeholder="`请输入${input.name}`"
-                :class="[
-                  'w-full text-[10px] px-2 py-1 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-transparent',
-                  isVariableBound(props.data.config?.[input.id])
-                    ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
-                    : '',
-                ]"
-              />
+              <span>~</span>
 
-              <textarea
-                v-else-if="input.type === 'object' || input.type === 'array'"
-                :value="formatJsonValue(props.data.config?.[input.id])"
-                :readonly="isVariableBound(props.data.config?.[input.id])"
-                @input="updateJsonConfig(input.id, $event)"
-                :placeholder="`请输入 JSON 格式的${input.name}`"
-                :class="[
-                  'w-full text-[10px] p-1.5 border border-slate-200 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-transparent font-mono leading-relaxed',
-                  isVariableBound(props.data.config?.[input.id])
-                    ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
-                    : '',
-                ]"
-                rows="3"
+              <VariableBadge
+                v-if="isVariableValue(config.range?.end)"
+                :value="String(config.range?.end ?? 10)"
+                size="default"
               />
+              <span v-else class="font-mono font-semibold text-slate-700">
+                {{ config.range?.end ?? 10 }}
+              </span>
 
-              <input
-                v-else
-                :value="String(props.data.config?.[input.id] || '')"
-                :readonly="isVariableBound(props.data.config?.[input.id])"
-                @input="
-                  updateConfig(
-                    input.id,
-                    ($event.target as HTMLInputElement).value
-                  )
-                "
-                :placeholder="`请输入${input.name}`"
-                :class="[
-                  'w-full text-[10px] px-2 py-1 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 focus-border-transparent',
-                  isVariableBound(props.data.config?.[input.id])
-                    ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
-                    : '',
-                ]"
-              />
-            </div>
+              <span
+                v-if="(config.range?.step ?? 1) !== 1"
+                class="text-slate-400"
+              >
+                (步长: {{ config.range?.step }})
+              </span>
+            </template>
           </div>
         </div>
-      </div>
 
-      <div v-else class="text-center text-slate-400 py-4 text-[10px] italic">
-        此节点无需配置
+        <div class="hidden text-[10px] text-slate-400 text-center">
+          点击节点打开配置面板
+        </div>
       </div>
     </template>
   </NodeWrapper>
@@ -221,9 +123,9 @@
 import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import type { NodeData } from "@/typings/nodeEditor";
+import type { ForConfig } from "workflow-node-executor";
 import NodeWrapper from "./NodeWrapper.vue";
 import VariableBadge from "@/components/common/VariableBadge.vue";
-import { useNodeConfig } from "./useNodeConfig";
 import { PORT_STYLE } from "../ports";
 
 interface Props {
@@ -234,13 +136,22 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const {
-  updateConfig,
-  formatJsonValue,
-  updateJsonConfig,
-  isVariableBound,
-  toggleBoolean,
-} = useNodeConfig(props);
+const config = computed(() => {
+  const cfg = props.data.config as ForConfig | undefined;
+  return (
+    cfg || {
+      mode: "variable" as const,
+      variable: "",
+      range: { start: 0, end: 10, step: 1 },
+      itemName: "item",
+      indexName: "index",
+    }
+  );
+});
+
+const modeName = computed(() => {
+  return config.value.mode === "variable" ? "变量循环" : "范围循环";
+});
 
 const forInput = computed(
   () => props.data.inputs?.find((item) => item.id === "items") || null
@@ -251,6 +162,16 @@ const loopOutput = computed(
 const nextOutput = computed(
   () => props.data.outputs?.find((item) => item.id === "next") || null
 );
+
+/**
+ * 检测值是否为变量引用
+ */
+function isVariableValue(value: unknown): boolean {
+  if (typeof value !== "string") {
+    return false;
+  }
+  return /^\{\{.+\}\}$/.test(value.trim());
+}
 </script>
 
 <style scoped>

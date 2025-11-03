@@ -59,8 +59,8 @@
                 // 上下 padding 和高度
                 multiline
                   ? density === 'compact'
-                    ? 'py-1 min-h-12 max-h-52 overflow-y-auto whitespace-pre-wrap resize-y'
-                    : 'py-2 min-h-16 max-h-60 overflow-y-auto whitespace-pre-wrap resize-y'
+                    ? 'py-1 min-h-12 max-h-52 overflow-y-auto variable-scroll whitespace-pre-wrap resize-y'
+                    : 'py-2 min-h-16 max-h-60 overflow-y-auto variable-scroll whitespace-pre-wrap resize-y'
                   : density === 'compact'
                   ? 'h-7 flex items-center overflow-hidden whitespace-nowrap resize-none'
                   : 'h-8 flex items-center overflow-hidden whitespace-nowrap resize-none',
@@ -139,7 +139,7 @@
           </div>
 
           <!-- 预览内容 -->
-          <div class="max-h-56 overflow-y-auto px-2 py-2">
+          <div class="max-h-56 overflow-y-auto variable-scroll px-2 py-2">
             <VariablePreview
               v-if="previewItems.length"
               :value="internalValue"

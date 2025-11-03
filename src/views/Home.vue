@@ -46,6 +46,7 @@ interface Page {
 const pages: Page[] = [
   { path: "/node-editor", title: "节点编辑器" },
   { path: "/mcp-test", title: "MCP 测试" },
+  { path: "/code-editor-test", title: "代码编辑器" },
 ];
 
 // 使用 localStorage 持久化当前页面路径

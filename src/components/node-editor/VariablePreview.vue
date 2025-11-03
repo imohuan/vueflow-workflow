@@ -18,7 +18,7 @@
       <span class="text-[9px] text-slate-400">已解析变量</span>
     </div>
     <div
-      class="text-xs text-slate-700 font-mono whitespace-pre-wrap wrap-break-word max-h-32 overflow-y-auto"
+      class="text-xs text-slate-700 font-mono whitespace-pre-wrap wrap-break-word max-h-32 overflow-y-auto variable-scroll"
       v-html="resolvedValueHtml"
     ></div>
   </div>

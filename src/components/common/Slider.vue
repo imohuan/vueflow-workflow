@@ -3,10 +3,10 @@
   <div class="relative w-full">
     <input
       type="range"
-      :value="modelValue"
-      :min="min"
-      :max="max"
-      :step="step"
+      :value="safeValue"
+      :min="safeMin"
+      :max="safeMax"
+      :step="safeStep"
       :disabled="disabled"
       :class="sliderClasses"
       @input="handleInput"
@@ -47,6 +47,27 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<Emits>();
+
+// 安全的数值处理，确保始终是有效数字
+const safeValue = computed(() => {
+  const val = Number(props.modelValue);
+  return isNaN(val) ? props.min : val;
+});
+
+const safeMin = computed(() => {
+  const val = Number(props.min);
+  return isNaN(val) ? 0 : val;
+});
+
+const safeMax = computed(() => {
+  const val = Number(props.max);
+  return isNaN(val) ? 100 : val;
+});
+
+const safeStep = computed(() => {
+  const val = Number(props.step);
+  return isNaN(val) || val <= 0 ? 1 : val;
+});
 
 const sliderClasses = computed(() => {
   const classes = [
