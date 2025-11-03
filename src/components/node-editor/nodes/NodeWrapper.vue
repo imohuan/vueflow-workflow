@@ -163,6 +163,7 @@
 
       <NodeResult
         v-if="data.result"
+        :node-id="props.id"
         :result="data.result"
         :expanded="data.resultExpanded"
         @toggle="handleToggleResult"
@@ -172,16 +173,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-  watch,
-  nextTick,
-  onMounted,
-  onUnmounted,
-  inject,
-  type Component,
-} from "vue";
+import { computed, ref, watch, nextTick, inject, type Component } from "vue";
 import { Handle, Position, useVueFlow } from "@vue-flow/core";
 import type { NodeData } from "@/typings/nodeEditor";
 import { useNodeEditorStore } from "@/stores/nodeEditor";
@@ -190,7 +182,6 @@ import NodeResult from "../NodeResult.vue";
 import { getNodeTheme } from "@/config/nodeTheme";
 import { PORT_STYLE } from "../ports";
 import { usePortPositionUpdate } from "./usePortPositionUpdate";
-import { useDebounceFn } from "@vueuse/core";
 import {
   CTRL_CONNECT_CONTEXT_KEY,
   type CtrlConnectContextValue,
