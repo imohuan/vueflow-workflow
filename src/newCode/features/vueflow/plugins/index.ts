@@ -8,6 +8,8 @@ import type { VueFlowPlugin, PluginContext } from "./types";
 
 export * from "./types";
 export { createCopyPastePlugin } from "./copyPastePlugin";
+export { createConfigSyncPlugin } from "./configSyncPlugin";
+export { createCanvasPersistencePlugin } from "./canvasPersistencePlugin";
 
 /**
  * 插件管理器

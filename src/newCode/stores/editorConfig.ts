@@ -26,7 +26,7 @@ export interface EditorConfig {
   maxZoom: number;
 
   // 画布设置 - 连线
-  edgeType: "default" | "bezier";
+  edgeType: "default" | "straight" | "step" | "smoothstep";
   edgeWidth: number;
   edgeColor: string;
   edgeActiveColor: string;
@@ -38,6 +38,9 @@ export interface EditorConfig {
   gridGap: number;
   bgColor: string;
   gridColor: string;
+
+  // 画布设置 - UI
+  showMiniMap: boolean;
 }
 
 /**
@@ -60,7 +63,7 @@ export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
   maxZoom: 4,
 
   // 画布设置 - 连线
-  edgeType: "bezier",
+  edgeType: "default",
   edgeWidth: 2,
   edgeColor: "#94a3b8",
   edgeActiveColor: "#3b82f6",
@@ -72,6 +75,9 @@ export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
   gridGap: 20,
   bgColor: "#ffffff",
   gridColor: "#e2e8f0",
+
+  // 画布设置 - UI
+  showMiniMap: false,
 };
 
 /**

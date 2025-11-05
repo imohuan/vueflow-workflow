@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
 import { storeToRefs } from "pinia";
 import { VueFlow, type Node, type Edge } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
@@ -76,6 +76,12 @@ import {
 } from "../core/vueflowConfig";
 import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
 import CustomNode from "@/newCode/features/canvas/components/CustomNode.vue";
+import {
+  PluginManager,
+  createConfigSyncPlugin,
+  createCopyPastePlugin,
+  createCanvasPersistencePlugin,
+} from "../plugins";
 
 // 配置 Store
 const editorConfigStore = useEditorConfigStore();
@@ -119,7 +125,8 @@ const config = computed(() => ({
 
 // 网格样式映射
 const gridVariant = computed<"dots" | "lines">(() => {
-  return (editorConfig.value.gridType as "dots" | "lines") || "dots";
+  const gridType = editorConfig.value.gridType;
+  return gridType === "dots" || gridType === "lines" ? gridType : "dots";
 });
 
 const controlsConfig = computed(() => ({
@@ -152,43 +159,26 @@ const {
   nodes: coreNodes,
   edges: coreEdges,
   events,
+  addNode,
+  deleteNode,
+  addEdge,
+  deleteEdge,
+  clearCanvas,
+  fitViewToCanvas,
 } = useVueFlowCore({
   enableStoreSync: true,
   enableEvents: true,
 });
 
-/**
- * 更新所有边的样式
- * 当配置变更时，应用新样式到现有的边
- */
-function updateEdgesStyle() {
-  coreEdges.value = coreEdges.value.map((edge) => ({
-    ...edge,
-    type: editorConfig.value.edgeType,
-    animated: editorConfig.value.edgeAnimation,
-    style: {
-      ...edge.style,
-      stroke: editorConfig.value.edgeColor,
-      strokeWidth: editorConfig.value.edgeWidth,
-    },
-  }));
-}
+// 插件管理器
+const pluginManager = new PluginManager();
 
-// 监听边样式配置变化，实时更新所有边
-watch(
-  () => [
-    editorConfig.value.edgeType,
-    editorConfig.value.edgeWidth,
-    editorConfig.value.edgeColor,
-    editorConfig.value.edgeAnimation,
-  ],
-  () => {
-    if (coreEdges.value.length > 0) {
-      updateEdgesStyle();
-      console.log("[VueFlowCanvas] 边样式已更新");
-    }
-  }
-);
+/**
+ * 批量更新边（供插件使用）
+ */
+function updateEdges(updater: (edges: Edge[]) => Edge[]) {
+  coreEdges.value = updater(coreEdges.value);
+}
 
 /**
  * 小地图节点颜色
@@ -284,6 +274,30 @@ function handlePaneClick(event: MouseEvent) {
 }
 
 onMounted(() => {
+  // 设置插件上下文（在挂载后设置，确保 VueFlow 已初始化）
+  pluginManager.setContext({
+    nodes: coreNodes.value,
+    edges: coreEdges.value,
+    addNode,
+    deleteNode,
+    addEdge,
+    deleteEdge,
+    updateEdges,
+    clearCanvas,
+    fitView: fitViewToCanvas,
+    events,
+  });
+
+  // 注册并启用插件
+  const configSyncPlugin = createConfigSyncPlugin();
+  pluginManager.register(configSyncPlugin);
+
+  const copyPastePlugin = createCopyPastePlugin();
+  pluginManager.register(copyPastePlugin);
+
+  const canvasPersistencePlugin = createCanvasPersistencePlugin();
+  pluginManager.register(canvasPersistencePlugin);
+
   console.log("[VueFlowCanvas] 画布已挂载");
   console.log(
     "[VueFlowCanvas] 背景网格:",
@@ -301,6 +315,18 @@ onMounted(() => {
     "[VueFlowCanvas] 边动画:",
     editorConfig.value.edgeAnimation ? "启用" : "禁用"
   );
+  const enabledPlugins = pluginManager
+    .getEnabledPlugins()
+    .map((p) => p.config.name);
+  console.log("[VueFlowCanvas] 已注册插件:", enabledPlugins);
+});
+
+onUnmounted(() => {
+  // 清理所有插件
+  pluginManager.getEnabledPlugins().forEach((plugin) => {
+    pluginManager.disable(plugin.config.id);
+  });
+  console.log("[VueFlowCanvas] 画布已卸载，插件已清理");
 });
 </script>
 

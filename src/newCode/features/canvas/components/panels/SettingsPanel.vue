@@ -278,6 +278,16 @@
           </div>
         </ConfigSection>
 
+        <!-- 小地图 -->
+        <ConfigSection title="小地图" description="显示画布小地图导航">
+          <div
+            class="flex items-center justify-between rounded-lg bg-slate-50 p-3"
+          >
+            <span class="text-sm font-medium text-slate-700">显示小地图</span>
+            <n-switch v-model:value="config.showMiniMap" />
+          </div>
+        </ConfigSection>
+
         <!-- 网格背景 -->
         <ConfigSection title="网格背景" description="显示画布网格背景">
           <div class="space-y-4">

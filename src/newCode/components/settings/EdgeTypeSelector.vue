@@ -67,16 +67,22 @@ defineEmits<{
 
 const edgeTypes = [
   {
-    value: "step",
+    value: "default",
+    label: "贝塞尔",
+    description: "平滑的曲线连接",
+    path: "M 13 20 C 40 5, 60 35, 87 20",
+  },
+  {
+    value: "straight",
     label: "直线",
     description: "简单直接的连接",
     path: "M 13 20 L 87 20",
   },
   {
-    value: "bezier",
-    label: "贝塞尔曲线",
-    description: "平滑的曲线连接",
-    path: "M 13 20 C 40 5, 60 35, 87 20",
+    value: "step",
+    label: "阶梯线",
+    description: "直角阶梯连接",
+    path: "M 13 20 L 40 20 L 40 12 L 60 12 L 60 20 L 87 20",
   },
 ];
 </script>

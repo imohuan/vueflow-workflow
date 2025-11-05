@@ -1,7 +1,7 @@
 <template>
-  <div class="mb-5">
-    <div class="mb-3">
-      <h3 class="text-base font-semibold text-slate-900">{{ title }}</h3>
+  <div class="mb-4">
+    <div class="mb-2.5">
+      <h3 class="text-sm font-medium text-slate-900">{{ title }}</h3>
       <p v-if="description" class="mt-0.5 text-xs text-slate-500">
         {{ description }}
       </p>

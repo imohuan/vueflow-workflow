@@ -25,10 +25,10 @@ export const useUiStore = defineStore("ui", () => {
   // ==================== 浮动面板状态 ====================
 
   /** 浮动面板是否显示 */
-  const floatingPanelVisible = ref(true);
+  const floatingPanelVisible = ref(false);
 
   /** 当前激活的 Tab */
-  const activeTab = ref<TabKey | null>("workflows");
+  const activeTab = ref<TabKey | null>(null);
 
   /** 面板尺寸预设 */
   const panelSize = ref<PanelSize>("medium");

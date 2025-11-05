@@ -22,6 +22,8 @@ export interface PluginContext {
   addEdge: (edge: Edge) => void;
   /** 删除边 */
   deleteEdge: (edgeId: string) => void;
+  /** 更新边（批量） */
+  updateEdges: (updater: (edges: Edge[]) => Edge[]) => void;
   /** 清空画布 */
   clearCanvas: () => void;
   /** 适应视图 */
@@ -90,8 +92,14 @@ export interface VueFlowPlugin {
   hooks?: PluginHooks;
   /** 插件快捷键 */
   shortcuts?: PluginShortcut[];
-  /** 插件初始化方法 */
+  /**
+   * 插件初始化方法
+   * 在插件启用时调用，用于设置事件监听、初始化状态等
+   */
   setup?: (context: PluginContext) => void;
-  /** 插件清理方法 */
+  /**
+   * 插件清理方法
+   * 在插件禁用时调用，用于清理事件监听、重置状态等
+   */
   cleanup?: (context: PluginContext) => void;
 }

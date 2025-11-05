@@ -11,7 +11,7 @@
           :custom-node-component="CustomNode"
           :show-background="true"
           :show-controls="true"
-          :show-mini-map="canvasService.isMiniMapVisible"
+          :show-mini-map="editorConfig.showMiniMap"
         />
       </div>
 
@@ -22,7 +22,7 @@
           <CanvasToolbar
             @fit-view="handleFitView"
             @auto-layout="handleAutoLayout"
-            @toggle-mini-map="canvasService.toggleMiniMap"
+            @toggle-mini-map="toggleMiniMap"
             @execute-workflow="handleExecute"
           />
         </div>
@@ -45,6 +45,7 @@
 </template>
 <script setup lang="ts">
 import { reactive, onMounted } from "vue";
+import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
 import CustomNode from "./components/CustomNode.vue";
 import CanvasToolbar from "./components/CanvasToolbar.vue";
@@ -54,12 +55,13 @@ import FloatingPanel from "./components/FloatingPanel.vue";
 import NodeInfoCard from "./components/NodeInfoCard.vue";
 import InfoModal from "@/newCode/components/modals/InfoModal.vue";
 import FullscreenEditorModal from "@/newCode/components/modals/FullscreenEditorModal.vue";
-import { useCanvasService } from "@/newCode/services/canvasService";
 import { useCanvasStore } from "@/newCode/stores/canvas";
+import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
 import { VueFlowCanvas, useVueFlowEvents } from "@/newCode/features/vueflow";
 
-const canvasService = useCanvasService();
 const canvasStore = useCanvasStore();
+const editorConfigStore = useEditorConfigStore();
+const { config: editorConfig } = storeToRefs(editorConfigStore);
 const { fitView } = useVueFlow();
 
 // 事件系统
@@ -84,6 +86,15 @@ function handleFitView() {
 function handleAutoLayout() {
   // TODO: 实现自动布局算法（Dagre）
   fitView({ padding: 0.2, duration: 300 });
+}
+
+/**
+ * 切换小地图显示
+ */
+function toggleMiniMap() {
+  editorConfigStore.updateConfig({
+    showMiniMap: !editorConfig.value.showMiniMap,
+  });
 }
 
 /**

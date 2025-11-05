@@ -20,9 +20,33 @@ export const useCanvasStore = defineStore("newCanvas", () => {
   const lastNodeResults = ref<
     Array<{ id: string; timestamp: string; preview: string }>
   >([]);
+  const fps = ref(0);
 
   const nodeCount = computed(() => nodes.value.length);
   const edgeCount = computed(() => edges.value.length);
+
+  // FPS 计算逻辑
+  let frameCount = 0;
+  let lastTime = performance.now();
+  let animationFrameId: number | null = null;
+
+  function calculateFPS() {
+    frameCount++;
+    const currentTime = performance.now();
+    const delta = currentTime - lastTime;
+
+    // 每秒更新一次 FPS
+    if (delta >= 1000) {
+      fps.value = Math.round((frameCount * 1000) / delta);
+      frameCount = 0;
+      lastTime = currentTime;
+    }
+
+    animationFrameId = requestAnimationFrame(calculateFPS);
+  }
+
+  // 启动 FPS 计算
+  calculateFPS();
 
   function setExecuting(value: boolean) {
     isExecuting.value = value;
@@ -71,11 +95,19 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     edges.value = workflow.edges;
   }
 
+  function stopFPSCalculation() {
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+  }
+
   return {
     nodes,
     edges,
     isExecuting,
     lastNodeResults,
+    fps,
     nodeCount,
     edgeCount,
     setExecuting,
@@ -86,5 +118,6 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     addEdge,
     clearCanvas,
     loadWorkflow,
+    stopFPSCalculation,
   };
 });
