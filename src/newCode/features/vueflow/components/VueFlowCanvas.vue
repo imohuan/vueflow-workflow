@@ -7,6 +7,7 @@
       v-model:nodes="coreNodes"
       v-model:edges="coreEdges"
       :node-types="nodeTypes"
+      :edge-types="edgeTypes"
       :default-zoom="editorConfig.defaultZoom"
       :min-zoom="editorConfig.minZoom"
       :max-zoom="editorConfig.maxZoom"
@@ -43,6 +44,11 @@
       <!-- 自定义连接线（拖拽时的临时连接线） -->
       <template #connection-line="connectionLineProps">
         <CustomConnectionLine v-bind="connectionLineProps" />
+      </template>
+
+      <!-- 自定义边类型插槽 -->
+      <template #edge-custom="edgeProps">
+        <CustomEdge v-bind="edgeProps" />
       </template>
 
       <!-- 背景网格 -->
@@ -99,6 +105,7 @@ import {
 import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
 import CustomNode from "./nodes/CustomNode.vue";
 import CustomConnectionLine from "./CustomConnectionLine.vue";
+import CustomEdge from "./CustomEdge.vue";
 import {
   PluginManager,
   PLUGIN_MANAGER_KEY,
@@ -175,7 +182,7 @@ const miniMapConfig = computed(() => ({
 
 // 边的默认样式
 const defaultEdgeOptions = computed(() => ({
-  type: editorConfig.value.edgeType,
+  type: "custom", // 使用自定义边类型
   animated: editorConfig.value.edgeAnimation,
   style: {
     stroke: editorConfig.value.edgeColor,
@@ -185,6 +192,9 @@ const defaultEdgeOptions = computed(() => ({
 
 // 节点类型映射
 const nodeTypes = { custom: props.customNodeComponent };
+
+// 边类型映射
+const edgeTypes = { custom: CustomEdge };
 
 // VueFlow API
 const vueFlowApi = useVueFlow();
