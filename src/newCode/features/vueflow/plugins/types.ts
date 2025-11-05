@@ -3,33 +3,18 @@
  * 专注于功能扩展，而非基础组件封装
  */
 
-import type { Node, Edge } from "@vue-flow/core";
+import type { VueFlowStore } from "@vue-flow/core";
+import type { useVueFlowCore } from "../core/useVueFlowCore";
 
 /**
  * 插件上下文
  * 提供给插件访问画布状态和方法的接口
  */
 export interface PluginContext {
-  /** 节点数据 */
-  nodes: Node[];
-  /** 边数据 */
-  edges: Edge[];
-  /** 添加节点 */
-  addNode: (node: Node) => void;
-  /** 删除节点 */
-  deleteNode: (nodeId: string) => void;
-  /** 添加边 */
-  addEdge: (edge: Edge) => void;
-  /** 删除边 */
-  deleteEdge: (edgeId: string) => void;
-  /** 更新边（批量） */
-  updateEdges: (updater: (edges: Edge[]) => Edge[]) => void;
-  /** 清空画布 */
-  clearCanvas: () => void;
-  /** 适应视图 */
-  fitView: () => void;
-  /** 事件系统 */
-  events: any;
+  /** VueFlow 核心 API（来自 useVueFlowCore） */
+  core: ReturnType<typeof useVueFlowCore>;
+  /** VueFlow API（来自 useVueFlow） */
+  vueflow: VueFlowStore;
 }
 
 /**

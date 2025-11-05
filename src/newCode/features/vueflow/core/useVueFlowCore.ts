@@ -121,7 +121,13 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
    * 删除节点
    */
   function deleteNode(nodeId: string) {
+    // 删除节点
     nodes.value = nodes.value.filter((n: Node) => n.id !== nodeId);
+
+    // 删除与该节点相关的所有边
+    edges.value = edges.value.filter(
+      (e: Edge) => e.source !== nodeId && e.target !== nodeId
+    );
 
     if (events) {
       events.emit("node:deleted", { nodeId });
@@ -148,6 +154,20 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
     if (events) {
       events.emit("edge:deleted", { edgeId });
     }
+  }
+
+  /**
+   * 批量更新边
+   */
+  function updateEdges(updater: (edges: Edge[]) => Edge[]) {
+    edges.value = updater(edges.value);
+  }
+
+  /**
+   * 批量更新节点
+   */
+  function updateNodes(updater: (nodes: Node[]) => Node[]) {
+    nodes.value = updater(nodes.value);
   }
 
   /**
@@ -208,6 +228,8 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
     deleteNode,
     addEdge,
     deleteEdge,
+    updateEdges,
+    updateNodes,
     clearCanvas,
     fitViewToCanvas,
     getCanvasCenter,

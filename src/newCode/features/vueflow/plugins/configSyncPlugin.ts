@@ -23,8 +23,8 @@ export function createConfigSyncPlugin(): VueFlowPlugin {
       typeof storeToRefs<ReturnType<typeof useEditorConfigStore>>
     >["config"]
   ) {
-    // 使用 context.updateEdges 方法批量更新边
-    context.updateEdges((edges) =>
+    // 使用 context.core.updateEdges 方法批量更新边
+    context.core.updateEdges((edges) =>
       edges.map((edge) => ({
         ...edge,
         type: editorConfig.value.edgeType,

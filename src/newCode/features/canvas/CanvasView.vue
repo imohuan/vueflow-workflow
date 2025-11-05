@@ -20,6 +20,8 @@
       >
         <div class="pointer-events-auto">
           <CanvasToolbar
+            @undo="handleUndo"
+            @redo="handleRedo"
             @fit-view="handleFitView"
             @auto-layout="handleAutoLayout"
             @toggle-mini-map="toggleMiniMap"
@@ -47,7 +49,7 @@
 import { reactive, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
-import CustomNode from "./components/CustomNode.vue";
+import CustomNode from "@/newCode/features/vueflow/components/nodes/CustomNode.vue";
 import CanvasToolbar from "./components/CanvasToolbar.vue";
 import QuickNodeMenu from "./components/QuickNodeMenu.vue";
 import VerticalTabNav from "./components/VerticalTabNav.vue";
@@ -72,6 +74,22 @@ const quickMenu = reactive({
   visible: false,
   position: { x: 320, y: 220 },
 });
+
+/**
+ * 撤销
+ */
+function handleUndo() {
+  // 通过事件触发历史记录插件的撤销操作
+  events.emit("history:undo", undefined as any);
+}
+
+/**
+ * 重做
+ */
+function handleRedo() {
+  // 通过事件触发历史记录插件的重做操作
+  events.emit("history:redo", undefined as any);
+}
 
 /**
  * 适应视图

@@ -88,6 +88,13 @@ export interface HistoryEvents {
   "history:redo": void;
   /** 历史记录改变 */
   "history:changed": { canUndo: boolean; canRedo: boolean };
+  /** 历史记录状态更新 */
+  "history:status-changed": {
+    canUndo: boolean;
+    canRedo: boolean;
+    current: number;
+    total: number;
+  };
 }
 
 /**

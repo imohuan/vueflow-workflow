@@ -3,9 +3,9 @@
  * 支持节点的复制、剪切、粘贴操作
  */
 
-import type { Node } from "@vue-flow/core";
+import type { Edge, GraphNode, Node } from "@vue-flow/core";
 import type { VueFlowPlugin, PluginContext } from "./types";
-import { ref, watch, computed } from "vue";
+import { computed, nextTick } from "vue";
 import { onKeyStroke, useActiveElement } from "@vueuse/core";
 
 /**
@@ -13,6 +13,7 @@ import { onKeyStroke, useActiveElement } from "@vueuse/core";
  */
 interface ClipboardData {
   nodes: Node[];
+  edges: Edge[]; // 节点之间的连接线
   timestamp: number;
   /** 复制时节点的中心点 */
   center: { x: number; y: number };
@@ -23,11 +24,9 @@ interface ClipboardData {
  */
 export function createCopyPastePlugin(): VueFlowPlugin {
   let clipboard: ClipboardData | null = null;
-  const selectedNodes = ref<Node[]>([]);
   let pasteOffset = 0; // 粘贴偏移量，每次粘贴递增
 
   // 保存清理函数
-  let stopWatcher: (() => void) | null = null;
   const cleanupFns: Array<() => void> = [];
 
   /**
@@ -53,17 +52,31 @@ export function createCopyPastePlugin(): VueFlowPlugin {
   /**
    * 复制选中的节点
    */
-  function copyNodes() {
-    if (selectedNodes.value.length === 0) {
+  function copyNodes(context: PluginContext) {
+    const selectedNodes = (context.vueflow.getSelectedNodes?.value ??
+      []) as Node[];
+
+    if (selectedNodes.length === 0) {
       console.log("[CopyPaste Plugin] 没有选中的节点");
       return;
     }
 
+    // 获取选中节点的 ID 集合
+    const selectedNodeIds = new Set(selectedNodes.map((n) => n.id));
+
+    // 获取选中节点之间的连接线
+    const allEdges = context.core.edges.value || [];
+    const relatedEdges = allEdges.filter(
+      (edge: any) =>
+        selectedNodeIds.has(edge.source) && selectedNodeIds.has(edge.target)
+    );
+
     // 计算选中节点的中心点
-    const center = calculateCenter(selectedNodes.value);
+    const center = calculateCenter(selectedNodes);
 
     clipboard = {
-      nodes: JSON.parse(JSON.stringify(selectedNodes.value)),
+      nodes: JSON.parse(JSON.stringify(selectedNodes)),
+      edges: JSON.parse(JSON.stringify(relatedEdges)),
       timestamp: Date.now(),
       center,
     };
@@ -72,7 +85,7 @@ export function createCopyPastePlugin(): VueFlowPlugin {
     pasteOffset = 0;
 
     console.log(
-      `[CopyPaste Plugin] 已复制 ${selectedNodes.value.length} 个节点`
+      `[CopyPaste Plugin] 已复制 ${selectedNodes.length} 个节点和 ${relatedEdges.length} 条连接线`
     );
   }
 
@@ -89,9 +102,10 @@ export function createCopyPastePlugin(): VueFlowPlugin {
     pasteOffset += 30;
     const baseOffset = pasteOffset;
 
-    const pastedNodes: Node[] = [];
+    const pastedNodeIds: string[] = [];
     const nodeIdMap = new Map<string, string>(); // 旧 ID -> 新 ID 映射
 
+    // 1. 粘贴节点
     clipboard.nodes.forEach((node) => {
       const newId = `node-${Date.now()}-${Math.random()
         .toString(36)
@@ -107,28 +121,53 @@ export function createCopyPastePlugin(): VueFlowPlugin {
         },
       } as Node;
 
-      // 取消选中状态
-      (newNode as any).selected = false;
-
-      context.addNode(newNode);
-      pastedNodes.push(newNode);
+      context.core.addNode(newNode);
+      pastedNodeIds.push(newId);
     });
 
-    // 取消所有节点的选中状态
-    context.nodes.forEach((node) => {
-      (node as any).selected = false;
+    // 2. 粘贴连接线（更新 source 和 target 为新的节点 ID）
+    const pastedEdgeIds: string[] = [];
+    clipboard.edges.forEach((edge: any) => {
+      const newEdgeId = `edge-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+
+      const newEdge = {
+        ...edge,
+        id: newEdgeId,
+        source: nodeIdMap.get(edge.source) || edge.source,
+        target: nodeIdMap.get(edge.target) || edge.target,
+      };
+
+      context.core.addEdge(newEdge);
+      pastedEdgeIds.push(newEdgeId);
     });
 
-    // 选中新粘贴的节点
-    pastedNodes.forEach((node) => {
-      (node as any).selected = true;
-    });
+    // 使用 VueFlow API 选中新粘贴的节点（带蓝色背景）
+    const { removeSelectedElements, addSelectedNodes, nodesSelectionActive } =
+      context.vueflow;
 
-    // 更新选中节点列表
-    selectedNodes.value = pastedNodes;
+    // 先清空所有选中
+    removeSelectedElements?.();
+
+    // 等待下一帧再选中
+    nextTick(() => {
+      const nodesToSelect = context.core.nodes.value.filter((node) =>
+        pastedNodeIds.includes(node.id)
+      ) as GraphNode[];
+
+      if (nodesToSelect.length > 0) {
+        addSelectedNodes?.(nodesToSelect);
+
+        // 多个节点选中时启用蓝色背景
+        if (nodesToSelect.length > 1 && nodesSelectionActive) {
+          nodesSelectionActive.value = true;
+        }
+      }
+    });
 
     console.log(
-      `[CopyPaste Plugin] 已粘贴 ${pastedNodes.length} 个节点 (偏移: ${baseOffset}px)`
+      `[CopyPaste Plugin] 已粘贴 ${pastedNodeIds.length} 个节点和 ${pastedEdgeIds.length} 条连接线 (偏移: ${baseOffset}px)`
     );
   }
 
@@ -136,41 +175,36 @@ export function createCopyPastePlugin(): VueFlowPlugin {
    * 剪切选中的节点
    */
   function cutNodes(context: PluginContext) {
-    if (selectedNodes.value.length === 0) {
+    const selectedNodes = (context.vueflow.getSelectedNodes?.value ??
+      []) as Node[];
+
+    if (selectedNodes.length === 0) {
       console.log("[CopyPaste Plugin] 没有选中的节点");
       return;
     }
 
     // 先复制
-    copyNodes();
+    copyNodes(context);
 
     // 再删除
-    selectedNodes.value.forEach((node) => {
-      context.deleteNode(node.id);
+    selectedNodes.forEach((node) => {
+      context.core.deleteNode(node.id);
     });
 
-    selectedNodes.value = [];
     console.log("[CopyPaste Plugin] 已剪切节点");
-  }
-
-  /**
-   * 更新选中节点列表
-   */
-  function updateSelectedNodes(context: PluginContext) {
-    selectedNodes.value = context.nodes.filter(
-      (node) => (node as any).selected
-    );
   }
 
   /**
    * 删除选中的节点
    */
   function deleteSelectedNodes(context: PluginContext) {
-    if (selectedNodes.value.length > 0) {
-      selectedNodes.value.forEach((node) => {
-        context.deleteNode(node.id);
+    const selectedNodes = (context.vueflow.getSelectedNodes?.value ??
+      []) as Node[];
+
+    if (selectedNodes.length > 0) {
+      selectedNodes.forEach((node) => {
+        context.core.deleteNode(node.id);
       });
-      selectedNodes.value = [];
       console.log("[CopyPaste Plugin] 已删除选中的节点");
     }
   }
@@ -188,7 +222,7 @@ export function createCopyPastePlugin(): VueFlowPlugin {
       {
         key: "ctrl+c",
         description: "复制选中的节点",
-        handler: () => copyNodes(),
+        handler: (context) => copyNodes(context),
       },
       {
         key: "ctrl+v",
@@ -220,7 +254,7 @@ export function createCopyPastePlugin(): VueFlowPlugin {
           (e) => {
             if (notUsingInput.value && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
-              copyNodes();
+              copyNodes(context);
             }
           },
           { dedupe: true }
@@ -258,32 +292,16 @@ export function createCopyPastePlugin(): VueFlowPlugin {
       // Delete / Backspace - 删除
       cleanupFns.push(
         onKeyStroke(["Delete", "Backspace"], (e) => {
-          if (notUsingInput.value && selectedNodes.value.length > 0) {
-            e.preventDefault();
-            deleteSelectedNodes(context);
+          if (notUsingInput.value) {
+            const selectedNodes = (context.vueflow.getSelectedNodes?.value ??
+              []) as Node[];
+            if (selectedNodes.length > 0) {
+              e.preventDefault();
+              deleteSelectedNodes(context);
+            }
           }
         })
       );
-
-      // 监听 nodes 变化，更新选中节点
-      stopWatcher = watch(
-        () => context.nodes,
-        () => {
-          updateSelectedNodes(context);
-        },
-        { deep: true }
-      );
-
-      // 监听节点选中事件（如果事件系统可用）
-      if (context.events) {
-        context.events.on("node:clicked", () => {
-          updateSelectedNodes(context);
-        });
-
-        context.events.on("canvas:clicked", () => {
-          selectedNodes.value = [];
-        });
-      }
 
       console.log("[CopyPaste Plugin] 复制粘贴插件已启用");
       console.log(
@@ -296,15 +314,8 @@ export function createCopyPastePlugin(): VueFlowPlugin {
       cleanupFns.forEach((cleanup) => cleanup());
       cleanupFns.length = 0;
 
-      // 停止 watcher
-      if (stopWatcher) {
-        stopWatcher();
-        stopWatcher = null;
-      }
-
       // 清理状态
       clipboard = null;
-      selectedNodes.value = [];
       pasteOffset = 0;
 
       console.log("[CopyPaste Plugin] 复制粘贴插件已清理");

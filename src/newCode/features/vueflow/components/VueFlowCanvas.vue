@@ -63,7 +63,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from "vue";
 import { storeToRefs } from "pinia";
-import { VueFlow, type Node, type Edge } from "@vue-flow/core";
+import { VueFlow, useVueFlow, type Node, type Edge } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
@@ -75,12 +75,14 @@ import {
   MINIMAP_CONFIG,
 } from "../core/vueflowConfig";
 import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
-import CustomNode from "@/newCode/features/canvas/components/CustomNode.vue";
+import CustomNode from "./nodes/CustomNode.vue";
 import {
   PluginManager,
   createConfigSyncPlugin,
   createCopyPastePlugin,
   createCanvasPersistencePlugin,
+  createMultiSelectPlugin,
+  createHistoryPlugin,
 } from "../plugins";
 
 // 配置 Store
@@ -150,35 +152,20 @@ const defaultEdgeOptions = computed(() => ({
 }));
 
 // 节点类型映射
-const nodeTypes = {
-  custom: props.customNodeComponent,
-};
+const nodeTypes = { custom: props.customNodeComponent };
 
+// VueFlow API
+const vueFlowApi = useVueFlow();
 // VueFlow 核心逻辑
-const {
-  nodes: coreNodes,
-  edges: coreEdges,
-  events,
-  addNode,
-  deleteNode,
-  addEdge,
-  deleteEdge,
-  clearCanvas,
-  fitViewToCanvas,
-} = useVueFlowCore({
+const vueFlowCore = useVueFlowCore({
   enableStoreSync: true,
   enableEvents: true,
 });
 
+const { nodes: coreNodes, edges: coreEdges, events } = vueFlowCore;
+
 // 插件管理器
 const pluginManager = new PluginManager();
-
-/**
- * 批量更新边（供插件使用）
- */
-function updateEdges(updater: (edges: Edge[]) => Edge[]) {
-  coreEdges.value = updater(coreEdges.value);
-}
 
 /**
  * 小地图节点颜色
@@ -276,16 +263,8 @@ function handlePaneClick(event: MouseEvent) {
 onMounted(() => {
   // 设置插件上下文（在挂载后设置，确保 VueFlow 已初始化）
   pluginManager.setContext({
-    nodes: coreNodes.value,
-    edges: coreEdges.value,
-    addNode,
-    deleteNode,
-    addEdge,
-    deleteEdge,
-    updateEdges,
-    clearCanvas,
-    fitView: fitViewToCanvas,
-    events,
+    core: vueFlowCore,
+    vueflow: vueFlowApi,
   });
 
   // 注册并启用插件
@@ -294,6 +273,12 @@ onMounted(() => {
 
   const copyPastePlugin = createCopyPastePlugin();
   pluginManager.register(copyPastePlugin);
+
+  const multiSelectPlugin = createMultiSelectPlugin();
+  pluginManager.register(multiSelectPlugin);
+
+  const historyPlugin = createHistoryPlugin();
+  pluginManager.register(historyPlugin);
 
   const canvasPersistencePlugin = createCanvasPersistencePlugin();
   pluginManager.register(canvasPersistencePlugin);
