@@ -42,8 +42,28 @@ export interface EdgeEvents {
   "edge:deselected": { edge: Edge };
   /** 边连接完成 */
   "edge:connected": { connection: Connection };
+  /** 边创建完成（新连接建立） */
+  "edge:created": { edge: Edge };
   /** 边数据更新 */
   "edge:updated": { edge: Edge };
+  /** 连接开始（拖拽连接线开始） */
+  "edge:connect-start": any;
+  /** 连接结束（拖拽连接线结束） */
+  "edge:connect-end": any;
+  /** 边更新开始（拖拽端点开始） */
+  "edge:update-start": { edge: Edge };
+  /** 边更新中（拖拽端点到新位置） */
+  "edge:update": {
+    edge: Edge;
+    connection: {
+      source: string;
+      target: string;
+      sourceHandle?: string | null;
+      targetHandle?: string | null;
+    };
+  };
+  /** 边更新结束（拖拽端点结束） */
+  "edge:update-end": { edge: Edge };
 }
 
 /**
@@ -60,6 +80,10 @@ export interface CanvasEvents {
   "canvas:fit-view": { padding?: number };
   /** 画布清空 */
   "canvas:cleared": void;
+  /** 请求自动布局 */
+  "canvas:request-auto-layout": any;
+  /** 画布自动布局完成 */
+  "canvas:auto-layout": { nodeCount: number; direction: string };
 }
 
 /**

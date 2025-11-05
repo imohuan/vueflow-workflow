@@ -15,12 +15,22 @@
       :fit-view-on-init="config.fitViewOnInit"
       :connect-on-click="config.connectOnClick"
       :default-edge-options="defaultEdgeOptions"
+      :edges-updatable="true"
+      :edge-updater-radius="20"
+      connectable
+      :connection-mode="config.connectionMode || 'loose'"
       @drop="handleDrop"
       @dragover="handleDragOver"
+      @connect="handleConnect"
+      @connect-start="handleConnectStart"
+      @connect-end="handleConnectEnd"
       @node-click="handleNodeClick"
       @node-double-click="handleNodeDoubleClick"
       @node-context-menu="handleNodeContextMenu"
       @edge-click="handleEdgeClick"
+      @edge-update-start="handleEdgeUpdateStart"
+      @edge-update="handleEdgeUpdate"
+      @edge-update-end="handleEdgeUpdateEnd"
       @pane-click="handlePaneClick"
     >
       <!-- 自定义节点类型插槽 -->
@@ -28,6 +38,11 @@
         <slot name="node-custom" v-bind="nodeProps">
           <component :is="customNodeComponent" v-bind="nodeProps" />
         </slot>
+      </template>
+
+      <!-- 自定义连接线（拖拽时的临时连接线） -->
+      <template #connection-line="connectionLineProps">
+        <CustomConnectionLine v-bind="connectionLineProps" />
       </template>
 
       <!-- 背景网格 -->
@@ -61,9 +76,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, provide } from "vue";
 import { storeToRefs } from "pinia";
-import { VueFlow, useVueFlow, type Node, type Edge } from "@vue-flow/core";
+import {
+  VueFlow,
+  useVueFlow,
+  type Node,
+  type Edge,
+  type Connection,
+  type ConnectionMode,
+} from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
@@ -76,13 +98,19 @@ import {
 } from "../core/vueflowConfig";
 import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
 import CustomNode from "./nodes/CustomNode.vue";
+import CustomConnectionLine from "./CustomConnectionLine.vue";
 import {
   PluginManager,
+  PLUGIN_MANAGER_KEY,
   createConfigSyncPlugin,
   createCopyPastePlugin,
   createCanvasPersistencePlugin,
   createMultiSelectPlugin,
   createHistoryPlugin,
+  createEdgeEditPlugin,
+  createCtrlConnectPlugin,
+  createAutoLayoutPlugin,
+  createDeletePlugin,
 } from "../plugins";
 
 // 配置 Store
@@ -120,7 +148,11 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 // 合并配置
-const config = computed(() => ({
+const config = computed<
+  typeof DEFAULT_VUEFLOW_CONFIG & {
+    connectionMode?: ConnectionMode;
+  }
+>(() => ({
   ...DEFAULT_VUEFLOW_CONFIG,
   ...props.config,
 }));
@@ -167,6 +199,9 @@ const { nodes: coreNodes, edges: coreEdges, events } = vueFlowCore;
 // 插件管理器
 const pluginManager = new PluginManager();
 
+// 提供插件管理器供子组件访问
+provide(PLUGIN_MANAGER_KEY, pluginManager);
+
 /**
  * 小地图节点颜色
  */
@@ -209,6 +244,52 @@ function handleDragOver(event: DragEvent) {
   event.preventDefault();
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = "move";
+  }
+}
+
+/**
+ * 处理连接开始
+ */
+function handleConnectStart(params: any) {
+  // 通过事件系统通知外部和插件
+  if (events) {
+    events.emit("edge:connect-start", params);
+  }
+}
+
+/**
+ * 处理连接结束
+ */
+function handleConnectEnd(event: any) {
+  // 通过事件系统通知外部和插件
+  if (events) {
+    events.emit("edge:connect-end", event);
+  }
+}
+
+/**
+ * 处理节点连接
+ */
+function handleConnect(connection: Connection) {
+  console.log("[VueFlowCanvas] 创建新连接:", connection);
+
+  // 创建新的边
+  const newEdge: Edge = {
+    id: `edge-${connection.source}-${connection.target}-${Date.now()}`,
+    source: connection.source,
+    target: connection.target,
+    sourceHandle: connection.sourceHandle,
+    targetHandle: connection.targetHandle,
+    ...defaultEdgeOptions.value,
+  };
+
+  // 添加到边数组
+  coreEdges.value.push(newEdge);
+
+  // 通过事件系统通知外部
+  if (events) {
+    events.emit("edge:connected", { connection });
+    events.emit("edge:added", { edge: newEdge });
   }
 }
 
@@ -260,6 +341,33 @@ function handlePaneClick(event: MouseEvent) {
   }
 }
 
+/**
+ * 处理边更新开始
+ */
+function handleEdgeUpdateStart(event: any) {
+  if (events) {
+    events.emit("edge:update-start", { edge: event.edge });
+  }
+}
+
+/**
+ * 处理边更新
+ */
+function handleEdgeUpdate(event: any) {
+  if (events) {
+    events.emit("edge:update", event);
+  }
+}
+
+/**
+ * 处理边更新结束
+ */
+function handleEdgeUpdateEnd(event: any) {
+  if (events) {
+    events.emit("edge:update-end", { edge: event.edge });
+  }
+}
+
 onMounted(() => {
   // 设置插件上下文（在挂载后设置，确保 VueFlow 已初始化）
   pluginManager.setContext({
@@ -280,8 +388,37 @@ onMounted(() => {
   const historyPlugin = createHistoryPlugin();
   pluginManager.register(historyPlugin);
 
+  const edgeEditPlugin = createEdgeEditPlugin({
+    allowReconnectToOriginal: true,
+  });
+  pluginManager.register(edgeEditPlugin);
+
   const canvasPersistencePlugin = createCanvasPersistencePlugin();
   pluginManager.register(canvasPersistencePlugin);
+
+  const ctrlConnectPlugin = createCtrlConnectPlugin({
+    debug: true, // 开启调试模式，可以在控制台看到日志
+    allowReconnectToOriginal: true, // 允许重连回原端口（边编辑时）
+    validateConnection: (connection) => {
+      // 检查连接是否已存在
+      const exists = coreEdges.value.some(
+        (edge: Edge) =>
+          edge.source === connection.source &&
+          edge.sourceHandle === connection.sourceHandle &&
+          edge.target === connection.target &&
+          edge.targetHandle === connection.targetHandle
+      );
+      // 只要连接不存在且不是同一个节点，就是有效的
+      return !exists && connection.source !== connection.target;
+    },
+  });
+  pluginManager.register(ctrlConnectPlugin);
+
+  const autoLayoutPlugin = createAutoLayoutPlugin();
+  pluginManager.register(autoLayoutPlugin);
+
+  const deletePlugin = createDeletePlugin();
+  pluginManager.register(deletePlugin);
 
   console.log("[VueFlowCanvas] 画布已挂载");
   console.log(

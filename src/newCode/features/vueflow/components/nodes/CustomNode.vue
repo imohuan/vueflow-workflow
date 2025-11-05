@@ -9,6 +9,7 @@
     <!-- 输入端点 -->
     <Handle
       v-if="!data.noInputs"
+      id="input"
       type="target"
       :position="Position.Left"
       class="custom-handle custom-handle--target"
@@ -45,6 +46,7 @@
     <!-- 输出端点 -->
     <Handle
       v-if="!data.noOutputs"
+      id="output"
       type="source"
       :position="Position.Right"
       class="custom-handle custom-handle--source"

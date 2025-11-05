@@ -102,8 +102,16 @@ function handleFitView() {
  * 自动布局
  */
 function handleAutoLayout() {
-  // TODO: 实现自动布局算法（Dagre）
-  fitView({ padding: 0.2, duration: 300 });
+  // 通过事件触发自动布局插件，使用配置中的参数
+  events.emit("canvas:request-auto-layout", {
+    direction: editorConfig.value.autoLayoutDirection,
+    nodesep: editorConfig.value.autoLayoutNodeSpacing,
+    ranksep: editorConfig.value.autoLayoutRankSpacing,
+    padding: editorConfig.value.autoLayoutPadding,
+    fitView: editorConfig.value.autoLayoutFitView,
+    fitViewPadding: editorConfig.value.autoLayoutFitViewPadding,
+    fitViewDuration: editorConfig.value.autoLayoutFitViewDuration,
+  });
 }
 
 /**

@@ -2,7 +2,7 @@
  * VueFlow 配置
  */
 
-import type { DefaultEdgeOptions } from "@vue-flow/core";
+import type { DefaultEdgeOptions, ConnectionMode } from "@vue-flow/core";
 
 /**
  * 适应视图配置选项
@@ -33,12 +33,14 @@ export const DEFAULT_VUEFLOW_CONFIG = {
   fitViewOnInit: true,
   /** 是否可以连接 */
   connectOnClick: true,
+  /** 连接模式：loose 允许在任何地方释放连接，strict 只能连接到 handle */
+  connectionMode: "loose" as ConnectionMode,
   /** 默认边类型 */
   defaultEdgeOptions: {
     type: "default",
     animated: false,
   } as DefaultEdgeOptions,
-} as const;
+};
 
 /**
  * 适应视图配置

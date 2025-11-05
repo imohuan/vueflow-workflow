@@ -288,6 +288,195 @@
           </div>
         </ConfigSection>
 
+        <!-- 自动布局 -->
+        <ConfigSection
+          title="自动布局"
+          description="一键整理节点位置的布局算法设置"
+        >
+          <div class="space-y-4">
+            <!-- 布局方向 -->
+            <div class="hidden">
+              <label class="mb-2 block text-sm font-medium text-slate-700"
+                >布局方向</label
+              >
+              <n-radio-group v-model:value="config.autoLayoutDirection">
+                <n-radio-button value="LR">
+                  <div class="flex items-center gap-1">
+                    <span>→</span>
+                    <span class="text-xs">从左到右</span>
+                  </div>
+                </n-radio-button>
+                <n-radio-button value="RL">
+                  <div class="flex items-center gap-1">
+                    <span>←</span>
+                    <span class="text-xs">从右到左</span>
+                  </div>
+                </n-radio-button>
+                <n-radio-button value="TB">
+                  <div class="flex items-center gap-1">
+                    <span>↓</span>
+                    <span class="text-xs">从上到下</span>
+                  </div>
+                </n-radio-button>
+                <n-radio-button value="BT">
+                  <div class="flex items-center gap-1">
+                    <span>↑</span>
+                    <span class="text-xs">从下到上</span>
+                  </div>
+                </n-radio-button>
+              </n-radio-group>
+            </div>
+
+            <!-- 同列节点间距（垂直） -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-slate-700"
+                  >同列节点间距</label
+                >
+                <div class="flex items-center gap-2">
+                  <n-input-number
+                    v-model:value="config.autoLayoutNodeSpacing"
+                    :min="50"
+                    :max="400"
+                    :step="10"
+                    class="w-24"
+                  />
+                  <span class="text-xs text-slate-500">px</span>
+                </div>
+              </div>
+              <n-slider
+                v-model:value="config.autoLayoutNodeSpacing"
+                :min="50"
+                :max="400"
+                :step="10"
+              />
+              <p class="text-xs text-slate-500">
+                同一列内节点的垂直间距（上下距离）
+              </p>
+            </div>
+
+            <!-- 列间距（水平） -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-slate-700">列间距</label>
+                <div class="flex items-center gap-2">
+                  <n-input-number
+                    v-model:value="config.autoLayoutRankSpacing"
+                    :min="100"
+                    :max="600"
+                    :step="10"
+                    class="w-24"
+                  />
+                  <span class="text-xs text-slate-500">px</span>
+                </div>
+              </div>
+              <n-slider
+                v-model:value="config.autoLayoutRankSpacing"
+                :min="100"
+                :max="600"
+                :step="10"
+              />
+              <p class="text-xs text-slate-500">
+                不同列之间的水平间距（左右距离）
+              </p>
+            </div>
+
+            <!-- 布局边距 -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-slate-700"
+                  >布局边距</label
+                >
+                <div class="flex items-center gap-2">
+                  <n-input-number
+                    v-model:value="config.autoLayoutPadding"
+                    :min="0"
+                    :max="300"
+                    :step="10"
+                    class="w-24"
+                  />
+                  <span class="text-xs text-slate-500">px</span>
+                </div>
+              </div>
+              <n-slider
+                v-model:value="config.autoLayoutPadding"
+                :min="0"
+                :max="300"
+                :step="10"
+              />
+              <p class="text-xs text-slate-500">整体布局与画布边缘的距离</p>
+            </div>
+
+            <!-- 自动适应视图 -->
+            <div
+              class="flex items-center justify-between rounded-lg bg-slate-50 p-3"
+            >
+              <div class="flex flex-col">
+                <span class="text-sm font-medium text-slate-700"
+                  >自动适应视图</span
+                >
+                <span class="text-xs text-slate-500"
+                  >布局后自动调整画布视图</span
+                >
+              </div>
+              <n-switch v-model:value="config.autoLayoutFitView" />
+            </div>
+
+            <!-- 适应视图内边距 -->
+            <div v-if="config.autoLayoutFitView" class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-slate-700"
+                  >视图内边距</label
+                >
+                <div class="flex items-center gap-2">
+                  <n-input-number
+                    v-model:value="config.autoLayoutFitViewPadding"
+                    :min="0"
+                    :max="1"
+                    :step="0.05"
+                    class="w-24"
+                  />
+                </div>
+              </div>
+              <n-slider
+                v-model:value="config.autoLayoutFitViewPadding"
+                :min="0"
+                :max="1"
+                :step="0.05"
+              />
+              <p class="text-xs text-slate-500">
+                适应视图时的内边距比例（0-1）
+              </p>
+            </div>
+
+            <!-- 动画时长 -->
+            <div v-if="config.autoLayoutFitView" class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-slate-700"
+                  >动画时长</label
+                >
+                <div class="flex items-center gap-2">
+                  <n-input-number
+                    v-model:value="config.autoLayoutFitViewDuration"
+                    :min="0"
+                    :max="1000"
+                    :step="50"
+                    class="w-24"
+                  />
+                  <span class="text-xs text-slate-500">ms</span>
+                </div>
+              </div>
+              <n-slider
+                v-model:value="config.autoLayoutFitViewDuration"
+                :min="0"
+                :max="1000"
+                :step="50"
+              />
+              <p class="text-xs text-slate-500">适应视图动画的持续时间</p>
+            </div>
+          </div>
+        </ConfigSection>
+
         <!-- 网格背景 -->
         <ConfigSection title="网格背景" description="显示画布网格背景">
           <div class="space-y-4">

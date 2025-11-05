@@ -7,6 +7,15 @@ import type { VueFlowStore } from "@vue-flow/core";
 import type { useVueFlowCore } from "../core/useVueFlowCore";
 
 /**
+ * 插件共享状态
+ * 用于插件暴露状态供其他插件或组件访问
+ */
+export interface PluginSharedState {
+  /** 存储各个插件的共享状态 */
+  [pluginId: string]: any;
+}
+
+/**
  * 插件上下文
  * 提供给插件访问画布状态和方法的接口
  */
@@ -15,6 +24,8 @@ export interface PluginContext {
   core: ReturnType<typeof useVueFlowCore>;
   /** VueFlow API（来自 useVueFlow） */
   vueflow: VueFlowStore;
+  /** 插件共享状态（用于插件之间以及插件与组件之间的状态共享） */
+  shared: PluginSharedState;
 }
 
 /**

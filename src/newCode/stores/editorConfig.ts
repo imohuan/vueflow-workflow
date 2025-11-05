@@ -10,37 +10,66 @@ import { ref, watch } from "vue";
  * 编辑器配置接口
  */
 export interface EditorConfig {
-  // 常规设置
+  /** 是否自动保存 */
   autoSave: boolean;
+  /** 网格尺寸，单位 px */
   gridSize: number;
+  /** 是否吸附到网格 */
   snapToGrid: boolean;
 
-  // 执行模式
+  /** 执行模式（worker 本地/ server 远程） */
   executionMode: "worker" | "server";
+  /** 远程服务地址 */
   serverUrl: string;
+  /** 最大并发任务数 */
   maxConcurrent: number;
 
-  // 画布缩放
+  /** 默认缩放比例 */
   defaultZoom: number;
+  /** 最小缩放倍率 */
   minZoom: number;
+  /** 最大缩放倍率 */
   maxZoom: number;
 
-  // 画布设置 - 连线
+  /** 连线类型 */
   edgeType: "default" | "straight" | "step" | "smoothstep";
+  /** 连线宽度 */
   edgeWidth: number;
+  /** 连线颜色 */
   edgeColor: string;
+  /** 连线激活颜色 */
   edgeActiveColor: string;
+  /** 连线动画开关 */
   edgeAnimation: boolean;
 
-  // 画布设置 - 背景
+  /** 是否显示背景网格 */
   showGrid: boolean;
+  /** 网格类型（点/线） */
   gridType: "dots" | "lines";
+  /** 网格间距，单位 px */
   gridGap: number;
+  /** 背景颜色 */
   bgColor: string;
+  /** 网格颜色 */
   gridColor: string;
 
-  // 画布设置 - UI
+  /** 是否显示小地图 */
   showMiniMap: boolean;
+
+  /** 自动布局方向（LR: 从左到右，RL: 右到左，TB: 上到下，BT: 下到上） */
+  autoLayoutDirection: "LR" | "RL" | "TB" | "BT";
+  /** 同列节点间距（LR/RL模式下为垂直间距，TB/BT模式下为水平间距） */
+  autoLayoutNodeSpacing: number;
+  /** 列间距（LR/RL模式下为水平间距，TB/BT模式下为垂直间距） */
+  autoLayoutRankSpacing: number;
+  /** 自动布局整体边距 px */
+  autoLayoutPadding: number;
+  /** 布局后自动适应视图 */
+  autoLayoutFitView: boolean;
+  /** 适应视图内边距（0~1） */
+  autoLayoutFitViewPadding: number;
+  /** 适应视图动画时长（毫秒） */
+  autoLayoutFitViewDuration: number;
 }
 
 /**
@@ -78,6 +107,15 @@ export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
 
   // 画布设置 - UI
   showMiniMap: false,
+
+  // 自动布局配置
+  autoLayoutDirection: "LR",
+  autoLayoutNodeSpacing: 160,
+  autoLayoutRankSpacing: 240,
+  autoLayoutPadding: 120,
+  autoLayoutFitView: true,
+  autoLayoutFitViewPadding: 0.2,
+  autoLayoutFitViewDuration: 400,
 };
 
 /**

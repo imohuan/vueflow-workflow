@@ -12,6 +12,25 @@ export { createConfigSyncPlugin } from "./configSyncPlugin";
 export { createCanvasPersistencePlugin } from "./canvasPersistencePlugin";
 export { createMultiSelectPlugin } from "./multiSelectPlugin";
 export { createHistoryPlugin } from "./historyPlugin";
+export { createEdgeEditPlugin } from "./edgeEditPlugin";
+export { createCtrlConnectPlugin } from "./ctrlConnectPlugin";
+export { createAutoLayoutPlugin } from "./autoLayoutPlugin";
+export { createDeletePlugin } from "./deletePlugin";
+export type { EdgeEditPluginOptions, EdgeValidationFn } from "./edgeEditPlugin";
+export type {
+  CtrlConnectPluginOptions,
+  ConnectCandidateState,
+} from "./ctrlConnectPlugin";
+export type {
+  AutoLayoutOptions,
+  DagreLayoutDirection,
+} from "./autoLayoutPlugin";
+
+/**
+ * 插件管理器注入 Key
+ * 用于在组件树中提供和注入插件管理器实例
+ */
+export const PLUGIN_MANAGER_KEY = Symbol("PLUGIN_MANAGER");
 
 /**
  * 插件管理器
@@ -20,12 +39,24 @@ export class PluginManager {
   private plugins: Map<string, VueFlowPlugin> = new Map();
   private enabledPlugins: Ref<Set<string>> = ref(new Set());
   private context: PluginContext | null = null;
+  private sharedState: Record<string, any> = {};
 
   /**
    * 设置插件上下文
    */
-  setContext(context: PluginContext): void {
-    this.context = context;
+  setContext(context: Omit<PluginContext, "shared">): void {
+    // 添加 shared 状态到上下文
+    this.context = {
+      ...context,
+      shared: this.sharedState,
+    };
+  }
+
+  /**
+   * 获取插件共享状态
+   */
+  getSharedState(): Record<string, any> {
+    return this.sharedState;
   }
 
   /**

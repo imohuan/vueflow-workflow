@@ -194,21 +194,6 @@ export function createCopyPastePlugin(): VueFlowPlugin {
     console.log("[CopyPaste Plugin] 已剪切节点");
   }
 
-  /**
-   * 删除选中的节点
-   */
-  function deleteSelectedNodes(context: PluginContext) {
-    const selectedNodes = (context.vueflow.getSelectedNodes?.value ??
-      []) as Node[];
-
-    if (selectedNodes.length > 0) {
-      selectedNodes.forEach((node) => {
-        context.core.deleteNode(node.id);
-      });
-      console.log("[CopyPaste Plugin] 已删除选中的节点");
-    }
-  }
-
   return {
     config: {
       id: "copy-paste",
@@ -289,23 +274,9 @@ export function createCopyPastePlugin(): VueFlowPlugin {
         )
       );
 
-      // Delete / Backspace - 删除
-      cleanupFns.push(
-        onKeyStroke(["Delete", "Backspace"], (e) => {
-          if (notUsingInput.value) {
-            const selectedNodes = (context.vueflow.getSelectedNodes?.value ??
-              []) as Node[];
-            if (selectedNodes.length > 0) {
-              e.preventDefault();
-              deleteSelectedNodes(context);
-            }
-          }
-        })
-      );
-
       console.log("[CopyPaste Plugin] 复制粘贴插件已启用");
       console.log(
-        "[CopyPaste Plugin] 快捷键: Ctrl+C (复制), Ctrl+V (粘贴), Ctrl+X (剪切), Delete (删除)"
+        "[CopyPaste Plugin] 快捷键: Ctrl+C (复制), Ctrl+V (粘贴), Ctrl+X (剪切)"
       );
     },
 
