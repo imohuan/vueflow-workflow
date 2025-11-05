@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-xs text-slate-600 shadow-lg"
+    class="flex items-center gap-2 rounded-md border border-slate-200 bg-white/95 px-2 py-1 text-xs text-slate-600 shadow-lg"
   >
     <n-button quaternary circle aria-label="自适应" @click="emit('fitView')">
       <template #icon>
@@ -27,7 +27,7 @@
         <n-icon><IconMap /></n-icon>
       </template>
     </n-button>
-    <span class="ml-2 text-[11px] text-slate-400">Ctrl + / 查看快捷键</span>
+    <!-- <span class="ml-2 text-[11px] text-slate-400">Ctrl + / 查看快捷键</span> -->
     <n-button type="success" size="small" @click="emit('executeWorkflow')">
       <template #icon>
         <n-icon><IconPlay /></n-icon>

@@ -21,7 +21,7 @@
 
       <!-- Main Menu -->
       <n-menu
-        :value="selectedKey"
+        :value="uiStore.activeTab"
         :collapsed="collapsed"
         :collapsed-width="64"
         :collapsed-icon-size="22"
@@ -32,11 +32,11 @@
 
       <!-- Settings Menu (Bottom) -->
       <n-menu
-        :value="selectedKey"
+        :value="uiStore.activeTab"
         :collapsed="collapsed"
         :collapsed-width="64"
         :collapsed-icon-size="22"
-        :options="settingsMenuOptions"
+        :options="bottomMenuOptions"
         @update:value="handleMenuSelect"
         class="border-t border-slate-200"
       />
@@ -45,51 +45,51 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref } from "vue";
+import { h } from "vue";
 import type { Component } from "vue";
 import { NIcon } from "naive-ui";
 import IconCanvas from "@/icons/IconCanvas.vue";
-import IconNodeEditor from "@/icons/IconNodeEditor.vue";
-import IconWidget from "@/icons/IconWidget.vue";
-import IconServer from "@/icons/IconServer.vue";
-import IconSettings from "@/icons/IconSettings.vue";
+import { mainTabs, bottomTabs } from "@/newCode/config/tabs";
+import { useUiStore } from "@/newCode/stores/ui";
+import type { TabKey } from "@/newCode/stores/ui";
 
-const collapsed = ref(true);
-const selectedKey = ref<string>("workflows");
+const uiStore = useUiStore();
+const collapsed = true; // 始终折叠，只显示图标
 
 function renderIcon(icon: Component) {
   return () => h(NIcon, null, { default: () => h(icon) });
 }
 
-const mainMenuOptions = [
-  {
-    label: "工作流",
-    key: "workflows",
-    icon: renderIcon(IconNodeEditor),
-  },
-  {
-    label: "节点列表",
-    key: "node-library",
-    icon: renderIcon(IconWidget),
-  },
-  {
-    label: "执行记录",
-    key: "execution-history",
-    icon: renderIcon(IconServer),
-  },
-];
+// 转换主要菜单选项
+const mainMenuOptions = mainTabs.map((tab) => ({
+  label: tab.label,
+  key: tab.id,
+  icon: renderIcon(tab.icon),
+  disabled: tab.disabled,
+}));
 
-const settingsMenuOptions = [
-  {
-    label: "设置",
-    key: "settings",
-    icon: renderIcon(IconSettings),
-  },
-];
+// 转换底部菜单选项
+const bottomMenuOptions = bottomTabs
+  .filter((tab) => {
+    // 过滤测试菜单（生产环境可以移除）
+    if (tab.testOnly && import.meta.env.PROD) {
+      return false;
+    }
+    return true;
+  })
+  .map((tab) => ({
+    label: tab.label,
+    key: tab.id,
+    icon: renderIcon(tab.icon),
+    disabled: tab.disabled,
+  }));
 
+/**
+ * 处理菜单选择
+ * 通过 UI Store 统一管理面板状态
+ */
 const handleMenuSelect = (key: string) => {
-  selectedKey.value = key;
-  console.log("Selected menu:", key);
+  uiStore.setActiveTab(key as TabKey);
 };
 </script>
 

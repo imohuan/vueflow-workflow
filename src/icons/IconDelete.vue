@@ -1,6 +1,8 @@
 <template>
   <svg
     xmlns="http://www.w3.org/2000/svg"
+    width="1em"
+    height="1em"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -8,8 +10,13 @@
     stroke-linecap="round"
     stroke-linejoin="round"
   >
-    <polyline points="20 6 9 17 4 12" />
+    <path d="M3 6h18" />
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    <line x1="10" x2="10" y1="11" y2="17" />
+    <line x1="14" x2="14" y1="11" y2="17" />
   </svg>
 </template>
 
 <script setup lang="ts"></script>
+

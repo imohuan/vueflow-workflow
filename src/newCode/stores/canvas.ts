@@ -43,6 +43,29 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     lastNodeResults.value = [{ ...entry, timestamp }, ...lastNodeResults.value].slice(0, 10);
   }
 
+  /** 添加节点 */
+  function addNode(node: any) {
+    nodes.value.push(node);
+  }
+
+  /** 添加连线 */
+  function addEdge(edge: any) {
+    edges.value.push(edge);
+  }
+
+  /** 清空画布 */
+  function clearCanvas() {
+    nodes.value = [];
+    edges.value = [];
+    lastNodeResults.value = [];
+  }
+
+  /** 加载工作流 */
+  function loadWorkflow(workflow: { nodes: any[]; edges: any[] }) {
+    nodes.value = workflow.nodes;
+    edges.value = workflow.edges;
+  }
+
   return {
     nodes,
     edges,
@@ -54,6 +77,10 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     resetCanvas,
     loadSnapshot,
     pushNodeResult,
+    addNode,
+    addEdge,
+    clearCanvas,
+    loadWorkflow,
   };
 });
 

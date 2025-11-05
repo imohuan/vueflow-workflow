@@ -1,10 +1,9 @@
 <template>
-  <div class="flex h-full bg-slate-100">
+  <n-layout has-sider class="h-full">
     <VerticalTabNav />
 
-    <div class="relative flex-1 overflow-hidden">
+    <n-layout-content class="relative overflow-hidden">
       <FloatingPanel />
-
       <section
         class="absolute inset-0 flex items-center justify-center overflow-hidden bg-linear-to-b from-sky-100 via-slate-200 to-slate-100"
       >
@@ -34,7 +33,7 @@
       </section>
 
       <div
-        class="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2"
+        class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2"
       >
         <div class="pointer-events-auto">
           <CanvasToolbar
@@ -46,7 +45,7 @@
         </div>
       </div>
 
-      <div class="absolute bottom-1 left-1">
+      <div class="absolute bottom-1 right-1">
         <NodeInfoCard />
       </div>
 
@@ -54,10 +53,13 @@
         :visible="quickMenu.visible"
         :position="quickMenu.position"
       />
-    </div>
-  </div>
-</template>
+    </n-layout-content>
 
+    <!-- Modals -->
+    <InfoModal />
+    <FullscreenEditorModal />
+  </n-layout>
+</template>
 <script setup lang="ts">
 import { reactive } from "vue";
 import CanvasToolbar from "./components/CanvasToolbar.vue";
@@ -65,6 +67,8 @@ import QuickNodeMenu from "./components/QuickNodeMenu.vue";
 import VerticalTabNav from "./components/VerticalTabNav.vue";
 import FloatingPanel from "./components/FloatingPanel.vue";
 import NodeInfoCard from "./components/NodeInfoCard.vue";
+import InfoModal from "@/newCode/components/modals/InfoModal.vue";
+import FullscreenEditorModal from "@/newCode/components/modals/FullscreenEditorModal.vue";
 import { useCanvasService } from "@/newCode/services/canvasService";
 import { useCanvasStore } from "@/newCode/stores/canvas";
 
