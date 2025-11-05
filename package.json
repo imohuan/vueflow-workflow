@@ -20,6 +20,7 @@
     "lodash-es": "^4.17.21",
     "mitt": "^3.0.1",
     "monaco-editor": "^0.54.0",
+    "naive-ui": "^2.43.1",
     "pinia": "^3.0.3",
     "primevue": "^4.4.1",
     "tailwind-merge": "^3.3.1",

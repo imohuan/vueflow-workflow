@@ -31,6 +31,21 @@ const router = createRouter({
       name: "CodeEditorTest",
       component: () => import("@/views/CodeEditorTest.vue"),
     },
+    {
+      path: "/preview",
+      name: "Preview",
+      component: () => import("@/newCode/views/Preview.vue"),
+    },
+    {
+      path: "/preview/ui-shell",
+      name: "UiShellPreview",
+      component: () => import("@/newCode/views/UiShellPreview.vue"),
+    },
+    {
+      path: "/preview/canvas",
+      name: "CanvasPreview",
+      component: () => import("@/newCode/views/CanvasPreview.vue"),
+    },
   ],
 });
 
