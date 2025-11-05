@@ -16,6 +16,7 @@ export { createEdgeEditPlugin } from "./edgeEditPlugin";
 export { createCtrlConnectPlugin } from "./ctrlConnectPlugin";
 export { createAutoLayoutPlugin } from "./autoLayoutPlugin";
 export { createDeletePlugin } from "./deletePlugin";
+export { createQuickNodeMenuPlugin } from "./quickNodeMenuPlugin";
 export type { EdgeEditPluginOptions, EdgeValidationFn } from "./edgeEditPlugin";
 export type {
   CtrlConnectPluginOptions,
@@ -25,6 +26,10 @@ export type {
   AutoLayoutOptions,
   DagreLayoutDirection,
 } from "./autoLayoutPlugin";
+export type {
+  QuickNodeMenuPluginOptions,
+  TemporaryConnection,
+} from "./quickNodeMenuPlugin";
 
 /**
  * 插件管理器注入 Key

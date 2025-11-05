@@ -99,9 +99,9 @@ const isValidConnection = computed(() => {
 });
 
 // 根据连接有效性决定颜色
-const strokeColor = computed(() =>
-  isValidConnection.value ? "#22c55e" : "#ef4444"
-);
+const strokeColor = computed(() => {
+  return isValidConnection.value ? "#22c55e" : "#ef4444";
+});
 
 // 线宽
 const strokeWidth = computed(() => 3);

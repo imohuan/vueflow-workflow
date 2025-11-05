@@ -2,42 +2,44 @@
   <n-layout has-sider class="h-full">
     <VerticalTabNav />
 
-    <n-layout-content class="relative overflow-hidden">
-      <FloatingPanel />
+    <n-layout-content>
+      <div ref="canvasContentRef" class="relative h-full overflow-hidden">
+        <FloatingPanel />
 
-      <!-- VueFlow 画布 -->
-      <div class="absolute inset-0">
-        <VueFlowCanvas
-          :custom-node-component="CustomNode"
-          :show-background="true"
-          :show-controls="true"
-          :show-mini-map="editorConfig.showMiniMap"
-        />
-      </div>
-
-      <div
-        class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2"
-      >
-        <div class="pointer-events-auto">
-          <CanvasToolbar
-            @undo="handleUndo"
-            @redo="handleRedo"
-            @fit-view="handleFitView"
-            @auto-layout="handleAutoLayout"
-            @toggle-mini-map="toggleMiniMap"
-            @execute-workflow="handleExecute"
+        <!-- VueFlow 画布 -->
+        <div class="absolute inset-0">
+          <VueFlowCanvas
+            :custom-node-component="CustomNode"
+            :show-background="true"
+            :show-controls="true"
+            :show-mini-map="editorConfig.showMiniMap"
           />
         </div>
-      </div>
 
-      <div class="absolute bottom-2 right-10">
-        <NodeInfoCard />
-      </div>
+        <div
+          class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2"
+        >
+          <div class="pointer-events-auto">
+            <CanvasToolbar
+              @undo="handleUndo"
+              @redo="handleRedo"
+              @fit-view="handleFitView"
+              @auto-layout="handleAutoLayout"
+              @toggle-mini-map="toggleMiniMap"
+              @execute-workflow="handleExecute"
+            />
+          </div>
+        </div>
 
-      <QuickNodeMenu
-        :visible="quickMenu.visible"
-        :position="quickMenu.position"
-      />
+        <div class="absolute bottom-2 right-10">
+          <NodeInfoCard />
+        </div>
+
+        <QuickNodeMenu
+          :visible="quickMenu.visible"
+          :position="quickMenu.position"
+        />
+      </div>
     </n-layout-content>
 
     <!-- Modals -->
@@ -46,7 +48,7 @@
   </n-layout>
 </template>
 <script setup lang="ts">
-import { reactive, onMounted } from "vue";
+import { reactive, ref, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
 import CustomNode from "@/newCode/features/vueflow/components/nodes/CustomNode.vue";
@@ -69,11 +71,29 @@ const { fitView } = useVueFlow();
 // 事件系统
 const events = useVueFlowEvents();
 
+// 画布容器引用
+const canvasContentRef = ref<HTMLElement | null>(null);
+
 // 快速菜单
 const quickMenu = reactive({
   visible: false,
   position: { x: 320, y: 220 },
+  connection: undefined as
+    | { source: string; sourceHandle?: string | null }
+    | undefined,
 });
+
+function toCanvasPosition(position: { x: number; y: number }) {
+  const container = canvasContentRef.value;
+  if (!container) {
+    return position;
+  }
+  const rect = container.getBoundingClientRect();
+  return {
+    x: position.x - rect.left,
+    y: position.y - rect.top,
+  };
+}
 
 /**
  * 撤销
@@ -156,6 +176,24 @@ events.on("node:context-menu", ({ node }) => {
 // 监听画布点击事件
 events.on("canvas:clicked", () => {
   console.log("[CanvasView] 画布被点击");
+  // 点击画布时隐藏快捷菜单
+  if (quickMenu.visible) {
+    quickMenu.visible = false;
+  }
+});
+
+// 监听快捷节点菜单事件
+events.on("ui:show-quick-node-menu", ({ position, connection }) => {
+  console.log("[CanvasView] 显示快捷节点菜单:", { position, connection });
+  quickMenu.position = toCanvasPosition(position);
+  quickMenu.connection = connection;
+  quickMenu.visible = true;
+});
+
+events.on("ui:hide-quick-node-menu", () => {
+  console.log("[CanvasView] 隐藏快捷节点菜单");
+  quickMenu.visible = false;
+  quickMenu.connection = undefined;
 });
 
 onMounted(() => {

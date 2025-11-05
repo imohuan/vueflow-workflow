@@ -122,13 +122,30 @@ export interface HistoryEvents {
 }
 
 /**
+ * UI 交互事件
+ */
+export interface UIEvents {
+  /** 显示快捷节点菜单 */
+  "ui:show-quick-node-menu": {
+    position: { x: number; y: number };
+    connection?: {
+      source: string;
+      sourceHandle?: string | null;
+    };
+  };
+  /** 隐藏快捷节点菜单 */
+  "ui:hide-quick-node-menu": void;
+}
+
+/**
  * 所有事件类型合并
  */
 export type VueFlowEventMap = NodeEvents &
   EdgeEvents &
   CanvasEvents &
   WorkflowEvents &
-  HistoryEvents;
+  HistoryEvents &
+  UIEvents;
 
 /**
  * 事件名称类型
