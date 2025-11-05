@@ -83,6 +83,24 @@
         </n-space>
       </section>
 
+      <!-- 配置系统测试 -->
+      <section>
+        <h3 class="mb-2 text-sm font-semibold text-slate-700">
+          ⚙️ 配置系统测试
+        </h3>
+        <n-space vertical :size="8">
+          <n-button block secondary @click="showConfigRenderer">
+            ConfigRenderer 演示
+          </n-button>
+          <n-button block secondary @click="testFieldValidation">
+            字段验证测试
+          </n-button>
+          <n-button block secondary @click="exportConfigData">
+            导出配置数据
+          </n-button>
+        </n-space>
+      </section>
+
       <!-- 调试信息 -->
       <section>
         <h3 class="mb-2 text-sm font-semibold text-slate-700">🐛 调试信息</h3>
@@ -100,16 +118,15 @@
 </template>
 
 <script setup lang="ts">
-import { inject } from "vue";
 import { useUiStore } from "@/newCode/stores/ui";
 import { useCanvasStore } from "@/newCode/stores/canvas";
-import type { MessageApi, DialogApi } from "naive-ui";
+import { useMessage, useDialog } from "naive-ui";
 import type { PanelSize } from "@/newCode/stores/ui";
 
 const uiStore = useUiStore();
 const canvasStore = useCanvasStore();
-const message = inject<MessageApi>("message");
-const dialog = inject<DialogApi>("dialog");
+const message = useMessage();
+const dialog = useDialog();
 
 // ==================== 弹窗测试 ====================
 
@@ -343,6 +360,71 @@ function showError() {
 /** 显示空状态 */
 function showEmpty() {
   message?.info("暂无数据");
+}
+
+// ==================== 配置系统测试 ====================
+
+/** 显示 ConfigRenderer 演示 */
+function showConfigRenderer() {
+  uiStore.showEditorModal(
+    "ConfigRenderer 演示",
+    `ConfigRenderer 组件已创建完成，支持以下功能：
+
+1. 📋 JSON Schema 驱动的配置表单
+2. 🎯 支持 11 种字段类型（input、textarea、number、select、switch、checkbox、radio、color、file、json-editor、code-editor）
+3. ✅ 字段验证（必填、最小值、最大值、URL、Email、正则表达式）
+4. 🎨 自动化表单渲染
+5. 📝 实时配置更新
+
+查看示例：
+- 文件位置：src/newCode/config/editorConfig.ts
+- 组件位置：src/newCode/components/ui/ConfigRenderer.vue
+- 字段组件：src/newCode/components/ui/ConfigField.vue
+
+使用方式：
+<ConfigRenderer 
+  :schema="editorConfigSchema" 
+  v-model="config" 
+  @change="handleConfigChange"
+/>`,
+    "markdown"
+  );
+}
+
+/** 测试字段验证 */
+function testFieldValidation() {
+  message?.info(
+    "配置字段验证功能已内置于 ConfigField 组件中，支持：\n" +
+      "• 必填验证\n" +
+      "• 数字范围验证（min/max）\n" +
+      "• 字符串长度验证\n" +
+      "• URL 格式验证\n" +
+      "• Email 格式验证\n" +
+      "• 正则表达式验证\n" +
+      "• 自定义验证函数"
+  );
+}
+
+/** 导出配置数据 */
+function exportConfigData() {
+  // 模拟配置数据
+  const sampleConfig = {
+    theme: "light",
+    autoSave: true,
+    gridSize: 20,
+    snapToGrid: true,
+    executionMode: "worker",
+    maxConcurrentNodes: 5,
+    defaultTimeout: 30,
+    serverUrl: "http://localhost:3000",
+  };
+
+  const json = JSON.stringify(sampleConfig, null, 2);
+  console.log("配置数据：", json);
+
+  navigator.clipboard.writeText(json).then(() => {
+    message?.success("示例配置数据已复制到剪贴板");
+  });
 }
 </script>
 

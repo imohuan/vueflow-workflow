@@ -17,7 +17,9 @@ export const useCanvasStore = defineStore("newCanvas", () => {
   const nodes = ref<CanvasNodeSummary[]>([]);
   const edges = ref<CanvasStateSnapshot["edges"]>([]);
   const isExecuting = ref(false);
-  const lastNodeResults = ref<Array<{ id: string; timestamp: string; preview: string }>>([]);
+  const lastNodeResults = ref<
+    Array<{ id: string; timestamp: string; preview: string }>
+  >([]);
 
   const nodeCount = computed(() => nodes.value.length);
   const edgeCount = computed(() => edges.value.length);
@@ -40,7 +42,10 @@ export const useCanvasStore = defineStore("newCanvas", () => {
 
   function pushNodeResult(entry: { id: string; preview: string }) {
     const timestamp = new Date().toLocaleTimeString();
-    lastNodeResults.value = [{ ...entry, timestamp }, ...lastNodeResults.value].slice(0, 10);
+    lastNodeResults.value = [
+      { ...entry, timestamp },
+      ...lastNodeResults.value,
+    ].slice(0, 10);
   }
 
   /** 添加节点 */
@@ -83,4 +88,3 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     loadWorkflow,
   };
 });
-

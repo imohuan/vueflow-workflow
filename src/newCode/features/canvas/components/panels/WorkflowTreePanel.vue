@@ -65,17 +65,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, inject } from "vue";
+import { ref, computed, h } from "vue";
 import type { TreeOption } from "naive-ui";
-import { NIcon, NTime } from "naive-ui";
-import type { MessageApi, DialogApi } from "naive-ui";
+import { NIcon, NTime, useMessage, useDialog } from "naive-ui";
 import IconSearch from "@/icons/IconSearch.vue";
 import IconAdd from "@/icons/IconAdd.vue";
 import IconFolder from "@/icons/IconFolder.vue";
 import IconNodeEditor from "@/icons/IconNodeEditor.vue";
+import { useCanvasStore } from "@/newCode/stores/canvas";
 
-const message = inject<MessageApi>("message");
-const dialog = inject<DialogApi>("dialog");
+const message = useMessage();
+const dialog = useDialog();
+const canvasStore = useCanvasStore();
 
 // 搜索关键词
 const searchQuery = ref("");
@@ -314,10 +315,83 @@ function toggleExpanded(key: string | number) {
 }
 
 /**
- * 处理节点选择
+ * 处理节点选择 - 加载工作流到画布
  */
 function handleSelect(keys: string[]) {
-  console.log("选中节点:", keys);
+  if (keys.length === 0) return;
+
+  const selectedKey = keys[0];
+  if (!selectedKey) return;
+
+  const selectedNode = findNodeByKey(selectedKey, treeData.value);
+
+  if (!selectedNode || !selectedNode.meta) return;
+
+  // 只加载工作流类型的节点
+  const meta = selectedNode.meta as { type?: string };
+  if (meta.type === "workflow") {
+    // 生成示例工作流数据
+    const sampleWorkflow = generateSampleWorkflow();
+    canvasStore.loadWorkflow(sampleWorkflow);
+    message?.success(`已加载工作流：${selectedNode.label || "未命名"}`);
+  }
+}
+
+/** 查找树节点 */
+function findNodeByKey(key: string, nodes: TreeOption[]): TreeOption | null {
+  for (const node of nodes) {
+    if (node.key === key) return node;
+    if (node.children) {
+      const found = findNodeByKey(key, node.children);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/** 生成示例工作流 */
+function generateSampleWorkflow() {
+  return {
+    nodes: [
+      {
+        id: "node-1",
+        type: "custom",
+        position: { x: 100, y: 100 },
+        data: {
+          label: "打开网页",
+          type: "browser.open",
+          description: "打开指定的网页",
+          color: "#3b82f6",
+        },
+      },
+      {
+        id: "node-2",
+        type: "custom",
+        position: { x: 350, y: 100 },
+        data: {
+          label: "输入文本",
+          type: "browser.input",
+          description: "在输入框中输入文本",
+          color: "#10b981",
+        },
+      },
+      {
+        id: "node-3",
+        type: "custom",
+        position: { x: 600, y: 100 },
+        data: {
+          label: "点击按钮",
+          type: "browser.click",
+          description: "点击页面元素",
+          color: "#f59e0b",
+        },
+      },
+    ],
+    edges: [
+      { id: "e1-2", source: "node-1", target: "node-2" },
+      { id: "e2-3", source: "node-2", target: "node-3" },
+    ],
+  };
 }
 
 /**

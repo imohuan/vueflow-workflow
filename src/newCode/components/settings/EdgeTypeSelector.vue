@@ -1,10 +1,10 @@
 <template>
-  <div class="grid grid-cols-2 gap-3">
+  <div class="flex gap-3">
     <div
       v-for="type in edgeTypes"
       :key="type.value"
       :class="[
-        'group cursor-pointer rounded-lg border-2 p-3 transition-all',
+        'group flex-1 cursor-pointer rounded-lg border-2 p-3 transition-all',
         modelValue === type.value
           ? 'border-blue-500 bg-blue-50 shadow-sm'
           : 'border-slate-200 bg-white hover:border-slate-300',
@@ -67,7 +67,7 @@ defineEmits<{
 
 const edgeTypes = [
   {
-    value: "default",
+    value: "step",
     label: "直线",
     description: "简单直接的连接",
     path: "M 13 20 L 87 20",
@@ -77,18 +77,6 @@ const edgeTypes = [
     label: "贝塞尔曲线",
     description: "平滑的曲线连接",
     path: "M 13 20 C 40 5, 60 35, 87 20",
-  },
-  {
-    value: "step",
-    label: "阶梯线",
-    description: "直角转折连接",
-    path: "M 13 20 L 43 20 L 43 5 L 57 5 L 57 20 L 87 20",
-  },
-  {
-    value: "smoothstep",
-    label: "平滑阶梯",
-    description: "圆角转折连接",
-    path: "M 13 20 L 40 20 Q 43 20 43 17 L 43 8 Q 43 5 46 5 L 54 5 Q 57 5 57 8 L 57 17 Q 57 20 60 20 L 87 20",
   },
 ];
 </script>

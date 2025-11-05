@@ -148,13 +148,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject } from "vue";
+import { ref, computed } from "vue";
+import { useMessage, useDialog } from "naive-ui";
 import IconSearch from "@/icons/IconSearch.vue";
 import IconAdd from "@/icons/IconAdd.vue";
 import IconEdit from "@/icons/IconEdit.vue";
 import IconDelete from "@/icons/IconDelete.vue";
 import IconMinus from "@/icons/IconMinus.vue";
-import type { MessageApi, DialogApi } from "naive-ui";
 import ObjectEditor from "./components/ObjectEditor.vue";
 import ArrayEditor from "./components/ArrayEditor.vue";
 
@@ -169,8 +169,8 @@ interface Variable {
   description?: string;
 }
 
-const message = inject<MessageApi>("message");
-const dialog = inject<DialogApi>("dialog");
+const message = useMessage();
+const dialog = useDialog();
 
 // 搜索关键词
 const searchQuery = ref("");

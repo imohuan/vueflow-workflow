@@ -1,10 +1,10 @@
 <template>
-  <div class="grid grid-cols-3 gap-3">
+  <div class="flex gap-3">
     <div
       v-for="type in gridTypes"
       :key="type.value"
       :class="[
-        'group cursor-pointer rounded-lg border-2 p-3 transition-all',
+        'group flex-1 cursor-pointer rounded-lg border-2 p-3 transition-all',
         modelValue === type.value
           ? 'border-blue-500 bg-blue-50'
           : 'border-slate-200 bg-white hover:border-slate-300',
@@ -75,18 +75,6 @@ const gridTypes = [
     pattern: () => [
       h("path", {
         d: "M 10 0 L 0 0 0 10",
-        fill: "none",
-        stroke: "#94a3b8",
-        "stroke-width": 0.5,
-      }),
-    ],
-  },
-  {
-    value: "cross",
-    label: "十字",
-    pattern: () => [
-      h("path", {
-        d: "M 5 0 L 5 10 M 0 5 L 10 5",
         fill: "none",
         stroke: "#94a3b8",
         "stroke-width": 0.5,

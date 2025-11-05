@@ -200,6 +200,84 @@
           </div>
         </ConfigSection>
 
+        <!-- 画布缩放 -->
+        <ConfigSection title="画布缩放" description="画布缩放级别设置">
+          <div class="space-y-4">
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-slate-700"
+                  >默认缩放</label
+                >
+                <div class="flex items-center gap-2">
+                  <n-input-number
+                    v-model:value="config.defaultZoom"
+                    :min="0.1"
+                    :max="4"
+                    :step="0.1"
+                    class="w-24"
+                  />
+                  <span class="text-xs text-slate-500">x</span>
+                </div>
+              </div>
+              <n-slider
+                v-model:value="config.defaultZoom"
+                :min="0.1"
+                :max="4"
+                :step="0.1"
+              />
+              <p class="text-xs text-slate-500">画布初始化时的缩放级别</p>
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-slate-700"
+                  >最小缩放</label
+                >
+                <div class="flex items-center gap-2">
+                  <n-input-number
+                    v-model:value="config.minZoom"
+                    :min="0.1"
+                    :max="1"
+                    :step="0.1"
+                    class="w-24"
+                  />
+                  <span class="text-xs text-slate-500">x</span>
+                </div>
+              </div>
+              <n-slider
+                v-model:value="config.minZoom"
+                :min="0.1"
+                :max="1"
+                :step="0.1"
+              />
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-slate-700"
+                  >最大缩放</label
+                >
+                <div class="flex items-center gap-2">
+                  <n-input-number
+                    v-model:value="config.maxZoom"
+                    :min="2"
+                    :max="8"
+                    :step="0.5"
+                    class="w-24"
+                  />
+                  <span class="text-xs text-slate-500">x</span>
+                </div>
+              </div>
+              <n-slider
+                v-model:value="config.maxZoom"
+                :min="2"
+                :max="8"
+                :step="0.5"
+              />
+            </div>
+          </div>
+        </ConfigSection>
+
         <!-- 网格背景 -->
         <ConfigSection title="网格背景" description="显示画布网格背景">
           <div class="space-y-4">
@@ -208,6 +286,18 @@
             >
               <span class="text-sm font-medium text-slate-700">显示网格</span>
               <n-switch v-model:value="config.showGrid" />
+            </div>
+
+            <div
+              class="flex items-center justify-between rounded-lg bg-slate-50 p-3"
+            >
+              <div class="flex flex-col">
+                <span class="text-sm font-medium text-slate-700">节点吸附</span>
+                <span class="text-xs text-slate-500"
+                  >节点移动时自动对齐网格</span
+                >
+              </div>
+              <n-switch v-model:value="config.snapToGrid" />
             </div>
 
             <div v-if="config.showGrid" class="space-y-4">
@@ -242,6 +332,31 @@
                 />
               </div>
 
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <label class="text-sm font-medium text-slate-700"
+                    >网格大小</label
+                  >
+                  <div class="flex items-center gap-2">
+                    <n-input-number
+                      v-model:value="config.gridSize"
+                      :min="10"
+                      :max="50"
+                      :step="5"
+                      class="w-24"
+                    />
+                    <span class="text-xs text-slate-500">px</span>
+                  </div>
+                </div>
+                <n-slider
+                  v-model:value="config.gridSize"
+                  :min="10"
+                  :max="50"
+                  :step="5"
+                />
+                <p class="text-xs text-slate-500">吸附网格的单元格大小</p>
+              </div>
+
               <div class="grid grid-cols-2 gap-4">
                 <ColorPicker v-model="config.bgColor" label="背景颜色" />
                 <ColorPicker v-model="config.gridColor" label="网格颜色" />
@@ -255,29 +370,26 @@
     <!-- 底部操作栏 -->
     <div class="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3">
       <div class="flex items-center justify-between">
-        <n-button text @click="resetConfig">
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <IconCheck class="h-3.5 w-3.5 text-green-500" />
+          <span>配置自动保存</span>
+        </div>
+        <n-button @click="resetConfig">
           <template #icon>
             <IconReset class="h-4 w-4" />
           </template>
-          重置为默认值
+          重置默认
         </n-button>
-        <n-space>
-          <n-button secondary @click="exportConfig">导出配置</n-button>
-          <n-button type="primary" @click="saveConfig">
-            <template #icon>
-              <IconCheck class="h-4 w-4" />
-            </template>
-            保存配置
-          </n-button>
-        </n-space>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, inject, reactive } from "vue";
-import type { MessageApi } from "naive-ui";
+import { ref } from "vue";
+import { storeToRefs } from "pinia";
+import { useMessage } from "naive-ui";
+import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
 import ConfigSection from "@/newCode/components/common/ConfigSection.vue";
 import ExecutionModeSelector from "@/newCode/components/settings/ExecutionModeSelector.vue";
 import EdgeTypeSelector from "@/newCode/components/settings/EdgeTypeSelector.vue";
@@ -289,96 +401,18 @@ import IconCanvas from "@/icons/IconCanvas.vue";
 import IconCheck from "@/icons/IconCheck.vue";
 import IconReset from "@/icons/IconReset.vue";
 
-const message = inject<MessageApi>("message");
+const message = useMessage();
+const editorConfigStore = useEditorConfigStore();
+const { config } = storeToRefs(editorConfigStore);
 
 // 当前激活的标签页
 const activeTab = ref("general");
-
-// 配置数据
-const config = reactive({
-  // 常规设置
-  autoSave: true,
-  gridSize: 20,
-  snapToGrid: true,
-
-  // 执行模式
-  executionMode: "worker",
-  serverUrl: "http://localhost:3000",
-  maxConcurrent: 3,
-
-  // 画布设置
-  edgeType: "bezier",
-  edgeWidth: 2,
-  edgeColor: "#94a3b8",
-  edgeActiveColor: "#3b82f6",
-  edgeAnimation: true,
-  showGrid: true,
-  gridType: "dots",
-  gridGap: 20,
-  bgColor: "#ffffff",
-  gridColor: "#e2e8f0",
-});
-
-/**
- * 保存配置
- */
-function saveConfig() {
-  try {
-    localStorage.setItem("editorConfig", JSON.stringify(config));
-    message?.success("配置已保存");
-  } catch (error) {
-    message?.error("配置保存失败");
-    console.error("保存配置失败:", error);
-  }
-}
 
 /**
  * 重置配置
  */
 function resetConfig() {
-  Object.assign(config, {
-    autoSave: true,
-    gridSize: 20,
-    snapToGrid: true,
-    executionMode: "worker",
-    serverUrl: "http://localhost:3000",
-    maxConcurrent: 3,
-    edgeType: "bezier",
-    edgeWidth: 2,
-    edgeColor: "#94a3b8",
-    edgeActiveColor: "#3b82f6",
-    edgeAnimation: true,
-    showGrid: true,
-    gridType: "dots",
-    gridGap: 20,
-    bgColor: "#ffffff",
-    gridColor: "#e2e8f0",
-  });
+  editorConfigStore.resetConfig();
   message?.success("配置已重置为默认值");
-}
-
-/**
- * 导出配置
- */
-function exportConfig() {
-  try {
-    const json = JSON.stringify(config, null, 2);
-    navigator.clipboard.writeText(json).then(() => {
-      message?.success("配置已复制到剪贴板");
-    });
-  } catch (error) {
-    message?.error("导出配置失败");
-    console.error("导出配置失败:", error);
-  }
-}
-
-// 初始化：从 localStorage 加载配置
-try {
-  const savedConfig = localStorage.getItem("editorConfig");
-  if (savedConfig) {
-    Object.assign(config, JSON.parse(savedConfig));
-  }
-} catch (error) {
-  console.error("加载配置失败:", error);
 }
 </script>

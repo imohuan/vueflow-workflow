@@ -48,15 +48,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, inject } from "vue";
+import { ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import ModalShell from "../ui/ModalShell.vue";
 import { useUiStore } from "@/newCode/stores/ui";
-import type { MessageApi } from "naive-ui";
+import { useMessage } from "naive-ui";
 
 const uiStore = useUiStore();
 const { editorModalVisible } = storeToRefs(uiStore);
-const message = inject<MessageApi>("message");
+const message = useMessage();
 
 const code = ref("");
 const language = ref("javascript");

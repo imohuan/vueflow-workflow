@@ -112,8 +112,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject } from "vue";
-import type { MessageApi, DialogApi } from "naive-ui";
+import { ref, computed } from "vue";
+import { useMessage, useDialog } from "naive-ui";
 import IconDelete from "@/icons/IconDelete.vue";
 import IconInfo from "@/icons/IconInfo.vue";
 import IconPlay from "@/icons/IconPlay.vue";
@@ -134,8 +134,8 @@ interface ExecutionRecord {
   errorMessage?: string;
 }
 
-const message = inject<MessageApi>("message");
-const dialog = inject<DialogApi>("dialog");
+const message = useMessage();
+const dialog = useDialog();
 
 // 状态过滤器
 const statusFilter = ref<ExecutionStatus | "all">("all");

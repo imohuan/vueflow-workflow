@@ -4,33 +4,16 @@
 
     <n-layout-content class="relative overflow-hidden">
       <FloatingPanel />
-      <section
-        class="absolute inset-0 flex items-center justify-center overflow-hidden bg-linear-to-b from-sky-100 via-slate-200 to-slate-100"
-      >
-        <div
-          class="max-w-xl rounded-2xl bg-white/80 p-8 text-center shadow-2xl backdrop-blur"
-        >
-          <p class="text-lg font-semibold text-slate-900">画布区域占位</p>
-          <p class="mt-2 text-sm leading-6 text-slate-600">
-            重构阶段暂未接入 VueFlow。后续将在此挂载 CanvasService
-            驱动的节点编辑器。
-          </p>
-          <div class="mt-4 space-y-1 text-xs text-slate-500">
-            <span class="block"
-              >缩放：{{ canvasService.viewport.zoom.toFixed(2) }}</span
-            >
-            <span class="block"
-              >偏移：({{ canvasService.viewport.x }},
-              {{ canvasService.viewport.y }})</span
-            >
-            <span class="block"
-              >小地图：{{
-                canvasService.isMiniMapVisible ? "显示" : "隐藏"
-              }}</span
-            >
-          </div>
-        </div>
-      </section>
+
+      <!-- VueFlow 画布 -->
+      <div class="absolute inset-0">
+        <VueFlowCanvas
+          :custom-node-component="CustomNode"
+          :show-background="true"
+          :show-controls="true"
+          :show-mini-map="canvasService.isMiniMapVisible"
+        />
+      </div>
 
       <div
         class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2"
@@ -45,7 +28,7 @@
         </div>
       </div>
 
-      <div class="absolute bottom-1 right-1">
+      <div class="absolute bottom-2 right-10">
         <NodeInfoCard />
       </div>
 
@@ -61,7 +44,9 @@
   </n-layout>
 </template>
 <script setup lang="ts">
-import { reactive } from "vue";
+import { reactive, onMounted } from "vue";
+import { useVueFlow } from "@vue-flow/core";
+import CustomNode from "./components/CustomNode.vue";
 import CanvasToolbar from "./components/CanvasToolbar.vue";
 import QuickNodeMenu from "./components/QuickNodeMenu.vue";
 import VerticalTabNav from "./components/VerticalTabNav.vue";
@@ -71,28 +56,75 @@ import InfoModal from "@/newCode/components/modals/InfoModal.vue";
 import FullscreenEditorModal from "@/newCode/components/modals/FullscreenEditorModal.vue";
 import { useCanvasService } from "@/newCode/services/canvasService";
 import { useCanvasStore } from "@/newCode/stores/canvas";
+import { VueFlowCanvas, useVueFlowEvents } from "@/newCode/features/vueflow";
 
 const canvasService = useCanvasService();
 const canvasStore = useCanvasStore();
+const { fitView } = useVueFlow();
 
+// 事件系统
+const events = useVueFlowEvents();
+
+// 快速菜单
 const quickMenu = reactive({
   visible: false,
   position: { x: 320, y: 220 },
 });
 
+/**
+ * 适应视图
+ */
 function handleFitView() {
-  canvasService.setViewport({ zoom: 1, x: 0, y: 0 });
+  fitView({ padding: 0.2, duration: 300 });
 }
 
+/**
+ * 自动布局
+ */
 function handleAutoLayout() {
-  // 占位逻辑：模拟自适应布局
-  canvasService.setViewport({ zoom: 0.85 });
+  // TODO: 实现自动布局算法（Dagre）
+  fitView({ padding: 0.2, duration: 300 });
 }
 
+/**
+ * 执行工作流
+ */
 function handleExecute() {
   canvasStore.setExecuting(true);
   setTimeout(() => canvasStore.setExecuting(false), 1500);
 }
+
+// 监听节点添加事件
+events.on("node:added", ({ node }) => {
+  console.log("[CanvasView] 节点已添加:", node);
+});
+
+// 监听节点点击事件
+events.on("node:clicked", ({ node }) => {
+  console.log("[CanvasView] 节点被点击:", node.data?.label);
+});
+
+// 监听节点双击事件
+events.on("node:double-clicked", ({ node }) => {
+  console.log("[CanvasView] 节点被双击，打开配置面板:", node.data?.label);
+  // TODO: 打开节点配置面板
+});
+
+// 监听节点右键菜单
+events.on("node:context-menu", ({ node }) => {
+  console.log("[CanvasView] 节点右键菜单:", node.data?.label);
+  // TODO: 显示右键菜单
+});
+
+// 监听画布点击事件
+events.on("canvas:clicked", () => {
+  console.log("[CanvasView] 画布被点击");
+});
+
+onMounted(() => {
+  console.log("[CanvasView] 组件已挂载");
+  console.log("[CanvasView] 事件系统已初始化");
+});
 </script>
 
 <style scoped></style>

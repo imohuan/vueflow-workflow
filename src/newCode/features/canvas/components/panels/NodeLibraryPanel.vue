@@ -99,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, markRaw } from "vue";
 import type { Component } from "vue";
 import IconSearch from "@/icons/IconSearch.vue";
 import IconWidget from "@/icons/IconWidget.vue";
@@ -136,7 +136,7 @@ const nodeCategories = ref<NodeCategory[]>([
   {
     id: "browser",
     name: "浏览器操作",
-    icon: IconWidget,
+    icon: markRaw(IconWidget),
     color: "#3b82f6",
     nodes: [
       {
@@ -179,7 +179,7 @@ const nodeCategories = ref<NodeCategory[]>([
   {
     id: "data",
     name: "数据处理",
-    icon: IconCode,
+    icon: markRaw(IconCode),
     color: "#10b981",
     nodes: [
       {
@@ -222,7 +222,7 @@ const nodeCategories = ref<NodeCategory[]>([
   {
     id: "control",
     name: "流程控制",
-    icon: IconServer,
+    icon: markRaw(IconServer),
     color: "#f59e0b",
     nodes: [
       {
