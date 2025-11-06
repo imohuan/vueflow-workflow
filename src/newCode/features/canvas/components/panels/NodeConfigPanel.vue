@@ -250,45 +250,56 @@ const nodeConfig = ref<{
 });
 
 /**
+ * 节点类型到字段类型的映射
+ */
+function mapNodeTypeToFieldType(nodeType: string): ConfigFieldType["type"] {
+  const typeMap: Record<string, ConfigFieldType["type"]> = {
+    string: "input",
+    number: "number",
+    boolean: "switch",
+    array: "json-editor",
+    object: "json-editor",
+    json: "json-editor",
+    any: "textarea",
+  };
+  return typeMap[nodeType] || "input";
+}
+
+/**
  * 节点类型特定配置
- * TODO: 根据节点类型从配置中心获取配置字段
+ * 根据节点的 inputs 定义动态生成配置字段
  */
 const nodeTypeConfig = computed<ConfigFieldType[]>(() => {
-  if (!selectedNode.value?.data?.type) return [];
+  if (!selectedNode.value) return [];
 
-  // 这里应该根据节点类型动态获取配置
-  // 目前返回一个示例配置
-  return [
-    {
-      key: "url",
-      label: "URL 地址",
-      type: "input",
-      default: "",
-      placeholder: "输入 URL...",
-      description: "请求的 URL 地址",
-    },
-    {
-      key: "method",
-      label: "请求方法",
-      type: "select",
-      default: "GET",
-      options: [
-        { label: "GET", value: "GET" },
-        { label: "POST", value: "POST" },
-        { label: "PUT", value: "PUT" },
-        { label: "DELETE", value: "DELETE" },
-      ],
-      description: "HTTP 请求方法",
-    },
-    {
-      key: "timeout",
-      label: "超时时间",
-      type: "number",
-      default: 5000,
-      placeholder: "毫秒",
-      description: "请求超时时间（毫秒）",
-    },
-  ];
+  // 获取节点的 inputs 配置
+  const inputs = selectedNode.value.data?.inputs;
+  if (!inputs || !Array.isArray(inputs)) return [];
+
+  // 将 inputs 转换为配置字段
+  return inputs.map((input) => {
+    // 检查是否有选项
+    const hasOptions = !!(input.options && input.options.length > 0);
+
+    const field: ConfigFieldType = {
+      key: input.name,
+      label: input.description || input.name,
+      // 如果有选项，使用 select 类型
+      type: hasOptions ? "select" : mapNodeTypeToFieldType(input.type),
+      default: input.defaultValue ?? "",
+      placeholder: hasOptions
+        ? ""
+        : input.description
+        ? `输入${input.description}...`
+        : "",
+      description: input.description,
+      required: input.required,
+      // 如果有选项，添加到字段
+      ...(hasOptions && { options: input.options }),
+    };
+
+    return field;
+  });
 });
 
 /**
@@ -367,7 +378,7 @@ function handleReset() {
   }
   message.info("已重置为当前保存的配置");
 }
-  
+
 /**
  * 删除节点
  */

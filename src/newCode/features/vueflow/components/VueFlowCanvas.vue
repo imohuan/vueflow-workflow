@@ -46,6 +46,16 @@
         <NoteNode v-bind="nodeProps" />
       </template>
 
+      <!-- 开始节点插槽 -->
+      <template #node-start="nodeProps">
+        <StartNode v-bind="nodeProps" />
+      </template>
+
+      <!-- 结束节点插槽 -->
+      <template #node-end="nodeProps">
+        <EndNode v-bind="nodeProps" />
+      </template>
+
       <!-- 自定义连接线（拖拽时的临时连接线） -->
       <template #connection-line="connectionLineProps">
         <CustomConnectionEdge v-bind="connectionLineProps" />
@@ -112,6 +122,8 @@ import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
 import { NODE_SIZE } from "@/newCode/config";
 import CustomNode from "./nodes/CustomNode.vue";
 import NoteNode from "./nodes/NoteNode.vue";
+import StartNode from "./nodes/StartNode.vue";
+import EndNode from "./nodes/EndNode.vue";
 import CustomConnectionEdge from "./edges/CustomConnectionEdge.vue";
 import CustomEdge from "./edges/CustomEdge.vue";
 import {
@@ -202,10 +214,25 @@ const defaultEdgeOptions = computed(() => ({
 const nodeTypes = {
   custom: props.customNodeComponent,
   note: () => NoteNode,
+  start: () => StartNode,
+  end: () => EndNode,
 };
 
 // 边类型映射
 const edgeTypes = { custom: CustomEdge };
+
+/**
+ * 节点类型特定数据配置
+ * 只定义每种节点类型特有的字段，通用字段从 draggedNode 中获取
+ */
+const NODE_TYPE_SPECIFIC_DATA: Record<string, Record<string, any>> = {
+  note: {
+    content: "", // 笔记内容
+    width: 200, // 默认宽度
+    height: 120, // 默认高度
+  },
+  // start 和 end 节点没有特有字段，使用通用配置
+};
 
 // VueFlow API
 const vueFlowApi = useVueFlow();
@@ -264,25 +291,31 @@ function handleDrop(event: DragEvent) {
       y: position.y - NODE_SIZE.headerHeight / 2, // 垂直对齐到标题中心
     };
 
-    // 判断节点类型
-    const isNoteNode = draggedNode.id === "note";
+    // 确定节点类型（note、start、end 使用对应类型，其他使用 custom）
+    const nodeType = ["note", "start", "end"].includes(draggedNode.id)
+      ? draggedNode.id
+      : "custom";
+
+    // 获取节点类型特定数据
+    const specificData = NODE_TYPE_SPECIFIC_DATA[draggedNode.id] || {};
 
     // 创建新的节点对象
     const newNode: Node = {
       id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      type: isNoteNode ? "note" : "custom",
+      type: nodeType,
       position: adjustedPosition,
-      data: isNoteNode
-        ? {
-            content: "", // Note 节点的初始内容为空
-            width: 200, // 默认宽度
-            height: 120, // 默认高度
-          }
-        : {
-            label: draggedNode.name,
-            type: draggedNode.id,
-            description: draggedNode.description,
-          },
+      data: {
+        // 通用字段：从 draggedNode 获取
+        label: draggedNode.name,
+        description: draggedNode.description,
+        // 对于 custom 类型，添加 type 字段
+        ...(nodeType === "custom" && { type: draggedNode.id }),
+        // 节点类型特定字段
+        ...specificData,
+        // 保存节点的 inputs/outputs 配置（用于配置面板）
+        inputs: draggedNode.inputs,
+        outputs: draggedNode.outputs,
+      },
     };
 
     // 添加到节点数组

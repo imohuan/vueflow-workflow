@@ -168,6 +168,10 @@ export interface NodeMetadataItem {
     description?: string;
     required?: boolean;
     defaultValue?: any;
+    options?: Array<{
+      label: string;
+      value: string | number | boolean;
+    }>;
   }[];
   outputs: {
     name: string;

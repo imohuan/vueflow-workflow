@@ -29,6 +29,11 @@ export interface PortConfig {
   defaultValue?: any;
   /** 是否允许多连接（仅输入端口有效） */
   multiple?: boolean;
+  /** 选项列表（用于下拉选择、单选、复选等） */
+  options?: Array<{
+    label: string;
+    value: string | number | boolean;
+  }>;
 }
 
 /**

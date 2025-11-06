@@ -1,51 +1,52 @@
 <template>
   <div
-    class="start-node"
+    class="end-node"
     :class="{
-      'start-node--selected': selected,
-      'start-node--running': data.status === 'running',
+      'end-node--selected': selected,
+      'end-node--running': data.status === 'running',
     }"
   >
+    <!-- 输入端点（只有输入，没有输出） -->
+    <PortHandle
+      id="input"
+      type="target"
+      :position="Position.Left"
+      :node-id="id"
+      variant="ellipse"
+    />
+
     <!-- 顶部标题区域 -->
-    <div class="start-node__header">
+    <div class="end-node__header">
       <!-- 图标 -->
       <svg
-        class="start-node__icon"
+        class="end-node__icon"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
         stroke-width="2"
       >
-        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        <circle cx="12" cy="12" r="10"></circle>
+        <rect x="9" y="9" width="6" height="6"></rect>
       </svg>
 
       <!-- 标题 -->
-      <div class="start-node__title">
-        {{ data.label || "开始" }}
+      <div class="end-node__title">
+        {{ data.label || "结束" }}
       </div>
 
       <!-- 状态指示器 -->
-      <div v-if="data.status" class="start-node__status">
+      <div v-if="data.status" class="end-node__status">
         <div class="status-dot" :class="`status-dot--${data.status}`" />
       </div>
     </div>
 
     <!-- 内容板块 -->
-    <div class="start-node__content nodrag nopan">
-      <div v-if="data.description" class="start-node__description">
+    <div class="end-node__content nodrag nopan">
+      <div v-if="data.description" class="end-node__description">
         {{ data.description }}
       </div>
-      <div v-else class="start-node__placeholder">工作流程开始</div>
+      <div v-else class="end-node__placeholder">工作流程结束</div>
     </div>
-
-    <!-- 输出端点（只有输出，没有输入） -->
-    <PortHandle
-      id="output"
-      type="source"
-      :position="Position.Right"
-      :node-id="id"
-      variant="ellipse"
-    />
   </div>
 </template>
 
@@ -69,21 +70,21 @@ defineProps<Props>();
 </script>
 
 <style scoped>
-.start-node {
+.end-node {
   min-width: v-bind("NODE_SIZE.minWidth + 'px'");
   background: #ffffff;
-  border: v-bind("NODE_SIZE.borderWidth + 'px'") solid #10b981;
+  border: v-bind("NODE_SIZE.borderWidth + 'px'") solid #ef4444;
   border-radius: v-bind("NODE_SIZE.borderRadius + 'px'");
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
   overflow: hidden;
 }
 
-.start-node--selected {
-  border-color: #059669;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+.end-node--selected {
+  border-color: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
-.start-node--running {
+.end-node--running {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
@@ -98,24 +99,24 @@ defineProps<Props>();
 }
 
 /* 顶部标题区域 */
-.start-node__header {
+.end-node__header {
   display: flex;
   align-items: center;
   gap: v-bind("NODE_SPACING.iconGap + 'px'");
   padding: v-bind("NODE_SPACING.headerPadding.vertical + 'px'")
     v-bind("NODE_SPACING.headerPadding.horizontal + 'px'");
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
 }
 
-.start-node__icon {
+.end-node__icon {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
   color: white;
 }
 
-.start-node__title {
+.end-node__title {
   flex: 1;
   font-size: 13px;
   font-weight: 500;
@@ -124,7 +125,7 @@ defineProps<Props>();
   white-space: nowrap;
 }
 
-.start-node__status {
+.end-node__status {
   flex-shrink: 0;
 }
 
@@ -163,13 +164,13 @@ defineProps<Props>();
 }
 
 /* 内容板块 */
-.start-node__content {
+.end-node__content {
   padding: v-bind("NODE_SPACING.contentPadding + 'px'");
   background: white;
   min-height: v-bind("NODE_SIZE.contentMinHeight + 'px'");
 }
 
-.start-node__description {
+.end-node__description {
   font-size: 12px;
   color: #4b5563;
   line-height: 1.5;
@@ -180,9 +181,9 @@ defineProps<Props>();
   overflow: hidden;
 }
 
-.start-node__placeholder {
+.end-node__placeholder {
   font-size: 12px;
-  color: #10b981;
+  color: #ef4444;
   font-style: italic;
 }
 </style>

@@ -151,6 +151,8 @@ import IconCode from "@/icons/IconCode.vue";
 import IconServer from "@/icons/IconServer.vue";
 import IconSettings from "@/icons/IconSettings.vue";
 import IconDocument from "@/icons/IconDocument.vue";
+import IconStart from "@/icons/IconStart.vue";
+import IconEnd from "@/icons/IconEnd.vue";
 import { useVueFlowExecution } from "@/newCode/features/vueflow/executor";
 import type { NodeMetadataItem } from "@/newCode/features/vueflow/executor/types";
 
@@ -171,6 +173,23 @@ interface NodeDefinition {
   category: string;
   icon?: Component;
   tags?: string[];
+  // 节点的输入/输出配置
+  inputs?: {
+    name: string;
+    type: string;
+    description?: string;
+    required?: boolean;
+    defaultValue?: any;
+    options?: Array<{
+      label: string;
+      value: string | number | boolean;
+    }>;
+  }[];
+  outputs?: {
+    name: string;
+    type: string;
+    description?: string;
+  }[];
 }
 
 // 搜索关键词
@@ -238,18 +257,35 @@ async function loadNodeList() {
             category: categoryName,
             icon: node.icon ? undefined : categoryInfo.icon,
             tags: node.tags || [],
+            // 保留 inputs/outputs 配置
+            inputs: node.inputs,
+            outputs: node.outputs,
           })),
         };
       }
     );
 
-    // 添加工具分类和 Note 笔记节点
+    // 添加工具分类和特殊节点
     const toolsCategory: NodeCategory = {
       id: "tools",
       name: "工具",
       icon: markRaw(IconSettings),
       color: "#8b5cf6",
       nodes: [
+        {
+          id: "start",
+          name: "开始",
+          description: "工作流程的起点，没有输入端口",
+          category: "工具",
+          icon: markRaw(IconStart),
+        },
+        {
+          id: "end",
+          name: "结束",
+          description: "工作流程的终点，没有输出端口",
+          category: "工具",
+          icon: markRaw(IconEnd),
+        },
         {
           id: "note",
           name: "笔记",

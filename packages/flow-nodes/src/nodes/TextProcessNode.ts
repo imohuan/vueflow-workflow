@@ -26,9 +26,13 @@ export class TextProcessNode extends BaseFlowNode {
       {
         name: "mode",
         type: "string",
-        description:
-          "处理模式：uppercase（大写）、lowercase（小写）、reverse（反转）",
+        description: "处理模式",
         defaultValue: "uppercase",
+        options: [
+          { label: "大写", value: "uppercase" },
+          { label: "小写", value: "lowercase" },
+          { label: "反转", value: "reverse" },
+        ],
       },
       {
         name: "prefix",

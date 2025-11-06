@@ -342,6 +342,7 @@ function getNodeList(requestId: string) {
         description: input.description,
         required: input.required,
         defaultValue: input.defaultValue,
+        options: input?.options ?? [], // 传递选项配置
       })),
       outputs: node.outputs.map((output) => ({
         name: output.name,
