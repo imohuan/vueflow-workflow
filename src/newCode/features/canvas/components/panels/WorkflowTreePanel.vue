@@ -2,33 +2,40 @@
   <div class="h-full overflow-y-auto bg-white">
     <!-- 顶部工具栏 -->
     <div class="border-b border-slate-200 bg-white p-3">
-      <!-- 搜索框 -->
-      <n-input
-        v-model:value="searchQuery"
-        placeholder="搜索工作流..."
-        size="small"
-        clearable
-      >
-        <template #prefix>
-          <n-icon :component="IconSearch" />
-        </template>
-      </n-input>
-
-      <!-- 操作按钮 -->
-      <n-space class="mt-2" size="small">
-        <n-button size="small" secondary @click="createWorkflow">
-          <template #icon>
-            <n-icon :component="IconAdd" />
+      <!-- 搜索框和新建按钮 -->
+      <div class="flex items-center gap-2">
+        <n-input
+          v-model:value="searchQuery"
+          placeholder="搜索工作流..."
+          size="small"
+          clearable
+          class="flex-1"
+        >
+          <template #prefix>
+            <n-icon :component="IconSearch" />
+          </template>
+        </n-input>
+        <n-tooltip placement="bottom" trigger="hover">
+          <template #trigger>
+            <n-button size="small" secondary circle @click="createWorkflow">
+              <template #icon>
+                <n-icon :component="IconAdd" />
+              </template>
+            </n-button>
           </template>
           新建工作流
-        </n-button>
-        <n-button size="small" secondary @click="createFolder">
-          <template #icon>
-            <n-icon :component="IconFolder" />
+        </n-tooltip>
+        <n-tooltip placement="bottom" trigger="hover">
+          <template #trigger>
+            <n-button size="small" secondary circle @click="createFolder">
+              <template #icon>
+                <n-icon :component="IconFolder" />
+              </template>
+            </n-button>
           </template>
           新建文件夹
-        </n-button>
-      </n-space>
+        </n-tooltip>
+      </div>
     </div>
 
     <!-- 工作流树 -->
@@ -65,155 +72,65 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h } from "vue";
+import { ref, computed, h, watch } from "vue";
 import type { TreeOption } from "naive-ui";
-import { NIcon, NTime, useMessage, useDialog } from "naive-ui";
+import {
+  NIcon,
+  NTime,
+  NInput,
+  NButton,
+  NPopconfirm,
+  NSpace,
+  NSelect,
+  NTooltip,
+  useMessage,
+  useDialog,
+} from "naive-ui";
 import IconSearch from "@/icons/IconSearch.vue";
 import IconAdd from "@/icons/IconAdd.vue";
-import IconFolder from "@/icons/IconFolder.vue";
 import IconNodeEditor from "@/icons/IconNodeEditor.vue";
+import IconDelete from "@/icons/IconDelete.vue";
+import IconFolder from "@/icons/IconFolder.vue";
 import { useCanvasStore } from "@/newCode/stores/canvas";
+import {
+  useWorkflowStore,
+  type WorkflowTreeMeta,
+  type WorkflowFolder,
+} from "@/newCode/stores/workflow";
 
 const message = useMessage();
 const dialog = useDialog();
 const canvasStore = useCanvasStore();
+const workflowStore = useWorkflowStore();
 
 // 搜索关键词
 const searchQuery = ref("");
 
 // 展开的节点
-const expandedKeys = ref<string[]>(["my-workflows"]);
+const expandedKeys = ref<string[]>([]);
 
-// 工作流树数据（示例数据）
-const treeData = ref<TreeOption[]>([
-  {
-    key: "my-workflows",
-    label: "我的工作流",
-    isLeaf: false,
-    children: [
-      {
-        key: "workflow-1",
-        label: "数据采集流程",
-        isLeaf: true,
-        meta: {
-          type: "workflow",
-          createdAt: Date.now() - 86400000 * 2,
-          updatedAt: Date.now() - 3600000,
-          nodeCount: 12,
-        },
-      },
-      {
-        key: "workflow-2",
-        label: "表单自动填写",
-        isLeaf: true,
-        meta: {
-          type: "workflow",
-          createdAt: Date.now() - 86400000 * 5,
-          updatedAt: Date.now() - 7200000,
-          nodeCount: 8,
-        },
-      },
-      {
-        key: "folder-1",
-        label: "测试工作流",
-        isLeaf: false,
-        children: [
-          {
-            key: "workflow-3",
-            label: "登录测试",
-            isLeaf: true,
-            meta: {
-              type: "workflow",
-              createdAt: Date.now() - 86400000 * 10,
-              updatedAt: Date.now() - 86400000,
-              nodeCount: 5,
-            },
-          },
-          {
-            key: "workflow-4",
-            label: "数据验证",
-            isLeaf: true,
-            meta: {
-              type: "workflow",
-              createdAt: Date.now() - 86400000 * 15,
-              updatedAt: Date.now() - 86400000 * 2,
-              nodeCount: 6,
-            },
-          },
-        ],
-      },
-    ],
+// 从 workflow store 获取树数据
+const treeData = computed(() => workflowStore.treeData);
+
+watch(
+  () => treeData.value,
+  (nodes) => {
+    if (expandedKeys.value.length > 0) return;
+    const firstFolder = nodes.find((node) => !node.isLeaf);
+    if (firstFolder) {
+      expandedKeys.value = [String(firstFolder.key)];
+    }
   },
-  {
-    key: "templates",
-    label: "模板库",
-    isLeaf: false,
-    children: [
-      {
-        key: "template-1",
-        label: "网页截图",
-        isLeaf: true,
-        meta: {
-          type: "workflow",
-          createdAt: Date.now() - 86400000 * 30,
-          updatedAt: Date.now() - 86400000 * 30,
-          nodeCount: 3,
-        },
-      },
-      {
-        key: "template-2",
-        label: "数据抓取",
-        isLeaf: true,
-        meta: {
-          type: "workflow",
-          createdAt: Date.now() - 86400000 * 30,
-          updatedAt: Date.now() - 86400000 * 30,
-          nodeCount: 7,
-        },
-      },
-      {
-        key: "template-3",
-        label: "自动化测试",
-        isLeaf: true,
-        meta: {
-          type: "workflow",
-          createdAt: Date.now() - 86400000 * 30,
-          updatedAt: Date.now() - 86400000 * 30,
-          nodeCount: 10,
-        },
-      },
-    ],
-  },
-  {
-    key: "recent",
-    label: "最近使用",
-    isLeaf: false,
-    children: [
-      {
-        key: "recent-1",
-        label: "数据采集流程",
-        isLeaf: true,
-        meta: {
-          type: "workflow",
-          createdAt: Date.now() - 86400000 * 2,
-          updatedAt: Date.now() - 3600000 * 2,
-          nodeCount: 12,
-        },
-      },
-      {
-        key: "recent-2",
-        label: "表单自动填写",
-        isLeaf: true,
-        meta: {
-          type: "workflow",
-          createdAt: Date.now() - 86400000 * 5,
-          updatedAt: Date.now() - 86400000,
-          nodeCount: 8,
-        },
-      },
-    ],
-  },
-]);
+  { immediate: true }
+);
+
+const folderSelectOptions = computed(() => {
+  const options = workflowStore.folderPathList.map((path) => ({
+    label: path,
+    value: path,
+  }));
+  return [{ label: "根目录", value: "" }, ...options];
+});
 
 // 过滤后的树数据
 const filteredTreeData = computed(() => {
@@ -248,16 +165,99 @@ const filteredTreeData = computed(() => {
  * 渲染树节点标签
  */
 function renderLabel({ option }: { option: TreeOption }) {
-  const meta = option.meta as { updatedAt?: number } | undefined;
-  return h("div", { class: "flex items-center justify-between w-full" }, [
-    h("span", { class: "flex-1" }, String(option.label || "")),
-    meta?.updatedAt &&
-      h(
-        "span",
-        { class: "text-xs text-slate-400 ml-2" },
-        h(NTime, { time: meta.updatedAt, type: "relative" })
-      ),
-  ]);
+  const meta = option.meta as WorkflowTreeMeta | undefined;
+  const isWorkflow = meta?.type === "workflow";
+  const isFolder = meta?.type === "folder";
+
+  return h(
+    "div",
+    {
+      class: "flex items-center justify-between w-full group",
+    },
+    [
+      h("span", { class: "flex-1" }, String(option.label || "")),
+      meta?.type === "workflow" &&
+        meta.updatedAt &&
+        h(
+          "span",
+          { class: "text-xs text-slate-400 ml-2" },
+          h(NTime, { time: meta.updatedAt, type: "relative" })
+        ),
+      // 工作流删除按钮
+      isWorkflow &&
+        h(
+          NPopconfirm,
+          {
+            onPositiveClick: () => {
+              if (meta?.type === "workflow") {
+                workflowStore.deleteWorkflow(meta.workflowId);
+                message?.success(`工作流 "${option.label}" 已删除`);
+              }
+            },
+            positiveText: "删除",
+            negativeText: "取消",
+          },
+          {
+            trigger: () =>
+              h(
+                NButton,
+                {
+                  size: "tiny",
+                  text: true,
+                  class:
+                    "opacity-0 group-hover:opacity-100 transition-opacity ml-2",
+                  onClick: (e: MouseEvent) => {
+                    e.stopPropagation();
+                  },
+                },
+                {
+                  icon: () =>
+                    h(NIcon, { component: IconDelete, class: "text-red-500" }),
+                }
+              ),
+            default: () => `确定要删除工作流 "${option.label}" 吗？`,
+          }
+        ),
+      // 文件夹删除按钮
+      isFolder &&
+        h(
+          NPopconfirm,
+          {
+            onPositiveClick: () => {
+              if (meta?.type === "folder") {
+                handleDeleteFolder(
+                  meta.folderId,
+                  String(option.label || "未命名文件夹")
+                );
+              }
+            },
+            positiveText: "删除",
+            negativeText: "取消",
+          },
+          {
+            trigger: () =>
+              h(
+                NButton,
+                {
+                  size: "tiny",
+                  text: true,
+                  class:
+                    "opacity-0 group-hover:opacity-100 transition-opacity ml-2",
+                  onClick: (e: MouseEvent) => {
+                    e.stopPropagation();
+                  },
+                },
+                {
+                  icon: () =>
+                    h(NIcon, { component: IconDelete, class: "text-red-500" }),
+                }
+              ),
+            default: () =>
+              `确定要删除文件夹 "${option.label}" 吗？如果不为空将一并删除所有内容。`,
+          }
+        ),
+    ]
+  );
 }
 
 /**
@@ -314,6 +314,27 @@ function toggleExpanded(key: string | number) {
   }
 }
 
+function expandFolderPath(folderId: string) {
+  let current: string | null = folderId;
+  const visited = new Set<string>();
+
+  while (current) {
+    const key = `folder-${current}`;
+    if (!expandedKeys.value.includes(key)) {
+      expandedKeys.value.push(key);
+    }
+
+    const folder = (workflowStore.folders as WorkflowFolder[]).find(
+      (item) => item.id === current
+    );
+    if (!folder || !folder.parentId || visited.has(folder.parentId)) {
+      break;
+    }
+    visited.add(current);
+    current = folder.parentId;
+  }
+}
+
 /**
  * 处理节点选择 - 加载工作流到画布
  */
@@ -328,12 +349,10 @@ function handleSelect(keys: string[]) {
   if (!selectedNode || !selectedNode.meta) return;
 
   // 只加载工作流类型的节点
-  const meta = selectedNode.meta as { type?: string };
-  if (meta.type === "workflow") {
-    // 生成示例工作流数据
-    const sampleWorkflow = generateSampleWorkflow();
-    canvasStore.loadWorkflow(sampleWorkflow);
-    message?.success(`已加载工作流：${selectedNode.label || "未命名"}`);
+  const meta = selectedNode.meta as WorkflowTreeMeta | undefined;
+  if (meta?.type === "workflow") {
+    // 从 workflow store 加载工作流
+    canvasStore.loadWorkflowById(meta.workflowId);
   }
 }
 
@@ -347,51 +366,6 @@ function findNodeByKey(key: string, nodes: TreeOption[]): TreeOption | null {
     }
   }
   return null;
-}
-
-/** 生成示例工作流 */
-function generateSampleWorkflow() {
-  return {
-    nodes: [
-      {
-        id: "node-1",
-        type: "custom",
-        position: { x: 100, y: 100 },
-        data: {
-          label: "打开网页",
-          type: "browser.open",
-          description: "打开指定的网页",
-          color: "#3b82f6",
-        },
-      },
-      {
-        id: "node-2",
-        type: "custom",
-        position: { x: 350, y: 100 },
-        data: {
-          label: "输入文本",
-          type: "browser.input",
-          description: "在输入框中输入文本",
-          color: "#10b981",
-        },
-      },
-      {
-        id: "node-3",
-        type: "custom",
-        position: { x: 600, y: 100 },
-        data: {
-          label: "点击按钮",
-          type: "browser.click",
-          description: "点击页面元素",
-          color: "#f59e0b",
-        },
-      },
-    ],
-    edges: [
-      { id: "e1-2", source: "node-1", target: "node-2" },
-      { id: "e2-3", source: "node-2", target: "node-3" },
-    ],
-  };
 }
 
 /**
@@ -423,82 +397,22 @@ function handleDrop({
   dragNode: TreeOption;
   dropPosition: "before" | "after" | "inside";
 }) {
-  console.log("拖拽操作:", { node, dragNode, dropPosition });
+  const dragMeta = dragNode.meta as WorkflowTreeMeta | undefined;
+  const targetMeta = node.meta as WorkflowTreeMeta | undefined;
 
-  // 类型守卫：确保 key 存在
-  if (dragNode.key === undefined || node.key === undefined) {
-    return;
+  if (!dragMeta || !targetMeta) return;
+
+  workflowStore.handleTreeDrop({
+    dragMeta,
+    targetMeta,
+    dropPosition,
+  });
+
+  if (dropPosition === "inside" && targetMeta.type === "folder") {
+    expandFolderPath(targetMeta.folderId);
   }
 
-  // 找到并移除被拖拽的节点
-  const removeNode = (
-    nodes: TreeOption[],
-    key: string | number
-  ): TreeOption | undefined => {
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-      if (!node) continue;
-
-      if (node.key === key) {
-        return nodes.splice(i, 1)[0];
-      }
-      const children = node.children;
-      if (children && children.length > 0) {
-        const removed = removeNode(children, key);
-        if (removed) return removed;
-      }
-    }
-    return undefined;
-  };
-
-  // 插入节点到目标位置
-  const insertNode = (
-    nodes: TreeOption[],
-    targetKey: string | number,
-    newNode: TreeOption,
-    position: "before" | "after" | "inside"
-  ): boolean => {
-    for (let i = 0; i < nodes.length; i++) {
-      const currentNode = nodes[i];
-      if (!currentNode) continue;
-
-      if (currentNode.key === targetKey) {
-        if (position === "inside") {
-          // 插入到目标节点的子节点中
-          if (!currentNode.children) {
-            currentNode.children = [];
-          }
-          currentNode.children.push(newNode);
-        } else if (position === "before") {
-          nodes.splice(i, 0, newNode);
-        } else {
-          nodes.splice(i + 1, 0, newNode);
-        }
-        return true;
-      }
-      const children = currentNode.children;
-      if (children && children.length > 0) {
-        if (insertNode(children, targetKey, newNode, position)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  };
-
-  // 执行拖拽操作
-  const dragKey = dragNode.key;
-  const nodeKey = node.key;
-  if (typeof dragKey === "string" || typeof dragKey === "number") {
-    const removed = removeNode(treeData.value, dragKey);
-    if (
-      removed &&
-      (typeof nodeKey === "string" || typeof nodeKey === "number")
-    ) {
-      insertNode(treeData.value, nodeKey, removed, dropPosition);
-      message?.success("排序已更新");
-    }
-  }
+  message?.success("排序已更新");
 }
 
 /**
@@ -507,28 +421,83 @@ function handleDrop({
 function showContextMenu(option: TreeOption, event: MouseEvent) {
   // 这里可以使用 Naive UI 的 Dropdown 组件实现右键菜单
   console.log("右键菜单:", option, event);
-  message?.info(`右键菜单：${option.label}`);
+  // message?.info(`右键菜单：${option.label}`);
 }
 
 /**
  * 加载工作流
  */
 function loadWorkflow(option: TreeOption) {
-  console.log("加载工作流:", option);
-  message?.success(`已加载工作流：${option.label}`);
+  const meta = option.meta as WorkflowTreeMeta | undefined;
+  if (meta?.type === "workflow") {
+    canvasStore.loadWorkflowById(meta.workflowId);
+  }
 }
 
 /**
  * 创建新工作流
  */
 function createWorkflow() {
+  const nameRef = ref("");
+  const defaultFolderValue =
+    folderSelectOptions.value.find((option) => option.value !== "")?.value ??
+    folderSelectOptions.value[0]?.value ??
+    "";
+  const folderRef = ref(defaultFolderValue);
+
   dialog?.create({
     title: "创建工作流",
-    content: "请输入工作流名称",
+    content: () =>
+      h(
+        NSpace,
+        { vertical: true, size: "large", style: { width: "100%" } },
+        {
+          default: () => [
+            h("div", { class: "text-sm text-slate-600 mb-1" }, "工作流名称"),
+            h(NInput, {
+              value: nameRef.value,
+              placeholder: "请输入工作流名称",
+              onUpdateValue: (val: string) => {
+                nameRef.value = val;
+              },
+            }),
+            h(
+              "div",
+              { class: "text-sm text-slate-600 mb-1 mt-2" },
+              "选择文件夹（可输入新文件夹名称）"
+            ),
+            h(NSelect, {
+              value: folderRef.value,
+              options: folderSelectOptions.value,
+              placeholder: "选择或输入文件夹名称",
+              tag: true,
+              filterable: true,
+              onUpdateValue: (val: string) => {
+                folderRef.value = val;
+              },
+            }),
+          ],
+        }
+      ),
     positiveText: "创建",
     negativeText: "取消",
     onPositiveClick: () => {
-      message?.success("工作流创建成功");
+      if (!nameRef.value.trim()) {
+        message?.warning("工作流名称不能为空");
+        return false;
+      }
+
+      const workflow = workflowStore.createWorkflow(
+        nameRef.value.trim(),
+        folderRef.value
+      );
+      canvasStore.loadWorkflowById(workflow.workflow_id);
+      message?.success(`工作流 "${nameRef.value}" 创建成功`);
+
+      // 自动展开工作流所在的文件夹
+      if (workflow.folderId) {
+        expandFolderPath(workflow.folderId);
+      }
     },
   });
 }
@@ -537,15 +506,91 @@ function createWorkflow() {
  * 创建新文件夹
  */
 function createFolder() {
+  const nameRef = ref("");
+  const parentRef = ref(folderSelectOptions.value[0]?.value ?? "");
+
   dialog?.create({
     title: "创建文件夹",
-    content: "请输入文件夹名称",
+    content: () =>
+      h(
+        NSpace,
+        { vertical: true, size: "large", style: { width: "100%" } },
+        {
+          default: () => [
+            h("div", { class: "text-sm text-slate-600 mb-1" }, "文件夹名称"),
+            h(NInput, {
+              value: nameRef.value,
+              placeholder: "请输入文件夹名称",
+              onUpdateValue: (val: string) => {
+                nameRef.value = val;
+              },
+            }),
+            h(
+              "div",
+              { class: "text-sm text-slate-600 mb-1 mt-2" },
+              "父级路径（可选择或输入新路径）"
+            ),
+            h(NSelect, {
+              value: parentRef.value,
+              options: folderSelectOptions.value,
+              placeholder: "选择或输入父级路径",
+              tag: true,
+              filterable: true,
+              onUpdateValue: (val: string) => {
+                parentRef.value = val;
+              },
+            }),
+          ],
+        }
+      ),
     positiveText: "创建",
     negativeText: "取消",
     onPositiveClick: () => {
-      message?.success("文件夹创建成功");
+      if (!nameRef.value.trim()) {
+        message?.warning("文件夹名称不能为空");
+        return false;
+      }
+
+      const parentPath = parentRef.value.trim().replace(/\/$/, "");
+      const normalizedName = nameRef.value.trim();
+      const expectedPath = parentPath
+        ? `${parentPath}/${normalizedName}`
+        : normalizedName;
+      const existedBefore = workflowStore.folderPathList.includes(expectedPath);
+
+      const folder = workflowStore.createFolder(normalizedName, parentPath);
+
+      expandFolderPath(folder.id);
+
+      const folderPath =
+        workflowStore.buildFolderPath(folder.id) || folder.name;
+      if (existedBefore) {
+        message?.info(`文件夹 "${folderPath}" 已存在`);
+      } else {
+        message?.success(`文件夹 "${folderPath}" 创建成功`);
+      }
     },
   });
+}
+
+/**
+ * 删除文件夹
+ */
+function handleDeleteFolder(folderId: string, folderName: string) {
+  const result = workflowStore.deleteFolder(folderId, true);
+
+  if (result.success) {
+    const count = result.deletedCount;
+    if (count && (count.folders > 1 || count.workflows > 0)) {
+      message?.success(
+        `已删除文件夹 "${folderName}" 及其内容：${count.folders} 个文件夹，${count.workflows} 个工作流`
+      );
+    } else {
+      message?.success(`文件夹 "${folderName}" 已删除`);
+    }
+  } else {
+    message?.error(result.message);
+  }
 }
 </script>
 

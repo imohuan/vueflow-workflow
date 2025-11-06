@@ -48,7 +48,7 @@
   </n-layout>
 </template>
 <script setup lang="ts">
-import { reactive, onMounted, ref, nextTick } from "vue";
+import { reactive, onMounted, onUnmounted, ref, nextTick } from "vue";
 import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
 import CustomNode from "@/newCode/features/vueflow/components/nodes/CustomNode.vue";
@@ -184,7 +184,7 @@ events.on("node:context-menu", ({ node }) => {
 events.on("canvas:clicked", () => {
   console.log("[CanvasView] 画布被点击");
   // 点击画布时关闭快捷菜单
-  quickMenu.visible = false;
+  // quickMenu.visible = false;
   // 取消节点选中
   uiStore.clearNodeSelection();
 });
@@ -205,9 +205,39 @@ events.on("edge:connection-failed", ({ position }) => {
   });
 });
 
+/**
+ * 处理键盘快捷键
+ */
+function handleKeydown(event: KeyboardEvent) {
+  // 按 Tab 键切换左侧浮动面板
+  if (
+    event.key === "Tab" &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey
+  ) {
+    event.preventDefault(); // 阻止默认的焦点切换行为
+    uiStore.toggleFloatingPanel();
+    console.log(
+      "[CanvasView] Tab 键切换左侧面板:",
+      uiStore.floatingPanelVisible ? "显示" : "隐藏"
+    );
+  }
+}
+
 onMounted(() => {
   console.log("[CanvasView] 组件已挂载");
   console.log("[CanvasView] 事件系统已初始化");
+
+  // 注册键盘事件监听器
+  window.addEventListener("keydown", handleKeydown);
+  console.log("[CanvasView] 键盘快捷键已注册（Tab: 切换左侧面板）");
+});
+
+onUnmounted(() => {
+  // 移除键盘事件监听器
+  window.removeEventListener("keydown", handleKeydown);
+  console.log("[CanvasView] 键盘快捷键已移除");
 });
 </script>
 

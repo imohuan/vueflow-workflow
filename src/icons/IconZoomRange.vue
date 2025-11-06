@@ -1,7 +1,7 @@
 <!-- 缩放范围图标 -->
 <template>
   <svg
-    class="w-3.5 h-3.5 text-purple-600"
+    class="w-4 h-4"
     viewBox="0 0 16 16"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"

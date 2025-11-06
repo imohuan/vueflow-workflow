@@ -1,18 +1,30 @@
 /**
- * Canvas 持久化插件
- * 自动将画布数据保存到 localStorage，并在启动时恢复
+ * Canvas 视图状态持久化插件
+ * 保存画布的视图状态（执行结果、FPS 等），工作流数据由 workflowStore 管理
  */
 
 import { watch } from "vue";
 import type { VueFlowPlugin, PluginContext } from "./types";
 import { useCanvasStore } from "@/newCode/stores/canvas";
-import { storeToRefs } from "pinia";
 
 /** localStorage 存储键 */
-const STORAGE_KEY = "canvas-state";
+const STORAGE_KEY = "canvas-view-state";
+
+/**
+ * 画布视图状态
+ */
+interface CanvasViewState {
+  /** 执行结果预览 */
+  lastNodeResults: Array<{ id: string; timestamp: string; preview: string }>;
+  /** 时间戳 */
+  timestamp: number;
+}
 
 /**
  * 创建 Canvas 持久化插件
+ *
+ * 注意：此插件只保存视图状态，不保存 nodes 和 edges
+ * nodes 和 edges 由 workflowStore 自动持久化
  */
 export function createCanvasPersistencePlugin(): VueFlowPlugin {
   let stopWatchers: Array<() => void> = [];
@@ -20,26 +32,24 @@ export function createCanvasPersistencePlugin(): VueFlowPlugin {
   let beforeUnloadHandler: ((e: BeforeUnloadEvent) => void) | null = null;
 
   /**
-   * 保存画布状态到 localStorage
+   * 保存画布视图状态到 localStorage
    */
   function saveToLocalStorage(canvasStore: ReturnType<typeof useCanvasStore>) {
     try {
-      const state = {
-        nodes: canvasStore.nodes,
-        edges: canvasStore.edges,
+      const state: CanvasViewState = {
         lastNodeResults: canvasStore.lastNodeResults,
         timestamp: Date.now(),
       };
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      console.log("[CanvasPersistence Plugin] 画布状态已保存");
+      console.log("[CanvasPersistence Plugin] 画布视图状态已保存");
     } catch (error) {
       console.error("[CanvasPersistence Plugin] 保存失败:", error);
     }
   }
 
   /**
-   * 从 localStorage 加载画布状态
+   * 从 localStorage 加载画布视图状态
    */
   function loadFromLocalStorage(
     canvasStore: ReturnType<typeof useCanvasStore>
@@ -47,27 +57,21 @@ export function createCanvasPersistencePlugin(): VueFlowPlugin {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (!stored) {
-        console.log("[CanvasPersistence Plugin] 没有找到已保存的画布状态");
+        console.log("[CanvasPersistence Plugin] 没有找到已保存的画布视图状态");
         return false;
       }
 
-      const state = JSON.parse(stored);
+      const state: CanvasViewState = JSON.parse(stored);
 
-      // 恢复节点和边
-      if (state.nodes && Array.isArray(state.nodes)) {
-        canvasStore.nodes = state.nodes;
-      }
-      if (state.edges && Array.isArray(state.edges)) {
-        canvasStore.edges = state.edges;
-      }
+      // 恢复执行结果预览
       if (state.lastNodeResults && Array.isArray(state.lastNodeResults)) {
         canvasStore.lastNodeResults = state.lastNodeResults;
       }
 
       console.log(
-        `[CanvasPersistence Plugin] 画布状态已恢复 (${
-          state.nodes?.length || 0
-        } 个节点, ${state.edges?.length || 0} 条连线)`
+        `[CanvasPersistence Plugin] 画布视图状态已恢复 (${
+          state.lastNodeResults?.length || 0
+        } 条执行记录)`
       );
       return true;
     } catch (error) {
@@ -95,31 +99,38 @@ export function createCanvasPersistencePlugin(): VueFlowPlugin {
   return {
     config: {
       id: "canvas-persistence",
-      name: "Canvas 持久化插件",
-      description: "自动将画布数据保存到 localStorage，并在启动时恢复",
+      name: "Canvas 视图持久化插件",
+      description:
+        "自动保存画布视图状态（执行结果等）到 localStorage。注意：工作流数据由 workflowStore 管理。",
       enabled: true,
-      version: "1.0.0",
+      version: "2.0.0",
     },
 
     setup(_context: PluginContext) {
       console.log("[CanvasPersistence Plugin] 插件已初始化");
 
       const canvasStore = useCanvasStore();
-      const { nodes, edges } = storeToRefs(canvasStore);
 
-      // 启动时加载已保存的状态
+      // 清理旧的存储键（如果存在）
+      const oldStorageKey = "canvas-state";
+      if (localStorage.getItem(oldStorageKey)) {
+        console.log("[CanvasPersistence Plugin] 检测到旧的存储格式，已清理");
+        localStorage.removeItem(oldStorageKey);
+      }
+
+      // 启动时加载已保存的视图状态
       loadFromLocalStorage(canvasStore);
 
-      // 监听 nodes 和 edges 变化，使用防抖保存
-      const stopNodesWatcher = watch(
-        () => [nodes.value, edges.value],
+      // 监听执行结果变化，使用防抖保存
+      const stopResultsWatcher = watch(
+        () => canvasStore.lastNodeResults,
         () => {
           debouncedSave(canvasStore);
         },
         { deep: true }
       );
 
-      stopWatchers.push(stopNodesWatcher);
+      stopWatchers.push(stopResultsWatcher);
 
       // 页面卸载前立即保存（退出页面或刷新时）
       beforeUnloadHandler = (_e: BeforeUnloadEvent) => {

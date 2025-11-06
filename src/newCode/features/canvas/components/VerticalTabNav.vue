@@ -13,7 +13,7 @@
         class="flex items-center justify-center h-16 border-b border-slate-200"
       >
         <div
-          class="flex h-11 w-11 items-center justify-center rounded-2xl text-white"
+          class="flex h-11 w-11 items-center justify-center rounded-2xl text-blue-400"
         >
           <IconCanvas class="h-5 w-5" />
         </div>

@@ -58,6 +58,25 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
    * 设置 Store 监听器
    */
   function setupStoreWatchers() {
+    // 监听当前工作流 ID 变化，切换工作流时立即同步
+    watch(
+      () => canvasStore.currentWorkflowId,
+      (newId, oldId) => {
+        // 只在工作流 ID 真正变化时触发
+        if (newId !== oldId) {
+          syncFromStore();
+
+          // 通知插件：工作流已切换（让 historyPlugin 重新初始化）
+          if (events) {
+            events.emit("workflow:switched", {
+              workflowId: newId,
+              previousWorkflowId: oldId,
+            });
+          }
+        }
+      }
+    );
+
     // 监听 Store 变化 -> 同步到 VueFlow
     watch(
       () => canvasStore.nodes,
@@ -80,7 +99,8 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
       nodes,
       (newNodes) => {
         if (JSON.stringify(newNodes) !== JSON.stringify(canvasStore.nodes)) {
-          canvasStore.nodes = newNodes as any;
+          // 使用更新方法而不是直接赋值（因为 nodes 现在是计算属性）
+          canvasStore.updateNodes(newNodes as any);
 
           // 触发事件
           if (events) {
@@ -99,7 +119,8 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
       edges,
       (newEdges) => {
         if (JSON.stringify(newEdges) !== JSON.stringify(canvasStore.edges)) {
-          canvasStore.edges = newEdges as any;
+          // 使用更新方法而不是直接赋值（因为 edges 现在是计算属性）
+          canvasStore.updateEdges(newEdges as any);
         }
       },
       { deep: true }

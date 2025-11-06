@@ -173,10 +173,18 @@ export function createHistoryPlugin(): VueFlowPlugin {
    * 初始化历史记录
    */
   function initHistory(nodes: Node[], edges: Edge[]) {
+    // 设置标志，防止初始化时触发保存
+    isRestoring = true;
+
     const snapshot = createSnapshot(nodes, edges);
     history.value = [snapshot];
     historyIndex.value = 0;
     console.log("[History Plugin] 历史记录已初始化");
+
+    // 延迟重置标志
+    setTimeout(() => {
+      isRestoring = false;
+    }, 100);
   }
 
   return {
@@ -254,6 +262,15 @@ export function createHistoryPlugin(): VueFlowPlugin {
           if (canRedo.value) {
             redo(context);
           }
+        });
+
+        // 监听工作流切换事件
+        context.core.events.on("workflow:switched", (payload) => {
+          console.log(
+            `[History Plugin] 工作流已切换：${payload.previousWorkflowId} → ${payload.workflowId}`
+          );
+          // 重新初始化历史记录
+          initHistory(context.core.nodes.value, context.core.edges.value);
         });
       }
 

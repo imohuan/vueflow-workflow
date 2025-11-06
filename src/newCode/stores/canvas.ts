@@ -1,29 +1,53 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
+import { useWorkflowStore } from "./workflow";
 
-export interface CanvasNodeSummary {
-  id: string;
-  label: string;
-  status: "idle" | "running" | "success" | "error";
-  outputPreview?: string;
-}
-
-export interface CanvasStateSnapshot {
-  nodes: CanvasNodeSummary[];
-  edges: Array<{ id: string; source: string; target: string }>;
-}
-
+/**
+ * Canvas Store
+ *
+ * 职责：管理画布的视图状态和执行状态
+ * - 所有工作流数据（nodes、edges）都存储在 workflow store 中
+ * - 本 store 只管理 UI 状态：执行状态、FPS、执行结果预览等
+ */
 export const useCanvasStore = defineStore("newCanvas", () => {
-  const nodes = ref<CanvasNodeSummary[]>([]);
-  const edges = ref<CanvasStateSnapshot["edges"]>([]);
+  const workflowStore = useWorkflowStore();
+
+  // ===== 视图状态 =====
+  /** 是否正在执行工作流 */
   const isExecuting = ref(false);
+
+  /** 最近的节点执行结果（用于预览面板） */
   const lastNodeResults = ref<
     Array<{ id: string; timestamp: string; preview: string }>
   >([]);
+
+  /** 画布 FPS（性能监控） */
   const fps = ref(0);
 
+  // ===== 计算属性：从 workflow store 读取数据 =====
+  /** 当前工作流的节点列表 */
+  const nodes = computed(() => {
+    return workflowStore.currentWorkflow?.nodes || [];
+  });
+
+  /** 当前工作流的边列表 */
+  const edges = computed(() => {
+    return workflowStore.currentWorkflow?.edges || [];
+  });
+
+  /** 节点数量 */
   const nodeCount = computed(() => nodes.value.length);
+
+  /** 边数量 */
   const edgeCount = computed(() => edges.value.length);
+
+  /** 当前工作流 ID */
+  const currentWorkflowId = computed(() => workflowStore.currentWorkflowId);
+
+  /** 当前工作流名称 */
+  const currentWorkflowName = computed(
+    () => workflowStore.currentWorkflow?.name || "未命名工作流"
+  );
 
   // FPS 计算逻辑
   let frameCount = 0;
@@ -48,22 +72,18 @@ export const useCanvasStore = defineStore("newCanvas", () => {
   // 启动 FPS 计算
   calculateFPS();
 
+  // ===== 方法 =====
+
+  /**
+   * 设置执行状态
+   */
   function setExecuting(value: boolean) {
     isExecuting.value = value;
   }
 
-  function resetCanvas() {
-    nodes.value = [];
-    edges.value = [];
-    lastNodeResults.value = [];
-    isExecuting.value = false;
-  }
-
-  function loadSnapshot(snapshot: CanvasStateSnapshot) {
-    nodes.value = snapshot.nodes;
-    edges.value = snapshot.edges;
-  }
-
+  /**
+   * 添加节点执行结果到预览列表
+   */
   function pushNodeResult(entry: { id: string; preview: string }) {
     const timestamp = new Date().toLocaleTimeString();
     lastNodeResults.value = [
@@ -72,29 +92,133 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     ].slice(0, 10);
   }
 
-  /** 添加节点 */
-  function addNode(node: any) {
-    nodes.value.push(node);
-  }
-
-  /** 添加连线 */
-  function addEdge(edge: any) {
-    edges.value.push(edge);
-  }
-
-  /** 清空画布 */
-  function clearCanvas() {
-    nodes.value = [];
-    edges.value = [];
+  /**
+   * 清空执行结果预览
+   */
+  function clearResults() {
     lastNodeResults.value = [];
   }
 
-  /** 加载工作流 */
-  function loadWorkflow(workflow: { nodes: any[]; edges: any[] }) {
-    nodes.value = workflow.nodes;
-    edges.value = workflow.edges;
+  // ===== 节点操作（直接操作 workflow store）=====
+
+  /**
+   * 添加节点到当前工作流
+   */
+  function addNode(node: any) {
+    if (!workflowStore.currentWorkflow) {
+      console.warn("没有活动的工作流，无法添加节点");
+      return;
+    }
+
+    workflowStore.updateWorkflow(workflowStore.currentWorkflow.workflow_id, {
+      nodes: [...nodes.value, node],
+    });
   }
 
+  /**
+   * 删除节点
+   */
+  function removeNode(nodeId: string) {
+    if (!workflowStore.currentWorkflow) return;
+
+    workflowStore.updateWorkflow(workflowStore.currentWorkflow.workflow_id, {
+      nodes: nodes.value.filter((n: any) => n.id !== nodeId),
+      edges: edges.value.filter(
+        (e: any) => e.source !== nodeId && e.target !== nodeId
+      ),
+    });
+  }
+
+  /**
+   * 更新节点
+   */
+  function updateNode(nodeId: string, updates: any) {
+    if (!workflowStore.currentWorkflow) return;
+
+    const updatedNodes = nodes.value.map((n: any) =>
+      n.id === nodeId ? { ...n, ...updates } : n
+    );
+
+    workflowStore.updateWorkflow(workflowStore.currentWorkflow.workflow_id, {
+      nodes: updatedNodes,
+    });
+  }
+
+  /**
+   * 批量更新节点
+   */
+  function updateNodes(newNodes: any[]) {
+    if (!workflowStore.currentWorkflow) return;
+
+    workflowStore.updateWorkflow(workflowStore.currentWorkflow.workflow_id, {
+      nodes: newNodes,
+    });
+  }
+
+  // ===== 边操作（直接操作 workflow store）=====
+
+  /**
+   * 添加边到当前工作流
+   */
+  function addEdge(edge: any) {
+    if (!workflowStore.currentWorkflow) {
+      console.warn("没有活动的工作流，无法添加连线");
+      return;
+    }
+
+    workflowStore.updateWorkflow(workflowStore.currentWorkflow.workflow_id, {
+      edges: [...edges.value, edge],
+    });
+  }
+
+  /**
+   * 删除边
+   */
+  function removeEdge(edgeId: string) {
+    if (!workflowStore.currentWorkflow) return;
+
+    workflowStore.updateWorkflow(workflowStore.currentWorkflow.workflow_id, {
+      edges: edges.value.filter((e: any) => e.id !== edgeId),
+    });
+  }
+
+  /**
+   * 批量更新边
+   */
+  function updateEdges(newEdges: any[]) {
+    if (!workflowStore.currentWorkflow) return;
+
+    workflowStore.updateWorkflow(workflowStore.currentWorkflow.workflow_id, {
+      edges: newEdges,
+    });
+  }
+
+  // ===== 工作流操作 =====
+
+  /**
+   * 切换到指定工作流
+   */
+  function loadWorkflowById(workflowId: string) {
+    workflowStore.setCurrentWorkflow(workflowId);
+    clearResults(); // 清空执行结果
+  }
+
+  /**
+   * 清空当前工作流的所有节点和边
+   */
+  function clearCanvas() {
+    if (!workflowStore.currentWorkflow) return;
+
+    workflowStore.updateWorkflow(workflowStore.currentWorkflow.workflow_id, {
+      nodes: [],
+      edges: [],
+    });
+    clearResults();
+  }
+
+  /**
+   * 停止 FPS 计算（组件卸载时调用）
+   */
   function stopFPSCalculation() {
     if (animationFrameId !== null) {
       cancelAnimationFrame(animationFrameId);
@@ -103,21 +227,40 @@ export const useCanvasStore = defineStore("newCanvas", () => {
   }
 
   return {
+    // ===== 计算属性（从 workflow store 读取）=====
     nodes,
     edges,
+    nodeCount,
+    edgeCount,
+    currentWorkflowId,
+    currentWorkflowName,
+
+    // ===== 视图状态 =====
     isExecuting,
     lastNodeResults,
     fps,
-    nodeCount,
-    edgeCount,
+
+    // ===== 执行状态方法 =====
     setExecuting,
-    resetCanvas,
-    loadSnapshot,
     pushNodeResult,
+    clearResults,
+
+    // ===== 节点操作 =====
     addNode,
+    removeNode,
+    updateNode,
+    updateNodes,
+
+    // ===== 边操作 =====
     addEdge,
+    removeEdge,
+    updateEdges,
+
+    // ===== 工作流操作 =====
+    loadWorkflowById,
     clearCanvas,
-    loadWorkflow,
+
+    // ===== 其他 =====
     stopFPSCalculation,
   };
 });

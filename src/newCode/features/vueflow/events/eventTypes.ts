@@ -7,7 +7,6 @@ import type {
   ExecutionLifecycleEvent,
   ExecutionResult,
   ExecutionErrorEvent,
-  ExecutionState,
 } from "workflow-flow-nodes";
 import type {
   ExecutionStateEvent,
@@ -113,6 +112,11 @@ export interface WorkflowEvents {
   "workflow:loaded": { workflowId?: string };
   /** 工作流保存 */
   "workflow:saved": { workflowId: string };
+  /** 工作流切换 */
+  "workflow:switched": {
+    workflowId: string | null;
+    previousWorkflowId: string | null;
+  };
   /** 工作流执行开始 */
   "workflow:execution-started": { workflowId?: string };
   /** 工作流执行完成 */
