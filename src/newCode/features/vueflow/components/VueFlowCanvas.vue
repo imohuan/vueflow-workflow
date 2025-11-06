@@ -43,7 +43,7 @@
 
       <!-- 自定义连接线（拖拽时的临时连接线） -->
       <template #connection-line="connectionLineProps">
-        <CustomConnectionLine v-bind="connectionLineProps" />
+        <CustomConnectionEdge v-bind="connectionLineProps" />
       </template>
 
       <!-- 自定义边类型插槽 -->
@@ -66,6 +66,7 @@
         :show-zoom="controlsConfig.showZoom"
         :show-fit-view="controlsConfig.showFitView"
         :show-interactive="controlsConfig.showInteractive"
+        class="-scale-x-100"
       />
 
       <!-- 小地图 -->
@@ -103,9 +104,10 @@ import {
   MINIMAP_CONFIG,
 } from "../core/vueflowConfig";
 import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
+import { NODE_SIZE } from "@/newCode/config";
 import CustomNode from "./nodes/CustomNode.vue";
-import CustomConnectionLine from "./CustomConnectionLine.vue";
-import CustomEdge from "./CustomEdge.vue";
+import CustomConnectionEdge from "./edges/CustomConnectionEdge.vue";
+import CustomEdge from "./edges/CustomEdge.vue";
 import {
   PluginManager,
   PLUGIN_MANAGER_KEY,
@@ -233,14 +235,53 @@ function handleDrop(event: DragEvent) {
   event.preventDefault();
 
   const nodeDataStr = event.dataTransfer?.getData("application/vueflow");
-  if (!nodeDataStr) return;
+  if (!nodeDataStr) {
+    console.warn("[VueFlowCanvas] 未找到拖拽数据");
+    return;
+  }
 
   try {
-    const nodeData = JSON.parse(nodeDataStr);
+    const draggedNode = JSON.parse(nodeDataStr);
+
+    // 将屏幕坐标转换为画布坐标
+    const position = vueFlowApi.project({
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    // 调整位置：使鼠标释放点对应节点顶部标题的中心
+    const adjustedPosition = {
+      x: position.x - NODE_SIZE.defaultWidth / 2, // 水平居中
+      y: position.y - NODE_SIZE.headerHeight / 2, // 垂直对齐到标题中心
+    };
+
+    // 创建新的节点对象
+    const newNode: Node = {
+      id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: "custom",
+      position: adjustedPosition,
+      data: {
+        label: draggedNode.name,
+        type: draggedNode.id,
+        description: draggedNode.description,
+      },
+    };
+
+    // 添加到节点数组
+    coreNodes.value.push(newNode);
+
+    console.log(
+      "[VueFlowCanvas] 添加新节点:",
+      newNode,
+      "原始坐标:",
+      position,
+      "调整后坐标:",
+      adjustedPosition
+    );
 
     // 通过事件系统通知外部
     if (events) {
-      events.emit("node:added", { node: nodeData });
+      events.emit("node:added", { node: newNode });
     }
   } catch (error) {
     console.error("[VueFlowCanvas] 解析拖放数据失败:", error);
@@ -253,7 +294,7 @@ function handleDrop(event: DragEvent) {
 function handleDragOver(event: DragEvent) {
   event.preventDefault();
   if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = "move";
+    event.dataTransfer.dropEffect = "copy";
   }
 }
 

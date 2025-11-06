@@ -3,6 +3,20 @@
  */
 
 import type { Node, Edge, Connection } from "@vue-flow/core";
+import type {
+  ExecutionLifecycleEvent,
+  ExecutionResult,
+  ExecutionErrorEvent,
+  ExecutionState,
+} from "workflow-flow-nodes";
+import type {
+  ExecutionStateEvent,
+  ExecutionProgressEvent,
+  ExecutionNodeEvent,
+  ExecutionNodeCompleteEvent,
+  ExecutionNodeErrorEvent,
+  ExecutionCacheHitEvent,
+} from "../executor/types";
 
 /**
  * 节点相关事件
@@ -108,6 +122,21 @@ export interface WorkflowEvents {
 }
 
 /**
+ * 执行相关事件
+ */
+export interface ExecutionEvents {
+  "execution:start": ExecutionLifecycleEvent;
+  "execution:complete": ExecutionResult;
+  "execution:error": ExecutionErrorEvent;
+  "execution:state": ExecutionStateEvent;
+  "execution:progress": ExecutionProgressEvent;
+  "execution:node:start": ExecutionNodeEvent;
+  "execution:node:complete": ExecutionNodeCompleteEvent;
+  "execution:node:error": ExecutionNodeErrorEvent;
+  "execution:cache-hit": ExecutionCacheHitEvent;
+}
+
+/**
  * 历史记录事件
  */
 export interface HistoryEvents {
@@ -133,7 +162,8 @@ export type VueFlowEventMap = NodeEvents &
   EdgeEvents &
   CanvasEvents &
   WorkflowEvents &
-  HistoryEvents;
+  HistoryEvents &
+  ExecutionEvents;
 
 /**
  * 事件名称类型

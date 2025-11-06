@@ -12,4 +12,5 @@ export type {
   CanvasEvents,
   WorkflowEvents,
   HistoryEvents,
+  ExecutionEvents,
 } from "./eventTypes";

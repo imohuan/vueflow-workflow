@@ -58,6 +58,7 @@
 <script setup lang="ts">
 import { Position } from "@vue-flow/core";
 import { PortHandle } from "../ports";
+import { NODE_SIZE, NODE_COLORS, NODE_SPACING } from "@/newCode/config";
 import "../ports/portStyles.css";
 
 interface Props {
@@ -80,16 +81,17 @@ defineProps<Props>();
 
 <style scoped>
 .custom-node {
-  min-width: 200px;
-  background: white;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
+  min-width: v-bind("NODE_SIZE.minWidth + 'px'");
+  background: v-bind("NODE_COLORS.background");
+  border: v-bind("NODE_SIZE.borderWidth + 'px'") solid
+    v-bind("NODE_COLORS.border");
+  border-radius: v-bind("NODE_SIZE.borderRadius + 'px'");
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
 
 .custom-node--selected {
-  border-color: #3b82f6;
+  border-color: v-bind("NODE_COLORS.borderSelected");
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 }
 
@@ -111,9 +113,10 @@ defineProps<Props>();
 .custom-node__header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background-color: #3b82f6;
+  gap: v-bind("NODE_SPACING.iconGap + 'px'");
+  padding: v-bind("NODE_SPACING.headerPadding.vertical + 'px'")
+    v-bind("NODE_SPACING.headerPadding.horizontal + 'px'");
+  background-color: v-bind("NODE_COLORS.default");
   color: white;
 }
 
@@ -173,9 +176,9 @@ defineProps<Props>();
 
 /* 内容板块 */
 .custom-node__content {
-  padding: 12px;
+  padding: v-bind("NODE_SPACING.contentPadding + 'px'");
   background: white;
-  min-height: 50px;
+  min-height: v-bind("NODE_SIZE.contentMinHeight + 'px'");
 }
 
 .custom-node__description {

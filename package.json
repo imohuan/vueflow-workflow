@@ -29,6 +29,7 @@
     "vue": "^3.5.22",
     "vue-router": "^4.6.3",
     "workflow-browser-nodes": "workspace:*",
+    "workflow-flow-nodes": "workspace:*",
     "workflow-node-executor": "workspace:*"
   },
   "devDependencies": {

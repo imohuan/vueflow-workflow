@@ -14,8 +14,13 @@
       </n-input>
     </div>
 
+    <!-- 加载状态 -->
+    <div v-if="loading" class="flex items-center justify-center p-8">
+      <n-spin size="medium" />
+    </div>
+
     <!-- 节点分类列表 -->
-    <div class="p-3">
+    <div v-else class="p-3">
       <n-collapse :default-expanded-names="expandedCategories">
         <n-collapse-item
           v-for="category in filteredCategories"
@@ -99,12 +104,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, markRaw } from "vue";
+import { ref, computed, markRaw, onMounted } from "vue";
 import type { Component } from "vue";
 import IconSearch from "@/icons/IconSearch.vue";
 import IconWidget from "@/icons/IconWidget.vue";
 import IconCode from "@/icons/IconCode.vue";
 import IconServer from "@/icons/IconServer.vue";
+import { useVueFlowExecution } from "@/newCode/features/vueflow/executor";
+import type { NodeMetadataItem } from "@/newCode/features/vueflow/executor/types";
 
 // 节点分类接口
 interface NodeCategory {
@@ -131,131 +138,78 @@ const searchQuery = ref("");
 // 默认展开的分类
 const expandedCategories = ref(["browser", "data", "control"]);
 
-// 节点分类数据（示例）
-const nodeCategories = ref<NodeCategory[]>([
-  {
-    id: "browser",
-    name: "浏览器操作",
-    icon: markRaw(IconWidget),
-    color: "#3b82f6",
-    nodes: [
-      {
-        id: "browser.open",
-        name: "打开网页",
-        description: "在浏览器中打开指定的 URL",
-        category: "browser",
-        tags: ["基础", "必备"],
-      },
-      {
-        id: "browser.click",
-        name: "点击元素",
-        description: "点击页面上的指定元素",
-        category: "browser",
-        tags: ["交互"],
-      },
-      {
-        id: "browser.input",
-        name: "输入文本",
-        description: "在输入框中输入文本内容",
-        category: "browser",
-        tags: ["交互", "表单"],
-      },
-      {
-        id: "browser.screenshot",
-        name: "截图",
-        description: "对当前页面或指定元素截图",
-        category: "browser",
-        tags: ["工具"],
-      },
-      {
-        id: "browser.getContent",
-        name: "获取内容",
-        description: "提取页面上的文本、HTML 或属性",
-        category: "browser",
-        tags: ["数据采集"],
-      },
-    ],
-  },
-  {
-    id: "data",
-    name: "数据处理",
-    icon: markRaw(IconCode),
-    color: "#10b981",
-    nodes: [
-      {
-        id: "data.transform",
-        name: "数据转换",
-        description: "对数据进行格式转换或映射",
-        category: "data",
-        tags: ["转换"],
-      },
-      {
-        id: "data.filter",
-        name: "数据过滤",
-        description: "根据条件过滤数据集合",
-        category: "data",
-        tags: ["筛选"],
-      },
-      {
-        id: "data.aggregate",
-        name: "数据聚合",
-        description: "对数据进行求和、平均、分组等操作",
-        category: "data",
-        tags: ["统计"],
-      },
-      {
-        id: "data.parse",
-        name: "数据解析",
-        description: "解析 JSON、CSV、XML 等格式数据",
-        category: "data",
-        tags: ["解析"],
-      },
-      {
-        id: "data.validate",
-        name: "数据验证",
-        description: "验证数据是否符合指定的规则",
-        category: "data",
-        tags: ["验证"],
-      },
-    ],
-  },
-  {
-    id: "control",
-    name: "流程控制",
-    icon: markRaw(IconServer),
-    color: "#f59e0b",
-    nodes: [
-      {
-        id: "control.if",
-        name: "条件分支",
-        description: "根据条件执行不同的分支",
-        category: "control",
-        tags: ["逻辑"],
-      },
-      {
-        id: "control.loop",
-        name: "循环",
-        description: "重复执行一组节点",
-        category: "control",
-        tags: ["循环"],
-      },
-      {
-        id: "control.wait",
-        name: "等待",
-        description: "暂停执行指定的时间",
-        category: "control",
-        tags: ["延迟"],
-      },
-      {
-        id: "control.stop",
-        name: "终止",
-        description: "停止工作流执行",
-        category: "control",
-        tags: ["终止"],
-      },
-    ],
-  },
-]);
+// 执行器实例
+const executionManager = useVueFlowExecution();
+
+// 是否正在加载
+const loading = ref(true);
+
+// 节点分类数据
+const nodeCategories = ref<NodeCategory[]>([]);
+
+// 分类图标和颜色映射
+const categoryIconMap: Record<string, { icon: Component; color: string }> = {
+  网络: { icon: markRaw(IconWidget), color: "#3b82f6" },
+  数据处理: { icon: markRaw(IconCode), color: "#10b981" },
+  文本工具: { icon: markRaw(IconServer), color: "#f59e0b" },
+};
+
+// 从执行器获取节点列表
+async function loadNodeList() {
+  try {
+    loading.value = true;
+    const nodes = await executionManager.getNodeList();
+
+    // 按分类分组节点
+    const categoryMap = new Map<string, NodeMetadataItem[]>();
+    nodes.forEach((node) => {
+      const category = node.category || "其他";
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, []);
+      }
+      categoryMap.get(category)!.push(node);
+    });
+
+    // 转换为 NodeCategory 格式
+    nodeCategories.value = Array.from(categoryMap.entries()).map(
+      ([categoryName, categoryNodes]) => {
+        const categoryInfo = categoryIconMap[categoryName] || {
+          icon: markRaw(IconCode),
+          color: "#6b7280",
+        };
+
+        return {
+          id: categoryName.toLowerCase().replace(/\s+/g, "-"),
+          name: categoryName,
+          icon: categoryInfo.icon,
+          color: categoryInfo.color,
+          nodes: categoryNodes.map((node) => ({
+            id: node.type,
+            name: node.label,
+            description: node.description || "",
+            category: categoryName,
+            icon: node.icon ? undefined : categoryInfo.icon,
+            tags: node.tags || [],
+          })),
+        };
+      }
+    );
+
+    // 默认展开所有分类
+    expandedCategories.value = nodeCategories.value.map((cat) => cat.id);
+
+    console.log("节点列表加载成功:", nodes.length, "个节点");
+  } catch (error) {
+    console.error("加载节点列表失败:", error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+// 组件挂载时加载节点列表
+onMounted(() => {
+  loadNodeList();
+});
 
 // 过滤后的分类
 const filteredCategories = computed(() => {
@@ -286,7 +240,8 @@ const filteredCategories = computed(() => {
 function handleDragStart(node: NodeDefinition, event: DragEvent) {
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = "copy";
-    event.dataTransfer.setData("application/node", JSON.stringify(node));
+    // 使用 application/vueflow 数据类型以匹配画布的 drop 处理
+    event.dataTransfer.setData("application/vueflow", JSON.stringify(node));
   }
   console.log("开始拖拽节点:", node);
 }

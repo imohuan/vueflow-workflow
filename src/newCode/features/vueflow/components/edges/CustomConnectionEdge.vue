@@ -31,8 +31,8 @@ import {
 } from "@vue-flow/core";
 import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
 import { storeToRefs } from "pinia";
-import { PLUGIN_MANAGER_KEY, type PluginManager } from "../plugins";
-import { useVueFlowEvents } from "../events";
+import { PLUGIN_MANAGER_KEY, type PluginManager } from "../../plugins";
+import { useVueFlowEvents } from "../../events";
 
 // 连接线属性
 const props = defineProps<ConnectionLineProps>();
