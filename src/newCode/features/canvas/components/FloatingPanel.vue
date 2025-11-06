@@ -38,6 +38,7 @@ import { useUiStore } from "@/newCode/stores/ui";
 import TestMenuPanel from "./panels/TestMenuPanel.vue";
 import WorkflowTreePanel from "./panels/WorkflowTreePanel.vue";
 import NodeLibraryPanel from "./panels/NodeLibraryPanel.vue";
+import NodeConfigPanel from "./panels/NodeConfigPanel.vue";
 import VariableEditorPanel from "./panels/VariableEditorPanel.vue";
 import HistoryPanel from "./panels/HistoryPanel.vue";
 import SettingsPanel from "./panels/SettingsPanel.vue";
@@ -48,6 +49,7 @@ const uiStore = useUiStore();
 const panelComponents: Record<string, Component> = {
   workflows: WorkflowTreePanel,
   "node-library": NodeLibraryPanel,
+  "node-config": NodeConfigPanel,
   variables: VariableEditorPanel,
   "execution-history": HistoryPanel,
   "test-menu": TestMenuPanel,
@@ -58,6 +60,7 @@ const panelComponents: Record<string, Component> = {
 const panelTitles: Record<string, string> = {
   workflows: "工作流",
   "node-library": "节点库",
+  "node-config": "节点配置",
   variables: "变量管理",
   "execution-history": "执行记录",
   "test-menu": "测试菜单",

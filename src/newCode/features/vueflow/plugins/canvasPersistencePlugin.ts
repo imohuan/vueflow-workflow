@@ -17,6 +17,7 @@ const STORAGE_KEY = "canvas-state";
 export function createCanvasPersistencePlugin(): VueFlowPlugin {
   let stopWatchers: Array<() => void> = [];
   let saveTimer: number | null = null;
+  let beforeUnloadHandler: ((e: BeforeUnloadEvent) => void) | null = null;
 
   /**
    * 保存画布状态到 localStorage
@@ -119,6 +120,20 @@ export function createCanvasPersistencePlugin(): VueFlowPlugin {
       );
 
       stopWatchers.push(stopNodesWatcher);
+
+      // 页面卸载前立即保存（退出页面或刷新时）
+      beforeUnloadHandler = (_e: BeforeUnloadEvent) => {
+        // 取消待执行的防抖保存
+        if (saveTimer !== null) {
+          clearTimeout(saveTimer);
+          saveTimer = null;
+        }
+        // 立即保存当前状态
+        saveToLocalStorage(canvasStore);
+        console.log("[CanvasPersistence Plugin] 页面卸载前已保存状态");
+      };
+
+      window.addEventListener("beforeunload", beforeUnloadHandler);
     },
 
     cleanup(_context: PluginContext) {
@@ -128,6 +143,12 @@ export function createCanvasPersistencePlugin(): VueFlowPlugin {
       if (saveTimer !== null) {
         clearTimeout(saveTimer);
         saveTimer = null;
+      }
+
+      // 移除页面卸载监听器
+      if (beforeUnloadHandler) {
+        window.removeEventListener("beforeunload", beforeUnloadHandler);
+        beforeUnloadHandler = null;
       }
 
       // 停止所有监听器

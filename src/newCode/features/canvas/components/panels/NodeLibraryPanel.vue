@@ -149,6 +149,8 @@ import IconSearch from "@/icons/IconSearch.vue";
 import IconWidget from "@/icons/IconWidget.vue";
 import IconCode from "@/icons/IconCode.vue";
 import IconServer from "@/icons/IconServer.vue";
+import IconSettings from "@/icons/IconSettings.vue";
+import IconDocument from "@/icons/IconDocument.vue";
 import { useVueFlowExecution } from "@/newCode/features/vueflow/executor";
 import type { NodeMetadataItem } from "@/newCode/features/vueflow/executor/types";
 
@@ -197,6 +199,7 @@ const categoryIconMap: Record<string, { icon: Component; color: string }> = {
   网络: { icon: markRaw(IconWidget), color: "#3b82f6" },
   数据处理: { icon: markRaw(IconCode), color: "#10b981" },
   文本工具: { icon: markRaw(IconServer), color: "#f59e0b" },
+  工具: { icon: markRaw(IconSettings), color: "#8b5cf6" },
 };
 
 // 从执行器获取节点列表
@@ -239,6 +242,26 @@ async function loadNodeList() {
         };
       }
     );
+
+    // 添加工具分类和 Note 笔记节点
+    const toolsCategory: NodeCategory = {
+      id: "tools",
+      name: "工具",
+      icon: markRaw(IconSettings),
+      color: "#8b5cf6",
+      nodes: [
+        {
+          id: "note",
+          name: "笔记",
+          description: "用于记录备注和说明的笔记节点",
+          category: "工具",
+          icon: markRaw(IconDocument),
+        },
+      ],
+    };
+
+    // 将工具分类添加到列表开头
+    nodeCategories.value.unshift(toolsCategory);
 
     // 默认展开所有分类
     expandedCategories.value = nodeCategories.value.map((cat) => cat.id);

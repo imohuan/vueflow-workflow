@@ -61,10 +61,12 @@ import InfoModal from "@/newCode/components/modals/InfoModal.vue";
 import FullscreenEditorModal from "@/newCode/components/modals/FullscreenEditorModal.vue";
 import { useCanvasStore } from "@/newCode/stores/canvas";
 import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
+import { useUiStore } from "@/newCode/stores/ui";
 import { VueFlowCanvas, useVueFlowEvents } from "@/newCode/features/vueflow";
 
 const canvasStore = useCanvasStore();
 const editorConfigStore = useEditorConfigStore();
+const uiStore = useUiStore();
 const { config: editorConfig } = storeToRefs(editorConfigStore);
 const { fitView } = useVueFlow();
 
@@ -160,6 +162,10 @@ events.on("node:added", ({ node }) => {
 events.on("node:clicked", ({ node }) => {
   console.log("[CanvasView] 节点被点击:", node.data?.label);
   // 点击节点时关闭快捷菜单
+  quickMenu.visible = false;
+
+  // 选中节点并打开配置面板
+  uiStore.selectNode(node.id);
 });
 
 // 监听节点双击事件
@@ -178,6 +184,9 @@ events.on("node:context-menu", ({ node }) => {
 events.on("canvas:clicked", () => {
   console.log("[CanvasView] 画布被点击");
   // 点击画布时关闭快捷菜单
+  quickMenu.visible = false;
+  // 取消节点选中
+  uiStore.clearNodeSelection();
 });
 
 // 监听连接失败事件，显示快捷菜单

@@ -41,6 +41,11 @@
         </slot>
       </template>
 
+      <!-- Note 笔记节点插槽 -->
+      <template #node-note="nodeProps">
+        <NoteNode v-bind="nodeProps" />
+      </template>
+
       <!-- 自定义连接线（拖拽时的临时连接线） -->
       <template #connection-line="connectionLineProps">
         <CustomConnectionEdge v-bind="connectionLineProps" />
@@ -106,6 +111,7 @@ import {
 import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
 import { NODE_SIZE } from "@/newCode/config";
 import CustomNode from "./nodes/CustomNode.vue";
+import NoteNode from "./nodes/NoteNode.vue";
 import CustomConnectionEdge from "./edges/CustomConnectionEdge.vue";
 import CustomEdge from "./edges/CustomEdge.vue";
 import {
@@ -193,7 +199,10 @@ const defaultEdgeOptions = computed(() => ({
 }));
 
 // 节点类型映射
-const nodeTypes = { custom: props.customNodeComponent };
+const nodeTypes = {
+  custom: props.customNodeComponent,
+  note: () => NoteNode,
+};
 
 // 边类型映射
 const edgeTypes = { custom: CustomEdge };
@@ -255,16 +264,25 @@ function handleDrop(event: DragEvent) {
       y: position.y - NODE_SIZE.headerHeight / 2, // 垂直对齐到标题中心
     };
 
+    // 判断节点类型
+    const isNoteNode = draggedNode.id === "note";
+
     // 创建新的节点对象
     const newNode: Node = {
       id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      type: "custom",
+      type: isNoteNode ? "note" : "custom",
       position: adjustedPosition,
-      data: {
-        label: draggedNode.name,
-        type: draggedNode.id,
-        description: draggedNode.description,
-      },
+      data: isNoteNode
+        ? {
+            content: "", // Note 节点的初始内容为空
+            width: 200, // 默认宽度
+            height: 120, // 默认高度
+          }
+        : {
+            label: draggedNode.name,
+            type: draggedNode.id,
+            description: draggedNode.description,
+          },
     };
 
     // 添加到节点数组

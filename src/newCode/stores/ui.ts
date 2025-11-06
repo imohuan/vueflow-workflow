@@ -12,6 +12,7 @@ export type PanelSize = "small" | "medium" | "large";
 export type TabKey =
   | "workflows"
   | "node-library"
+  | "node-config"
   | "variables"
   | "execution-history"
   | "test-menu"
@@ -74,6 +75,11 @@ export const useUiStore = defineStore("ui", () => {
     content: "",
     language: "javascript" as string,
   });
+
+  // ==================== 节点选中状态 ====================
+
+  /** 当前选中的节点 ID */
+  const selectedNodeId = ref<string | null>(null);
 
   // ==================== Actions ====================
 
@@ -178,6 +184,29 @@ export const useUiStore = defineStore("ui", () => {
     editorModalVisible.value = false;
   }
 
+  /**
+   * 设置选中的节点并打开节点配置面板
+   */
+  function selectNode(nodeId: string | null) {
+    selectedNodeId.value = nodeId;
+    if (nodeId) {
+      // 自动切换到节点配置 tab 并打开面板
+      activeTab.value = "node-config";
+      floatingPanelVisible.value = true;
+    }
+  }
+
+  /**
+   * 清除节点选中状态
+   */
+  function clearNodeSelection() {
+    selectedNodeId.value = null;
+    // 如果当前显示的是节点配置面板，则关闭面板
+    if (activeTab.value === "node-config") {
+      floatingPanelVisible.value = false;
+    }
+  }
+
   return {
     // 状态
     floatingPanelVisible,
@@ -190,6 +219,7 @@ export const useUiStore = defineStore("ui", () => {
     infoModalContent,
     editorModalVisible,
     editorModalContent,
+    selectedNodeId,
 
     // 方法
     setActiveTab,
@@ -203,5 +233,7 @@ export const useUiStore = defineStore("ui", () => {
     closeInfoModal,
     showEditorModal,
     closeEditorModal,
+    selectNode,
+    clearNodeSelection,
   };
 });

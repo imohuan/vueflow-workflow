@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { h } from "vue";
+import { h, computed } from "vue";
 import type { Component } from "vue";
 import { NIcon } from "naive-ui";
 import IconCanvas from "@/icons/IconCanvas.vue";
@@ -60,13 +60,24 @@ function renderIcon(icon: Component) {
   return () => h(NIcon, null, { default: () => h(icon) });
 }
 
-// 转换主要菜单选项
-const mainMenuOptions = mainTabs.map((tab) => ({
-  label: tab.label,
-  key: tab.id,
-  icon: renderIcon(tab.icon),
-  disabled: tab.disabled,
-}));
+// 转换主要菜单选项（动态过滤）
+const mainMenuOptions = computed(() => {
+  return mainTabs
+    .filter((tab) => {
+      // 如果是节点配置 tab，只在有节点被选中时显示
+      if (tab.id === "node-config") {
+        return !!uiStore.selectedNodeId;
+      }
+
+      return true;
+    })
+    .map((tab) => ({
+      label: tab.label,
+      key: tab.id,
+      icon: renderIcon(tab.icon),
+      disabled: tab.disabled,
+    }));
+});
 
 // 转换底部菜单选项
 const bottomMenuOptions = bottomTabs

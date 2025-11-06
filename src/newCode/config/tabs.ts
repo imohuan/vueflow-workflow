@@ -4,6 +4,7 @@ import IconWidget from "@/icons/IconWidget.vue";
 import IconCode from "@/icons/IconCode.vue";
 import IconServer from "@/icons/IconServer.vue";
 import IconSettings from "@/icons/IconSettings.vue";
+import IconConfig from "@/icons/IconConfig.vue";
 
 /**
  * Tab 项配置接口
@@ -40,6 +41,12 @@ export const mainTabs: TabItem[] = [
     label: "节点库",
     icon: IconWidget,
     description: "浏览和搜索可用节点",
+  },
+  {
+    id: "node-config",
+    label: "节点配置",
+    icon: IconConfig,
+    description: "配置选中节点的参数",
   },
   {
     id: "variables",
