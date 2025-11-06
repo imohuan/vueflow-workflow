@@ -1,5 +1,43 @@
 <template>
   <div class="h-full overflow-y-auto bg-white">
+    <!-- 自定义拖拽预览元素 -->
+    <Teleport to="body">
+      <div
+        ref="dragPreviewRef"
+        class="pointer-events-none fixed"
+        style="left: 0; top: 0; z-index: 99999; transform: translate(-100vw, 0)"
+      >
+        <div
+          class="flex items-center gap-3 rounded-lg border-2 border-blue-400 bg-white px-4 py-3 shadow-2xl"
+          style="
+            width: 240px;
+            background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+          "
+        >
+          <!-- 节点图标 -->
+          <div
+            ref="dragIconRef"
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg shadow-md"
+            style="
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            "
+          >
+            <component
+              :is="dragNodeIcon"
+              class="h-5 w-5 text-white"
+              v-if="dragNodeIcon"
+            />
+          </div>
+
+          <!-- 节点信息 -->
+          <div class="flex-1 overflow-hidden">
+            <div class="font-semibold text-slate-800">{{ dragNodeName }}</div>
+            <div class="mt-0.5 text-xs text-slate-500">拖拽到画布添加</div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- 顶部搜索栏 -->
     <div class="border-b border-slate-200 bg-white p-3">
       <n-input
@@ -49,6 +87,7 @@
               :key="node.id"
               class="cursor-pointer rounded border border-slate-200 bg-white p-3 transition-all hover:border-blue-400 hover:shadow-sm"
               draggable="true"
+              @mouseenter="preparePreview(node, category)"
               @dragstart="handleDragStart(node, $event)"
               @click="handleNodeClick(node)"
             >
@@ -147,6 +186,12 @@ const loading = ref(true);
 // 节点分类数据
 const nodeCategories = ref<NodeCategory[]>([]);
 
+// 拖拽预览相关
+const dragPreviewRef = ref<HTMLElement | null>(null);
+const dragIconRef = ref<HTMLElement | null>(null);
+const dragNodeName = ref("");
+const dragNodeIcon = ref<Component | null>(null);
+
 // 分类图标和颜色映射
 const categoryIconMap: Record<string, { icon: Component; color: string }> = {
   网络: { icon: markRaw(IconWidget), color: "#3b82f6" },
@@ -209,6 +254,10 @@ async function loadNodeList() {
 // 组件挂载时加载节点列表
 onMounted(() => {
   loadNodeList();
+
+  // 初始化拖拽预览的默认值
+  dragNodeName.value = "节点";
+  dragNodeIcon.value = markRaw(IconCode);
 });
 
 // 过滤后的分类
@@ -235,15 +284,54 @@ const filteredCategories = computed(() => {
 });
 
 /**
+ * 准备拖拽预览（鼠标悬停时预先准备）
+ */
+function preparePreview(node: NodeDefinition, category: NodeCategory) {
+  // 更新拖拽预览的内容
+  dragNodeName.value = node.name;
+  dragNodeIcon.value = node.icon || category.icon || null;
+
+  // 更新图标背景渐变
+  if (dragIconRef.value && category) {
+    const color = category.color;
+    const darkerColor = adjustColorBrightness(color, -20);
+    dragIconRef.value.style.background = `linear-gradient(135deg, ${color} 0%, ${darkerColor} 100%)`;
+  }
+}
+
+/**
  * 处理拖拽开始
  */
 function handleDragStart(node: NodeDefinition, event: DragEvent) {
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = "copy";
-    // 使用 application/vueflow 数据类型以匹配画布的 drop 处理
-    event.dataTransfer.setData("application/vueflow", JSON.stringify(node));
+  if (!event.dataTransfer) return;
+
+  event.dataTransfer.effectAllowed = "copy";
+  // 使用 application/vueflow 数据类型以匹配画布的 drop 处理
+  event.dataTransfer.setData("application/vueflow", JSON.stringify(node));
+
+  // 设置自定义拖拽预览（预览内容已在 mouseenter 时准备好）
+  if (dragPreviewRef.value) {
+    // 立即同步调用 setDragImage
+    event.dataTransfer.setDragImage(dragPreviewRef.value, 120, 30);
   }
+
   console.log("开始拖拽节点:", node);
+}
+
+/**
+ * 调整颜色亮度（用于生成渐变色）
+ */
+function adjustColorBrightness(color: string, amount: number): string {
+  // 将十六进制颜色转换为 RGB
+  const hex = color.replace("#", "");
+  const r = Math.max(0, Math.min(255, parseInt(hex.substr(0, 2), 16) + amount));
+  const g = Math.max(0, Math.min(255, parseInt(hex.substr(2, 2), 16) + amount));
+  const b = Math.max(0, Math.min(255, parseInt(hex.substr(4, 2), 16) + amount));
+
+  // 转换回十六进制
+  return `#${r.toString(16).padStart(2, "0")}${g
+    .toString(16)
+    .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
 /**
