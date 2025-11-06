@@ -118,7 +118,6 @@ import {
   createCtrlConnectPlugin,
   createAutoLayoutPlugin,
   createDeletePlugin,
-  createQuickNodeMenuPlugin,
 } from "../plugins";
 
 // 配置 Store
@@ -282,10 +281,7 @@ function handleConnectEnd(event: any) {
  * 处理节点连接
  */
 function handleConnect(connection: Connection) {
-  console.log(
-    "[VueFlowCanvas] 🔗 创建新连接 (handleConnect 被调用):",
-    connection
-  );
+  console.log("[VueFlowCanvas] 创建新连接:", connection);
 
   // 创建新的边
   const newEdge: Edge = {
@@ -299,13 +295,11 @@ function handleConnect(connection: Connection) {
 
   // 添加到边数组
   coreEdges.value.push(newEdge);
-  console.log("[VueFlowCanvas] ✅ 边已添加到画布");
 
   // 通过事件系统通知外部
   if (events) {
     events.emit("edge:connected", { connection });
     events.emit("edge:added", { edge: newEdge });
-    console.log("[VueFlowCanvas] 📡 已触发 edge:connected 和 edge:added 事件");
   }
 }
 
@@ -435,12 +429,6 @@ onMounted(() => {
 
   const deletePlugin = createDeletePlugin();
   pluginManager.register(deletePlugin);
-
-  const quickNodeMenuPlugin = createQuickNodeMenuPlugin({
-    showOnEdgeUpdateFail: true,
-    showOnConnectionFail: true,
-  });
-  pluginManager.register(quickNodeMenuPlugin);
 
   console.log("[VueFlowCanvas] 画布已挂载");
   console.log(

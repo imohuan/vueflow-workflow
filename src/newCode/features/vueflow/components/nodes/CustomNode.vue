@@ -7,13 +7,13 @@
     }"
   >
     <!-- 输入端点 -->
-    <Handle
+    <PortHandle
       v-if="!data.noInputs"
       id="input"
       type="target"
       :position="Position.Left"
-      class="custom-handle custom-handle--target"
-      :style="{ backgroundColor: data.color || '#3b82f6' }"
+      :node-id="id"
+      variant="ellipse"
     />
 
     <!-- 顶部标题区域 -->
@@ -44,19 +44,21 @@
     </div>
 
     <!-- 输出端点 -->
-    <Handle
+    <PortHandle
       v-if="!data.noOutputs"
       id="output"
       type="source"
       :position="Position.Right"
-      class="custom-handle custom-handle--source"
-      :style="{ backgroundColor: data.color || '#10b981' }"
+      :node-id="id"
+      variant="ellipse"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { Handle, Position } from "@vue-flow/core";
+import { Position } from "@vue-flow/core";
+import { PortHandle } from "../ports";
+import "../ports/portStyles.css";
 
 interface Props {
   id: string;
@@ -191,26 +193,5 @@ defineProps<Props>();
   font-size: 12px;
   color: #9ca3af;
   font-style: italic;
-}
-
-/* Handle 样式 */
-.custom-handle {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid white;
-}
-
-.custom-handle:hover {
-  /* transform: scale(1.3);
-  transition: transform 0.15s ease-out; */
-}
-
-.custom-handle--target {
-  left: -6px;
-}
-
-.custom-handle--source {
-  right: -6px;
 }
 </style>

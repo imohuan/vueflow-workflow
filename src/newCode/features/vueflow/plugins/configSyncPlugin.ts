@@ -27,7 +27,8 @@ export function createConfigSyncPlugin(): VueFlowPlugin {
     context.core.updateEdges((edges) =>
       edges.map((edge) => ({
         ...edge,
-        type: editorConfig.value.edgeType,
+        type: "custom",
+        edgeType: editorConfig.value.edgeType,
         animated: editorConfig.value.edgeAnimation,
         style: {
           ...edge.style,

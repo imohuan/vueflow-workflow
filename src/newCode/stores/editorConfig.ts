@@ -32,7 +32,7 @@ export interface EditorConfig {
   maxZoom: number;
 
   /** 连线类型 */
-  edgeType: "default" | "straight" | "step" | "smoothstep";
+  edgeType: "default" | "straight" | "step" | "smoothstep" | "custom";
   /** 连线宽度 */
   edgeWidth: number;
   /** 连线颜色 */
@@ -41,6 +41,8 @@ export interface EditorConfig {
   edgeActiveColor: string;
   /** 连线动画开关 */
   edgeAnimation: boolean;
+  /** 是否显示箭头 */
+  edgeShowArrow: boolean;
 
   /** 是否显示背景网格 */
   showGrid: boolean;
@@ -97,6 +99,7 @@ export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
   edgeColor: "#94a3b8",
   edgeActiveColor: "#3b82f6",
   edgeAnimation: true,
+  edgeShowArrow: true,
 
   // 画布设置 - 背景
   showGrid: true,

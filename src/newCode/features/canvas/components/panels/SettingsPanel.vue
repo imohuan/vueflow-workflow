@@ -200,6 +200,16 @@
           </div>
         </ConfigSection>
 
+        <!-- 连线箭头 -->
+        <ConfigSection title="连线箭头" description="连接线终点的箭头显示">
+          <div
+            class="flex items-center justify-between rounded-lg bg-slate-50 p-3"
+          >
+            <span class="text-sm font-medium text-slate-700">显示箭头</span>
+            <n-switch v-model:value="config.edgeShowArrow" />
+          </div>
+        </ConfigSection>
+
         <!-- 画布缩放 -->
         <ConfigSection title="画布缩放" description="画布缩放级别设置">
           <div class="space-y-4">

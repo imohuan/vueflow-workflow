@@ -237,6 +237,12 @@ export function createEdgeEditPlugin(
 
       // 暴露状态到共享区，供其他插件使用
       context.shared["edge-edit"] = {
+        /** 是否正在编辑边 */
+        isEditing: updatingEdgeId,
+        /** 正在编辑的边 ID */
+        editingEdgeId: updatingEdgeId,
+        /** 原始边信息 */
+        originalEdge: originalEdge,
         /** 标记边更新成功（供其他插件调用，如 Ctrl 连接完成后） */
         markUpdateSuccessful: () => {
           edgeUpdateSuccessful.value = true;

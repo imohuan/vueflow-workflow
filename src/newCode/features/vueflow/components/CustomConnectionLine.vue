@@ -25,11 +25,14 @@ import { computed, inject } from "vue";
 import {
   getBezierPath,
   getSmoothStepPath,
+  getStraightPath,
+  useVueFlow,
   type ConnectionLineProps,
 } from "@vue-flow/core";
 import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
 import { storeToRefs } from "pinia";
 import { PLUGIN_MANAGER_KEY, type PluginManager } from "../plugins";
+import { useVueFlowEvents } from "../events";
 
 // 连接线属性
 const props = defineProps<ConnectionLineProps>();
@@ -40,6 +43,10 @@ const { config } = storeToRefs(editorConfigStore);
 
 // 获取插件管理器
 const pluginManager = inject<PluginManager>(PLUGIN_MANAGER_KEY);
+
+// 获取 VueFlow 实例和事件系统
+const { onConnectEnd } = useVueFlow();
+const events = useVueFlowEvents();
 
 // 获取 Ctrl 连接候选状态
 const ctrlConnectCandidate = computed(() => {
@@ -100,7 +107,24 @@ const isValidConnection = computed(() => {
 
 // 根据连接有效性决定颜色
 const strokeColor = computed(() => {
+  console.log("isValidConnection", isValidConnection.value);
   return isValidConnection.value ? "#22c55e" : "#ef4444";
+});
+
+// 监听连接结束事件
+onConnectEnd((event) => {
+  // 判断连接是否无效
+  console.log("isValidConnection 2", isValidConnection.value);
+  if (!isValidConnection.value) {
+    // 发送连接失败事件，携带鼠标位置
+    events.emit("edge:connection-failed", {
+      event: event as MouseEvent,
+      position: {
+        x: (event as MouseEvent).clientX,
+        y: (event as MouseEvent).clientY,
+      },
+    });
+  }
 });
 
 // 线宽
@@ -112,27 +136,25 @@ const path = computed(() => {
   const source = sourcePoint.value;
   const target = targetPoint.value;
 
+  const params = {
+    sourceX: source.x,
+    sourceY: source.y,
+    sourcePosition: props.sourcePosition,
+    targetX: target.x,
+    targetY: target.y,
+    targetPosition: props.targetPosition,
+  };
+
   // 根据配置的边类型选择路径算法
-  if (edgeType === "step" || edgeType === "smoothstep") {
-    const [smoothPath] = getSmoothStepPath({
-      sourceX: source.x,
-      sourceY: source.y,
-      sourcePosition: props.sourcePosition,
-      targetX: target.x,
-      targetY: target.y,
-      targetPosition: props.targetPosition,
-    });
+  if (edgeType === "straight") {
+    const [straightPath] = getStraightPath(params);
+    return straightPath;
+  } else if (edgeType === "step" || edgeType === "smoothstep") {
+    const [smoothPath] = getSmoothStepPath(params);
     return smoothPath;
   } else {
     // 默认使用贝塞尔曲线
-    const [bezierPath] = getBezierPath({
-      sourceX: source.x,
-      sourceY: source.y,
-      sourcePosition: props.sourcePosition,
-      targetX: target.x,
-      targetY: target.y,
-      targetPosition: props.targetPosition,
-    });
+    const [bezierPath] = getBezierPath(params);
     return bezierPath;
   }
 });

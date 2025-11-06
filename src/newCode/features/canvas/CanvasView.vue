@@ -2,44 +2,44 @@
   <n-layout has-sider class="h-full">
     <VerticalTabNav />
 
-    <n-layout-content>
-      <div ref="canvasContentRef" class="relative h-full overflow-hidden">
-        <FloatingPanel />
+    <n-layout-content class="relative overflow-hidden">
+      <FloatingPanel />
 
-        <!-- VueFlow 画布 -->
-        <div class="absolute inset-0">
-          <VueFlowCanvas
-            :custom-node-component="CustomNode"
-            :show-background="true"
-            :show-controls="true"
-            :show-mini-map="editorConfig.showMiniMap"
-          />
-        </div>
-
-        <div
-          class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2"
-        >
-          <div class="pointer-events-auto">
-            <CanvasToolbar
-              @undo="handleUndo"
-              @redo="handleRedo"
-              @fit-view="handleFitView"
-              @auto-layout="handleAutoLayout"
-              @toggle-mini-map="toggleMiniMap"
-              @execute-workflow="handleExecute"
-            />
-          </div>
-        </div>
-
-        <div class="absolute bottom-2 right-10">
-          <NodeInfoCard />
-        </div>
-
-        <QuickNodeMenu
-          :visible="quickMenu.visible"
-          :position="quickMenu.position"
+      <!-- VueFlow 画布 -->
+      <div ref="canvasContainerRef" class="absolute inset-0">
+        <VueFlowCanvas
+          :custom-node-component="CustomNode"
+          :show-background="true"
+          :show-controls="true"
+          :show-mini-map="editorConfig.showMiniMap"
         />
       </div>
+
+      <div
+        class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2"
+      >
+        <div class="pointer-events-auto">
+          <CanvasToolbar
+            @undo="handleUndo"
+            @redo="handleRedo"
+            @fit-view="handleFitView"
+            @auto-layout="handleAutoLayout"
+            @toggle-mini-map="toggleMiniMap"
+            @execute-workflow="handleExecute"
+          />
+        </div>
+      </div>
+
+      <div class="absolute bottom-2 right-10">
+        <NodeInfoCard />
+      </div>
+
+      <QuickNodeMenu
+        ref="quickMenuRef"
+        @close="quickMenu.visible = false"
+        :visible="quickMenu.visible"
+        :position="quickMenu.position"
+      />
     </n-layout-content>
 
     <!-- Modals -->
@@ -48,7 +48,7 @@
   </n-layout>
 </template>
 <script setup lang="ts">
-import { reactive, ref, onMounted } from "vue";
+import { reactive, onMounted, ref, nextTick } from "vue";
 import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
 import CustomNode from "@/newCode/features/vueflow/components/nodes/CustomNode.vue";
@@ -71,27 +71,27 @@ const { fitView } = useVueFlow();
 // 事件系统
 const events = useVueFlowEvents();
 
-// 画布容器引用
-const canvasContentRef = ref<HTMLElement | null>(null);
-
 // 快速菜单
 const quickMenu = reactive({
   visible: false,
   position: { x: 320, y: 220 },
-  connection: undefined as
-    | { source: string; sourceHandle?: string | null }
-    | undefined,
 });
 
-function toCanvasPosition(position: { x: number; y: number }) {
-  const container = canvasContentRef.value;
-  if (!container) {
-    return position;
+const quickMenuRef = ref<HTMLDivElement | null>(null);
+const canvasContainerRef = ref<HTMLElement | null>(null);
+
+/**
+ * 将浏览器窗口坐标转换为相对于画布容器的坐标
+ */
+function convertToCanvasCoordinates(clientX: number, clientY: number) {
+  if (!canvasContainerRef.value) {
+    return { x: clientX, y: clientY };
   }
-  const rect = container.getBoundingClientRect();
+
+  const rect = canvasContainerRef.value.getBoundingClientRect();
   return {
-    x: position.x - rect.left,
-    y: position.y - rect.top,
+    x: clientX - rect.left,
+    y: clientY - rect.top,
   };
 }
 
@@ -159,6 +159,7 @@ events.on("node:added", ({ node }) => {
 // 监听节点点击事件
 events.on("node:clicked", ({ node }) => {
   console.log("[CanvasView] 节点被点击:", node.data?.label);
+  // 点击节点时关闭快捷菜单
 });
 
 // 监听节点双击事件
@@ -176,24 +177,23 @@ events.on("node:context-menu", ({ node }) => {
 // 监听画布点击事件
 events.on("canvas:clicked", () => {
   console.log("[CanvasView] 画布被点击");
-  // 点击画布时隐藏快捷菜单
-  if (quickMenu.visible) {
-    quickMenu.visible = false;
-  }
+  // 点击画布时关闭快捷菜单
 });
 
-// 监听快捷节点菜单事件
-events.on("ui:show-quick-node-menu", ({ position, connection }) => {
-  console.log("[CanvasView] 显示快捷节点菜单:", { position, connection });
-  quickMenu.position = toCanvasPosition(position);
-  quickMenu.connection = connection;
+// 监听连接失败事件，显示快捷菜单
+events.on("edge:connection-failed", ({ position }) => {
+  console.log("[CanvasView] 连接失败，显示快捷菜单（原始坐标）", position);
+
+  // 将浏览器窗口坐标转换为相对于画布容器的坐标
+  const canvasPosition = convertToCanvasCoordinates(position.x, position.y);
+  console.log("[CanvasView] 转换后的画布坐标", canvasPosition);
+
   quickMenu.visible = true;
-});
+  quickMenu.position = canvasPosition;
 
-events.on("ui:hide-quick-node-menu", () => {
-  console.log("[CanvasView] 隐藏快捷节点菜单");
-  quickMenu.visible = false;
-  quickMenu.connection = undefined;
+  nextTick(() => {
+    quickMenuRef.value?.focus();
+  });
 });
 
 onMounted(() => {

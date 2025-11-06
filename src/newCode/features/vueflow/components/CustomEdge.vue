@@ -13,10 +13,11 @@
 
     <!-- 空心箭头 -->
     <path
+      v-if="showArrow"
       :d="arrowPath"
       fill="none"
       :stroke="edgeColor"
-      :stroke-width="2"
+      :stroke-width="edgeWidth"
       stroke-linejoin="miter"
       class="edge-arrow"
     />
@@ -58,9 +59,14 @@ const isAnimated = computed(() => {
   return props.animated ?? config.value.edgeAnimation;
 });
 
+// 是否显示箭头
+const showArrow = computed(() => {
+  return config.value.edgeShowArrow;
+});
+
 // 计算边路径
 const pathResult = computed(() => {
-  const edgeType = props.type || config.value.edgeType;
+  const edgeType = config.value.edgeType;
 
   const params = {
     sourceX: props.sourceX,
@@ -89,6 +95,8 @@ const arrowSize = 12;
 
 // 计算箭头路径（在终点绘制空心三角形箭头）
 const arrowPath = computed(() => {
+  if (!showArrow.value) return "";
+
   if (typeof document === "undefined") {
     return "";
   }

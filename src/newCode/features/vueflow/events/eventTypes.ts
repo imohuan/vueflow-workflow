@@ -47,9 +47,14 @@ export interface EdgeEvents {
   /** 边数据更新 */
   "edge:updated": { edge: Edge };
   /** 连接开始（拖拽连接线开始） */
-  "edge:connect-start": any;
-  /** 连接结束（拖拽连接线结束） */
-  "edge:connect-end": any;
+  "edge:connect-start": { event: MouseEvent; handleType: "source" | "target" };
+  /** 连接结束（拖拽连接线结束，未成功连接） */
+  "edge:connect-end": { event: MouseEvent; isValid: boolean };
+  /** 连接失败（拖拽结束但未成功建立连接） */
+  "edge:connection-failed": {
+    event: MouseEvent;
+    position: { x: number; y: number };
+  };
   /** 边更新开始（拖拽端点开始） */
   "edge:update-start": { edge: Edge };
   /** 边更新中（拖拽端点到新位置） */
@@ -122,30 +127,13 @@ export interface HistoryEvents {
 }
 
 /**
- * UI 交互事件
- */
-export interface UIEvents {
-  /** 显示快捷节点菜单 */
-  "ui:show-quick-node-menu": {
-    position: { x: number; y: number };
-    connection?: {
-      source: string;
-      sourceHandle?: string | null;
-    };
-  };
-  /** 隐藏快捷节点菜单 */
-  "ui:hide-quick-node-menu": void;
-}
-
-/**
  * 所有事件类型合并
  */
 export type VueFlowEventMap = NodeEvents &
   EdgeEvents &
   CanvasEvents &
   WorkflowEvents &
-  HistoryEvents &
-  UIEvents;
+  HistoryEvents;
 
 /**
  * 事件名称类型
