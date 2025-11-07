@@ -62,7 +62,7 @@
         <template #icon>
           <n-icon><IconPlay /></n-icon>
         </template>
-        执行
+        {{ executeButtonText }}
       </n-button>
     </template>
 
@@ -103,6 +103,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from "vue";
+import { useVueFlow } from "@vue-flow/core";
 import { useVueFlowEvents } from "@/newCode/features/vueflow";
 import { useCanvasStore } from "@/newCode/stores/canvas";
 import IconUndo from "@/icons/IconUndo.vue";
@@ -116,10 +117,24 @@ import IconStop from "@/icons/IconStop.vue";
 
 const canvasStore = useCanvasStore();
 const events = useVueFlowEvents();
+const { getSelectedNodes } = useVueFlow();
 
 // 执行状态
 const isExecuting = computed(() => canvasStore.isExecuting);
 const isPaused = ref(false);
+
+// 选中节点数量
+const selectedNodeCount = computed(() => {
+  return getSelectedNodes.value?.length || 0;
+});
+
+// 执行按钮提示文字
+const executeButtonText = computed(() => {
+  if (selectedNodeCount.value > 0) {
+    return `执行选中 (${selectedNodeCount.value})`;
+  }
+  return "执行";
+});
 
 // 历史记录状态（由历史记录插件通过事件更新）
 const canUndo = ref(false);

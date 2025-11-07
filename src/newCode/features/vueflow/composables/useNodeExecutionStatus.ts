@@ -24,8 +24,12 @@ export interface NodeExecutionStatus {
   endTime?: number;
   /** 执行时长（毫秒） */
   duration?: number;
+  /** 执行结果 */
+  result?: any;
   /** 错误信息 */
   error?: string;
+  /** 时间戳 */
+  timestamp?: number;
 }
 
 /**
@@ -108,10 +112,17 @@ export function useNodeExecutionStatus() {
    * 处理节点执行完成
    */
   function handleNodeComplete(payload: ExecutionNodeCompleteEvent) {
-    console.log("[NodeExecutionStatus] 节点完成:", payload.nodeId);
+    console.log(
+      "[NodeExecutionStatus] 节点完成:",
+      payload.nodeId,
+      payload.result
+    );
+    const now = Date.now();
     setNodeStatus(payload.nodeId, {
       status: "success",
-      endTime: Date.now(),
+      endTime: now,
+      timestamp: now,
+      result: payload.result,
     });
   }
 
@@ -124,9 +135,11 @@ export function useNodeExecutionStatus() {
       payload.nodeId,
       payload.error
     );
+    const now = Date.now();
     setNodeStatus(payload.nodeId, {
       status: "error",
-      endTime: Date.now(),
+      endTime: now,
+      timestamp: now,
       error: payload.error,
     });
   }
@@ -136,11 +149,14 @@ export function useNodeExecutionStatus() {
    */
   function handleCacheHit(payload: ExecutionCacheHitEvent) {
     console.log("[NodeExecutionStatus] 缓存命中:", payload.nodeId);
+    const now = Date.now();
     setNodeStatus(payload.nodeId, {
       status: "cached",
-      startTime: Date.now(),
-      endTime: Date.now(),
+      startTime: now,
+      endTime: now,
+      timestamp: now,
       duration: payload.cachedResult.duration,
+      result: payload.cachedResult.outputs,
     });
   }
 

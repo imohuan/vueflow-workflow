@@ -138,6 +138,12 @@ export interface ExecutionEvents {
   "execution:node:complete": ExecutionNodeCompleteEvent;
   "execution:node:error": ExecutionNodeErrorEvent;
   "execution:cache-hit": ExecutionCacheHitEvent;
+  /** 节点执行结果预览 */
+  "execution:result:preview": {
+    nodeId: string;
+    status: string;
+    result: any;
+  };
 }
 
 /**

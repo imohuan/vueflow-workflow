@@ -39,6 +39,7 @@ import TestMenuPanel from "./panels/TestMenuPanel.vue";
 import WorkflowTreePanel from "./panels/WorkflowTreePanel.vue";
 import NodeLibraryPanel from "./panels/NodeLibraryPanel.vue";
 import NodeConfigPanel from "./panels/NodeConfigPanel.vue";
+import NodeResultPreviewPanel from "./panels/NodeResultPreviewPanel.vue";
 import VariableEditorPanel from "./panels/VariableEditorPanel.vue";
 import HistoryPanel from "./panels/HistoryPanel.vue";
 import SettingsPanel from "./panels/SettingsPanel.vue";
@@ -50,6 +51,7 @@ const panelComponents: Record<string, Component> = {
   workflows: WorkflowTreePanel,
   "node-library": NodeLibraryPanel,
   "node-config": NodeConfigPanel,
+  "node-result-preview": NodeResultPreviewPanel,
   variables: VariableEditorPanel,
   "execution-history": HistoryPanel,
   "test-menu": TestMenuPanel,
@@ -61,6 +63,7 @@ const panelTitles: Record<string, string> = {
   workflows: "工作流",
   "node-library": "节点库",
   "node-config": "节点配置",
+  "node-result-preview": "节点预览",
   variables: "变量管理",
   "execution-history": "执行记录",
   "test-menu": "测试菜单",

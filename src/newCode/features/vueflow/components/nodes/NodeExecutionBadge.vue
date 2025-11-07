@@ -1,12 +1,14 @@
 <template>
   <div
     v-if="showBadge"
-    class="absolute h-6 -top-7 right-0 z-10 px-2 py-1 rounded-md text-xs font-medium leading-none whitespace-nowrap shadow backdrop-blur-sm cursor-pointer pointer-events-auto pb-1"
+    class="absolute group h-6 -top-7 right-0 z-10 px-2 py-1 rounded-md text-xs font-medium leading-none whitespace-nowrap shadow backdrop-blur-sm cursor-pointer pointer-events-auto pb-1"
     :class="statusBgClass"
     :title="clickHint"
     @click.stop="handleClick"
   >
-    <div class="flex items-center gap-1 hover:border-b hover:border-white">
+    <div
+      class="flex items-center gap-1 hover:border-b group-hover:border-white"
+    >
       <component
         :is="statusIconComponent"
         class="w-3.5 h-3.5"

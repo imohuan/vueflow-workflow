@@ -69,6 +69,11 @@ const mainMenuOptions = computed(() => {
         return !!uiStore.selectedNodeId;
       }
 
+      // 如果是节点预览 tab，只在有预览节点时显示
+      if (tab.id === "node-result-preview") {
+        return !!uiStore.previewNodeId;
+      }
+
       return true;
     })
     .map((tab) => ({

@@ -13,6 +13,7 @@ export type TabKey =
   | "workflows"
   | "node-library"
   | "node-config"
+  | "node-result-preview"
   | "variables"
   | "execution-history"
   | "execution-result"
@@ -81,6 +82,14 @@ export const useUiStore = defineStore("ui", () => {
 
   /** 当前选中的节点 ID */
   const selectedNodeId = ref<string | null>(null);
+
+  // ==================== 节点预览状态 ====================
+
+  /** 当前预览的节点 ID */
+  const previewNodeId = ref<string | null>(null);
+
+  /** 当前预览的节点执行状态 */
+  const previewNodeData = ref<any>(null);
 
   // ==================== Actions ====================
 
@@ -208,6 +217,29 @@ export const useUiStore = defineStore("ui", () => {
     }
   }
 
+  /**
+   * 显示节点执行结果预览
+   */
+  function showNodePreview(nodeId: string, nodeData: any) {
+    previewNodeId.value = nodeId;
+    previewNodeData.value = nodeData;
+    // 自动切换到节点预览 tab 并打开面板
+    activeTab.value = "node-result-preview";
+    floatingPanelVisible.value = true;
+  }
+
+  /**
+   * 清除节点预览状态
+   */
+  function clearNodePreview() {
+    previewNodeId.value = null;
+    previewNodeData.value = null;
+    // 如果当前显示的是节点预览面板，则关闭面板
+    if (activeTab.value === "node-result-preview") {
+      floatingPanelVisible.value = false;
+    }
+  }
+
   return {
     // 状态
     floatingPanelVisible,
@@ -221,6 +253,8 @@ export const useUiStore = defineStore("ui", () => {
     editorModalVisible,
     editorModalContent,
     selectedNodeId,
+    previewNodeId,
+    previewNodeData,
 
     // 方法
     setActiveTab,
@@ -236,5 +270,7 @@ export const useUiStore = defineStore("ui", () => {
     closeEditorModal,
     selectNode,
     clearNodeSelection,
+    showNodePreview,
+    clearNodePreview,
   };
 });

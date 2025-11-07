@@ -76,7 +76,7 @@ const editorConfigStore = useEditorConfigStore();
 const uiStore = useUiStore();
 const workflowStore = useWorkflowStore();
 const { config: editorConfig } = storeToRefs(editorConfigStore);
-const { fitView } = useVueFlow();
+const { fitView, getSelectedNodes } = useVueFlow();
 const message = useMessage();
 
 // 事件系统
@@ -223,12 +223,17 @@ async function handleExecute() {
   canvasStore.setExecuting(true);
 
   try {
+    // 获取当前选中的节点 ID 列表
+    const selectedNodes = getSelectedNodes.value || [];
+    const selectedNodeIds = selectedNodes.map((node) => node.id);
+
     // 构建 Workflow 对象并移除 Vue 响应式代理
     // 使用 JSON 序列化来移除 Proxy 和不可序列化的对象
-    const workflowData = {
+    const workflowData: Workflow = {
       workflow_id: currentWorkflow.workflow_id,
       name: currentWorkflow.name,
       description: currentWorkflow.description,
+      selectedNodeIds,
       nodes: currentWorkflow.nodes.map((node: any) => ({
         id: node.id,
         type: node.type || "custom",
@@ -304,6 +309,7 @@ events.on("canvas:clicked", () => {
   // quickMenu.visible = false;
   // 取消节点选中
   uiStore.clearNodeSelection();
+  uiStore.clearNodePreview();
 });
 
 // 监听连接失败事件，显示快捷菜单
@@ -407,6 +413,14 @@ events.on("execution:cache-hit", ({ nodeId }) => {
       executionStatus: "cached",
     },
   });
+});
+
+// 监听节点执行结果预览事件
+events.on("execution:result:preview", (payload: any) => {
+  console.log("[CanvasView] 显示节点执行结果预览:", payload);
+
+  // 通过 UI Store 显示节点预览
+  uiStore.showNodePreview(payload.nodeId, payload.result);
 });
 
 /**

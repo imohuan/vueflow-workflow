@@ -5,6 +5,7 @@ import IconCode from "@/icons/IconCode.vue";
 import IconServer from "@/icons/IconServer.vue";
 import IconSettings from "@/icons/IconSettings.vue";
 import IconConfig from "@/icons/IconConfig.vue";
+import IconResult from "@/icons/IconResult.vue";
 
 /**
  * Tab 项配置接口
@@ -47,6 +48,12 @@ export const mainTabs: TabItem[] = [
     label: "节点配置",
     icon: IconConfig,
     description: "配置选中节点的参数",
+  },
+  {
+    id: "node-result-preview",
+    label: "节点预览",
+    icon: IconResult,
+    description: "查看节点执行结果",
   },
   {
     id: "variables",
