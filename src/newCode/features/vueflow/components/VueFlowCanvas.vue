@@ -112,6 +112,7 @@ import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
 import { useVueFlowCore } from "../core/useVueFlowCore";
+import { useNodeExecutionStatus } from "../composables/useNodeExecutionStatus";
 import {
   DEFAULT_VUEFLOW_CONFIG,
   BACKGROUND_CONFIG,
@@ -250,6 +251,12 @@ const pluginManager = new PluginManager();
 // 提供插件管理器供子组件访问
 provide(PLUGIN_MANAGER_KEY, pluginManager);
 
+// 节点执行状态管理
+const executionStatusManager = useNodeExecutionStatus();
+
+// 提供节点执行状态给所有子节点组件
+provide("nodeExecutionStatuses", executionStatusManager.nodeStatuses.value);
+
 /**
  * 小地图节点颜色
  */
@@ -305,6 +312,7 @@ function handleDrop(event: DragEvent) {
       type: nodeType,
       position: adjustedPosition,
       data: {
+        nodeType: draggedNode.id,
         // 通用字段：从 draggedNode 获取
         label: draggedNode.name,
         description: draggedNode.description,

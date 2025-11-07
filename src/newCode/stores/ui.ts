@@ -15,6 +15,7 @@ export type TabKey =
   | "node-config"
   | "variables"
   | "execution-history"
+  | "execution-result"
   | "test-menu"
   | "settings";
 

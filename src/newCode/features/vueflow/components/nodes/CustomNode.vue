@@ -6,6 +6,9 @@
       'custom-node--running': data.status === 'running',
     }"
   >
+    <!-- 执行状态徽章 -->
+    <NodeExecutionBadge :node-id="id" />
+
     <!-- 输入端点 -->
     <PortHandle
       v-if="!data.noInputs"
@@ -59,6 +62,7 @@
 import { Position } from "@vue-flow/core";
 import { PortHandle } from "../ports";
 import { NODE_SIZE, NODE_COLORS, NODE_SPACING } from "@/newCode/config";
+import NodeExecutionBadge from "./NodeExecutionBadge.vue";
 import "../ports/portStyles.css";
 
 interface Props {

@@ -392,11 +392,19 @@ export class WorkflowExecutor {
       context.setNodeState(nodeId, "running");
       options.onNodeStart?.(nodeId);
 
-      // 获取节点输入
+      // 获取节点输入（从前驱节点的输出）
       const inputs = context.getNodeInputs(nodeId);
 
+      // 合并节点配置参数（node.data.params）到输入中
+      // 这样节点就能读取用户在配置面板中设置的参数
+      if (node.data?.params) {
+        Object.assign(inputs, node.data.params);
+      }
+
       // 获取节点执行函数
-      const executeFunc = this.nodeResolver.resolve(node.type);
+      // 优先使用 data.nodeType（真实的节点类型），否则回退到 type
+      const nodeType = node.data?.nodeType || node.type;
+      const executeFunc = this.nodeResolver.resolve(nodeType);
 
       // 执行节点
       const outputs = await this.executeWithTimeout(

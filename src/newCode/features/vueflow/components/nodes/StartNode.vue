@@ -6,6 +6,9 @@
       'start-node--running': data.status === 'running',
     }"
   >
+    <!-- 执行状态徽章 -->
+    <NodeExecutionBadge :node-id="id" />
+
     <!-- 顶部标题区域 -->
     <div class="start-node__header">
       <!-- 图标 -->
@@ -53,6 +56,7 @@
 import { Position } from "@vue-flow/core";
 import { PortHandle } from "../ports";
 import { NODE_SIZE, NODE_SPACING } from "@/newCode/config";
+import NodeExecutionBadge from "./NodeExecutionBadge.vue";
 import "../ports/portStyles.css";
 
 interface Props {

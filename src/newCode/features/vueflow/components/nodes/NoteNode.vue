@@ -10,6 +10,9 @@
     :style="nodeStyle"
     @dblclick="handleDoubleClick"
   >
+    <!-- 执行状态徽章 -->
+    <NodeExecutionBadge :node-id="id" />
+
     <!-- 编辑状态：显示输入框 -->
     <textarea
       v-if="isEditing"
@@ -56,6 +59,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed, onUnmounted, type Ref } from "vue";
 import { useVueFlow, type NodeProps } from "@vue-flow/core";
+import NodeExecutionBadge from "./NodeExecutionBadge.vue";
 
 interface NoteNodeData {
   content?: string;
