@@ -268,6 +268,8 @@ export class ExecutionContext {
       }
     }
 
+    console.log("[getNodeInputs]", inputs);
+
     return inputs;
   }
 

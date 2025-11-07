@@ -34,7 +34,6 @@ export class StartNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: ["#10b981", "#059669"],
-      icon: "▶️",
       showIcon: true,
     };
   }
@@ -44,6 +43,8 @@ export class StartNode extends BaseFlowNode {
     context: NodeExecutionContext
   ): Promise<NodeExecutionResult> {
     // 开始节点直接返回成功，传递一个开始时间戳
+    console.log("[StartNode execute]", context);
+
     return this.createOutput({
       output: {
         started: true,

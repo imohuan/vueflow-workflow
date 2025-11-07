@@ -272,6 +272,109 @@ export abstract class BaseFlowNode {
   }
 
   /**
+   * 判断节点是否应该使用缓存
+   * 子类可以重写此方法来自定义缓存策略
+   * @param inputs - 当前输入数据
+   * @param context - 执行上下文
+   * @returns 是否应该使用缓存
+   */
+  shouldUseCache(
+    inputs: Record<string, any>,
+    context: NodeExecutionContext
+  ): boolean {
+    // 默认策略：始终允许使用缓存
+    // 缓存有效性由缓存键（configHash）来判断
+    return true;
+  }
+
+  /**
+   * 获取用于缓存判断的输入参数
+   * 子类可以重写此方法来指定哪些输入应该参与缓存判断
+   * 默认情况下，所有输入都会参与缓存判断
+   * @param inputs - 完整的输入数据
+   * @returns 应该参与缓存判断的输入数据
+   */
+  protected getCacheableInputs(
+    inputs: Record<string, any>
+  ): Record<string, any> {
+    // 默认：所有输入都参与缓存判断
+    return inputs;
+  }
+
+  /**
+   * 计算节点配置的哈希值
+   * 用于判断节点配置是否发生变化
+   * @param inputs - 输入数据
+   * @param nodeData - 节点配置数据
+   * @returns 配置哈希值
+   */
+  computeConfigHash(
+    inputs: Record<string, any>,
+    nodeData: Record<string, any> = {}
+  ): string {
+    // 获取可缓存的输入
+    const cacheableInputs = this.getCacheableInputs(inputs);
+
+    // 合并节点配置参数
+    const configData = {
+      type: this.type,
+      inputs: cacheableInputs,
+      // params: nodeData.params || {},
+    };
+
+    // 计算哈希
+    return this.hashObject(configData);
+  }
+
+  /**
+   * 计算对象的简单哈希值
+   * @param obj - 要计算哈希的对象
+   * @returns 哈希字符串
+   */
+  private hashObject(obj: any): string {
+    // 将对象转换为稳定的 JSON 字符串（排序键）
+    const jsonString = this.stableStringify(obj);
+
+    // 使用简单的哈希算法（DJB2）
+    let hash = 5381;
+    for (let i = 0; i < jsonString.length; i++) {
+      hash = (hash * 33) ^ jsonString.charCodeAt(i);
+    }
+
+    // 转换为十六进制字符串
+    return (hash >>> 0).toString(16);
+  }
+
+  /**
+   * 将对象转换为稳定的 JSON 字符串（键排序）
+   * @param obj - 要序列化的对象
+   * @returns JSON 字符串
+   */
+  private stableStringify(obj: any): string {
+    if (obj === null || obj === undefined) {
+      return String(obj);
+    }
+
+    if (typeof obj !== "object") {
+      return JSON.stringify(obj);
+    }
+
+    if (Array.isArray(obj)) {
+      return (
+        "[" + obj.map((item) => this.stableStringify(item)).join(",") + "]"
+      );
+    }
+
+    // 对象：按键排序
+    const keys = Object.keys(obj).sort();
+    const pairs = keys.map((key) => {
+      return JSON.stringify(key) + ":" + this.stableStringify(obj[key]);
+    });
+
+    return "{" + pairs.join(",") + "}";
+  }
+
+  /**
    * 判断是否为普通对象
    */
   private isPlainObject(obj: any): obj is Record<string, any> {

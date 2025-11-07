@@ -18,6 +18,13 @@ export interface INodeResolver {
   resolve(type: string): NodeExecuteFunction;
 
   /**
+   * 根据类型获取节点实例
+   * @param type - 节点类型
+   * @returns 节点实例
+   */
+  resolveInstance(type: string): BaseFlowNode;
+
+  /**
    * 获取节点元数据
    * @param type - 节点类型
    * @returns 节点元数据
@@ -74,6 +81,14 @@ export class DefaultNodeResolver implements INodeResolver {
       throw new Error(`未知的节点类型: ${type}`);
     }
     return NodeClass;
+  }
+
+  /**
+   * 根据类型获取节点实例
+   */
+  resolveInstance(type: string): BaseFlowNode {
+    const NodeClass = this.getNodeClass(type);
+    return new NodeClass();
   }
 
   /**

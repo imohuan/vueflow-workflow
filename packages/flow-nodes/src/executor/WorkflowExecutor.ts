@@ -372,38 +372,59 @@ export class WorkflowExecutor {
     const nodeId = node.id;
 
     try {
-      // 检查是否有有效缓存
-      if (options.useCache && context.hasValidCache(nodeId, node.configHash)) {
-        // 使用缓存
-        const cached = context.getCachedResult(nodeId)!;
-        context.setNodeState(nodeId, "cached", {
-          outputs: cached.outputs,
-          fromCache: true,
-          duration: cached.duration,
-          inputs: cached.inputs,
-        });
-        context.setNodeOutput(nodeId, cached.outputs);
+      // 获取节点类型
+      const nodeType = node.data?.nodeType || node.type;
 
-        options.onCacheHit?.(nodeId, cached);
-        return;
+      // 获取节点输入（从前驱节点的输出）
+      const inputs = context.getNodeInputs(nodeId);
+
+      // 合并节点配置参数（node.data.params）到输入中
+      if (node.data?.params) {
+        Object.assign(inputs, node.data.params);
+      }
+
+      // 缓存判断逻辑
+      let shouldUseCache = false;
+      let configHash: string | undefined;
+
+      // 1. 首先判断全局缓存开关
+      if (options.useCache) {
+        // 2. 获取节点实例以进行节点级缓存判断
+        const nodeInstance = this.nodeResolver.resolveInstance(nodeType);
+
+        // 3. 判断节点是否允许使用缓存
+        shouldUseCache = nodeInstance.shouldUseCache(inputs, {
+          nodeId,
+          workflowId: context.getWorkflowId(),
+        });
+
+        // 4. 如果节点允许使用缓存，计算配置哈希并检查缓存
+        if (shouldUseCache) {
+          configHash = nodeInstance.computeConfigHash(inputs, node.data || {});
+
+          // 检查是否有有效缓存
+          if (context.hasValidCache(nodeId, configHash)) {
+            // 使用缓存
+            const cached = context.getCachedResult(nodeId)!;
+            context.setNodeState(nodeId, "cached", {
+              outputs: cached.outputs,
+              fromCache: true,
+              duration: cached.duration,
+              inputs: cached.inputs,
+            });
+            context.setNodeOutput(nodeId, cached.outputs);
+
+            options.onCacheHit?.(nodeId, cached);
+            return;
+          }
+        }
       }
 
       // 开始执行节点
       context.setNodeState(nodeId, "running");
       options.onNodeStart?.(nodeId);
 
-      // 获取节点输入（从前驱节点的输出）
-      const inputs = context.getNodeInputs(nodeId);
-
-      // 合并节点配置参数（node.data.params）到输入中
-      // 这样节点就能读取用户在配置面板中设置的参数
-      if (node.data?.params) {
-        Object.assign(inputs, node.data.params);
-      }
-
       // 获取节点执行函数
-      // 优先使用 data.nodeType（真实的节点类型），否则回退到 type
-      const nodeType = node.data?.nodeType || node.type;
       const executeFunc = this.nodeResolver.resolve(nodeType);
 
       // 执行节点
@@ -421,9 +442,10 @@ export class WorkflowExecutor {
         inputs,
       });
 
-      // 缓存结果
-      if (options.useCache) {
+      // 缓存结果（只有在允许缓存且已计算配置哈希的情况下）
+      if (shouldUseCache && configHash) {
         const nodeState = context.getNodeState(nodeId)!;
+
         context.setCachedResult(nodeId, {
           nodeId,
           status: "success",
@@ -431,7 +453,7 @@ export class WorkflowExecutor {
           outputs,
           inputs,
           duration: nodeState.duration || 0,
-          configHash: node.configHash,
+          configHash,
         });
       }
 
