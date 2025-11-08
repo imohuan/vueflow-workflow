@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject } from "vue";
+import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import {
   getBezierPath,
   getSmoothStepPath,
@@ -105,6 +105,44 @@ const isValidConnection = computed(() => {
   return true;
 });
 
+// 延迟更新的连接有效性状态
+const delayedIsValidConnection = ref(isValidConnection.value);
+
+// 定时器引用
+let delayTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 监听 isValidConnection 变化，当从 true 变成 false 时延迟 100ms 更新
+watch(
+  isValidConnection,
+  (newVal, oldVal) => {
+    // 清除之前的定时器
+    if (delayTimer) {
+      clearTimeout(delayTimer);
+      delayTimer = null;
+    }
+
+    if (oldVal === true && newVal === false) {
+      // 从 true 变成 false，延迟 100ms
+      delayTimer = setTimeout(() => {
+        delayedIsValidConnection.value = false;
+        delayTimer = null;
+      }, 100);
+    } else {
+      // 其他情况立即更新
+      delayedIsValidConnection.value = newVal;
+    }
+  },
+  { immediate: true }
+);
+
+// 组件卸载时清理定时器
+onBeforeUnmount(() => {
+  if (delayTimer) {
+    clearTimeout(delayTimer);
+    delayTimer = null;
+  }
+});
+
 // 根据连接有效性决定颜色
 const strokeColor = computed(() => {
   console.log("isValidConnection", isValidConnection.value);
@@ -113,9 +151,9 @@ const strokeColor = computed(() => {
 
 // 监听连接结束事件
 onConnectEnd((event) => {
-  // 判断连接是否无效
-  console.log("isValidConnection 2", isValidConnection.value);
-  if (!isValidConnection.value) {
+  // 判断连接是否无效（使用延迟更新的值）
+  console.log("delayedIsValidConnection", delayedIsValidConnection.value);
+  if (!delayedIsValidConnection.value) {
     // 发送连接失败事件，携带鼠标位置
     events.emit("edge:connection-failed", {
       event: event as MouseEvent,
