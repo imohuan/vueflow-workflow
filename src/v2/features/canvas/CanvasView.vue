@@ -52,10 +52,11 @@
   </n-layout>
 </template>
 <script setup lang="ts">
-import { reactive, onMounted, onUnmounted, ref, nextTick } from "vue";
+import { reactive, ref, nextTick, computed, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
 import { useMessage } from "naive-ui";
+import { onKeyStroke, useActiveElement, useMagicKeys } from "@vueuse/core";
 import CustomNode from "../vueflow/components/nodes/CustomNode.vue";
 import CanvasToolbar from "./components/CanvasToolbar.vue";
 import QuickNodeMenu from "./components/QuickNodeMenu.vue";
@@ -228,12 +229,14 @@ async function handleExecute(selectedNodeIds?: string[]) {
   try {
     // 获取要执行的节点 ID 列表
     // 如果传入了 selectedNodeIds，使用传入的；否则使用当前选中的节点
-    let finalSelectedNodeIds: string[];
+    let finalSelectedNodeIds: string[] = [];
     if (selectedNodeIds && selectedNodeIds.length > 0) {
       finalSelectedNodeIds = selectedNodeIds;
     } else {
       const selectedNodes = getSelectedNodes.value || [];
-      finalSelectedNodeIds = selectedNodes.map((node) => node.id);
+      if (selectedNodes.length > 1) {
+        finalSelectedNodeIds = selectedNodes.map((node) => node.id);
+      }
     }
 
     // 构建 Workflow 对象并移除 Vue 响应式代理
@@ -439,43 +442,64 @@ events.on("execution:result:preview", (payload: any) => {
   uiStore.showNodePreview(payload.nodeId, payload.result);
 });
 
-/**
- * 处理键盘快捷键
- */
-function handleKeydown(event: KeyboardEvent) {
-  // 按 Tab 键切换左侧浮动面板
-  if (
-    (event.key === "Tab" || event.key === "Escape") &&
-    !event.ctrlKey &&
-    !event.shiftKey &&
-    !event.altKey
-  ) {
-    event.preventDefault(); // 阻止默认的焦点切换行为
-    if (event.key === "Escape") {
-      uiStore.closeFloatingPanel();
-    } else {
-      uiStore.toggleFloatingPanel();
-    }
-    console.log(
-      "[CanvasView] Tab 键切换左侧面板:",
-      uiStore.floatingPanelVisible ? "显示" : "隐藏"
-    );
-  }
-}
+// ========== 键盘快捷键处理 ==========
 
-onMounted(() => {
-  console.log("[CanvasView] 组件已挂载");
-  console.log("[CanvasView] 事件系统已初始化");
-
-  // 注册键盘事件监听器
-  window.addEventListener("keydown", handleKeydown);
-  console.log("[CanvasView] 键盘快捷键已注册（Tab: 切换左侧面板）");
+// 检查是否在输入框中（避免在输入时触发快捷键）
+const activeElement = useActiveElement();
+const notUsingInput = computed(() => {
+  return (
+    activeElement.value?.tagName !== "INPUT" &&
+    activeElement.value?.tagName !== "TEXTAREA" &&
+    !activeElement.value?.isContentEditable
+  );
 });
 
-onUnmounted(() => {
-  // 移除键盘事件监听器
-  window.removeEventListener("keydown", handleKeydown);
-  console.log("[CanvasView] 键盘快捷键已移除");
+// Tab 键切换左侧浮动面板
+onKeyStroke(
+  "Tab",
+  (e) => {
+    if (notUsingInput.value && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      uiStore.toggleFloatingPanel();
+      console.log(
+        "[CanvasView] Tab 键切换左侧面板:",
+        uiStore.floatingPanelVisible ? "显示" : "隐藏"
+      );
+    }
+  },
+  { dedupe: true }
+);
+
+// Escape 键关闭左侧浮动面板
+onKeyStroke(
+  "Escape",
+  (e) => {
+    if (notUsingInput.value && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      uiStore.closeFloatingPanel();
+      console.log("[CanvasView] Escape 键关闭左侧面板");
+    }
+  },
+  { dedupe: true }
+);
+
+// Ctrl + Shift + F 执行自动布局（使用 useMagicKeys 更可靠）
+const keys = useMagicKeys({
+  passive: false, // 允许 preventDefault
+  onEventFired(e) {
+    // 如果是 Ctrl+Shift+F，阻止默认行为
+    if (e.altKey && e.shiftKey && e.key === "f" && e.type === "keydown") {
+      e.preventDefault();
+    }
+  },
+});
+const ctrlShiftF = keys["Alt+Shift+F"] as any;
+
+watch(ctrlShiftF, (pressed) => {
+  if (pressed && notUsingInput.value) {
+    console.log("[CanvasView] Ctrl+Shift+F 执行自动布局");
+    handleAutoLayout();
+  }
 });
 </script>
 

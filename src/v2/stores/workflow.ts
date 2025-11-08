@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import type { TreeOption } from "naive-ui";
-import type { Workflow } from "../../../../packages/flow-nodes/src/executor/types";
+import type { Workflow } from "workflow-flow-nodes";
 
 const STORAGE_KEY = "ai-browser-tools:workflows";
 const CURRENT_WORKFLOW_KEY = "ai-browser-tools:current-workflow-id";

@@ -12,5 +12,5 @@
 <script setup lang="ts">
 import { RouterView } from "vue-router";
 import { NConfigProvider, NMessageProvider, NDialogProvider } from "naive-ui";
-import MessageContainer from "@/v2/components/common/MessageContainer.vue";
+import MessageContainer from "./components/common/MessageContainer.vue";
 </script>

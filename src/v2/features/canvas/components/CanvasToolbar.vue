@@ -130,7 +130,7 @@ const selectedNodeCount = computed(() => {
 
 // 执行按钮提示文字
 const executeButtonText = computed(() => {
-  if (selectedNodeCount.value > 0) {
+  if (selectedNodeCount.value > 1) {
     return `执行选中 (${selectedNodeCount.value})`;
   }
   return "执行";
