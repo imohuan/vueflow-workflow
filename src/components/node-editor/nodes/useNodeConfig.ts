@@ -1,5 +1,5 @@
-import { useNodeEditorStore } from "@/stores/nodeEditor";
-import type { NodeData } from "@/typings/nodeEditor";
+import { useNodeEditorStore } from "../../../stores/nodeEditor";
+import type { NodeData } from "../../../typings/nodeEditor";
 
 interface NodeConfigProps {
   id: string;

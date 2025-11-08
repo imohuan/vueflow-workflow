@@ -155,7 +155,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import type { ConfigField } from "@/newCode/typings/config";
+import type { ConfigField } from "../../typings/config";
 
 interface Props {
   field: ConfigField;

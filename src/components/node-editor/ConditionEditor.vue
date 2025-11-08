@@ -159,15 +159,15 @@ import type {
   OperatorType,
   IfConfig,
   ConditionOperand,
-} from "@/workflow/nodes";
-import { OPERATOR_LABELS, OPERATORS_BY_TYPE } from "@/workflow/nodes";
+} from "../../workflow/nodes";
+import { OPERATOR_LABELS, OPERATORS_BY_TYPE } from "../../workflow/nodes";
 import VariableTextInput from "./VariableTextInput.vue";
-import Select from "@/components/common/Select.vue";
-import CascadedSelect from "@/components/common/CascadedSelect.vue";
+import Select from "../common/Select.vue";
+import CascadedSelect from "../common/CascadedSelect.vue";
 import type {
   CascadedOption,
   OptionGroup,
-} from "@/components/common/CascadedSelect.vue";
+} from "../common/CascadedSelect.vue";
 import IconPlus from "@/icons/IconPlus.vue";
 import IconMinus from "@/icons/IconMinus.vue";
 

@@ -138,7 +138,7 @@
 import { ref, computed } from "vue";
 import { storeToRefs } from "pinia";
 import FolderItem from "./WorkflowFolderItem.vue";
-import { useWorkflowStore, type WorkflowFolder } from "@/stores/workflow";
+import { useWorkflowStore, type WorkflowFolder } from "../../stores/workflow";
 
 const emit = defineEmits<{
   (e: "close"): void;

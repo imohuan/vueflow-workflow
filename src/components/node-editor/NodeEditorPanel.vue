@@ -129,12 +129,12 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from "vue";
-import { useNodeEditorStore } from "@/stores/nodeEditor";
-import InputText from "@/components/common/InputText.vue";
+import { useNodeEditorStore } from "../../stores/nodeEditor";
+import InputText from "../common/InputText.vue";
 import IconEmptyNode from "@/icons/IconEmptyNode.vue";
 import NodeConfigForm from "./NodeConfigForm.vue";
 import VariablePanel from "./VariablePanel.vue";
-import Button from "@/components/common/Button.vue";
+import Button from "../common/Button.vue";
 import IconCog from "@/icons/IconCog.vue";
 import IconClose from "@/icons/IconClose.vue";
 import IconPlayCircle from "@/icons/IconPlayCircle.vue";

@@ -144,8 +144,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useMessage } from "naive-ui";
-import { useCanvasStore } from "@/newCode/stores/canvas";
-import { useUiStore } from "@/newCode/stores/ui";
+import { useCanvasStore } from "../../../../stores/canvas";
+import { useUiStore } from "../../../../stores/ui";
 import IconResult from "@/icons/IconResult.vue";
 import IconErrorCircle from "@/icons/IconErrorCircle.vue";
 import IconCache from "@/icons/IconCache.vue";

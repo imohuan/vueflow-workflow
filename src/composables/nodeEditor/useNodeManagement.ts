@@ -4,10 +4,10 @@
  */
 import type { Ref } from "vue";
 import type { Node, Edge } from "@vue-flow/core";
-import type { NodeData, NodeResult } from "@/typings/nodeEditor";
-import { useNodeRegistry } from "@/composables/useNodeRegistry";
+import type { NodeData, NodeResult } from "../../typings/nodeEditor";
+import { useNodeRegistry } from "../useNodeRegistry";
 import { IfNode } from "workflow-node-executor";
-import type { IfConfig } from "@/workflow/nodes";
+import type { IfConfig } from "../../workflow/nodes";
 import {
   CONTAINER_DEFAULT_WIDTH,
   CONTAINER_DEFAULT_HEIGHT,

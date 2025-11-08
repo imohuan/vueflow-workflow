@@ -40,7 +40,7 @@
 <script setup lang="ts">
 import { ref, watch, type PropType } from "vue";
 import ConfigField from "./ConfigField.vue";
-import type { ConfigSchema } from "@/newCode/typings/config";
+import type { ConfigSchema } from "../../typings/config";
 
 interface Props {
   schema: ConfigSchema;

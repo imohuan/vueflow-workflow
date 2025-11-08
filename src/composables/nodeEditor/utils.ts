@@ -2,10 +2,10 @@
  * 节点编辑器工具函数
  */
 import type { Node } from "@vue-flow/core";
-import type { NodeData } from "@/typings/nodeEditor";
+import type { NodeData } from "../../typings/nodeEditor";
 import type { PaddingValues } from "./types";
-import { nodeEditorLayoutConfig } from "@/config";
-import { getNodeEditorBridge } from "@/components/node-editor/nodeEditorBridge";
+import { nodeEditorLayoutConfig } from "../../config";
+import { getNodeEditorBridge } from "../../components/node-editor/nodeEditorBridge";
 
 const { containerDefaults } = nodeEditorLayoutConfig;
 

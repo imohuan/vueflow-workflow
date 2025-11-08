@@ -35,7 +35,7 @@
 import { computed } from "vue";
 import { storeToRefs } from "pinia";
 import ModalShell from "../ui/ModalShell.vue";
-import { useUiStore } from "@/newCode/stores/ui";
+import { useUiStore } from "../../stores/ui";
 import IconInfo from "@/icons/IconInfo.vue";
 import IconCheck from "@/icons/IconCheck.vue";
 import IconAlert from "@/icons/IconAlert.vue";

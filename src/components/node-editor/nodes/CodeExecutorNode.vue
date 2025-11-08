@@ -68,7 +68,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import type { NodeData } from "@/typings/nodeEditor";
+import type { NodeData } from "../../../typings/nodeEditor";
 import NodeWrapper from "./NodeWrapper.vue";
 
 interface Props {

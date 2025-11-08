@@ -163,14 +163,14 @@ import IconCog from "@/icons/IconCog.vue";
 import IconChevronRight from "@/icons/IconChevronRight.vue";
 import VariablePanel from "./VariablePanel.vue";
 import VariablePreview from "./VariablePreview.vue";
-import Button from "@/components/common/Button.vue";
+import Button from "../common/Button.vue";
 import Splitter from "@/volt/Splitter.vue";
 import SplitterPanel from "primevue/splitterpanel";
-import { useNodeEditorStore } from "@/stores/nodeEditor";
+import { useNodeEditorStore } from "../../stores/nodeEditor";
 import {
   buildVariableContext,
   resolveConfigWithVariables,
-} from "@/workflow/variables/variableResolver";
+} from "../../workflow/variables/variableResolver";
 
 interface Props {
   modelValue?: boolean;

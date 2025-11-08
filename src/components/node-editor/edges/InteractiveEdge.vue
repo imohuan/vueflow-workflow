@@ -65,7 +65,7 @@ import {
   Position,
   type EdgeProps,
 } from "@vue-flow/core";
-import { useNodeEditorStore } from "@/stores/nodeEditor";
+import { useNodeEditorStore } from "../../../stores/nodeEditor";
 import IconTrash from "@/icons/IconTrash.vue";
 
 type EdgeVariant =

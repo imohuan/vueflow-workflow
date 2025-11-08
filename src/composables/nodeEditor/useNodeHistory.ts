@@ -5,7 +5,7 @@
 import { ref, computed, type Ref } from "vue";
 import { useDebounceFn } from "@vueuse/core";
 import type { Node, Edge } from "@vue-flow/core";
-import type { NodeData } from "@/typings/nodeEditor";
+import type { NodeData } from "../../typings/nodeEditor";
 import type { HistorySnapshot } from "./types";
 
 export function useNodeHistory(

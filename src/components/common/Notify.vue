@@ -35,7 +35,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useNotifyStore } from "@/stores/notify";
+import { useNotifyStore } from "../../stores/notify";
 import IconError from "@/icons/IconError.vue";
 import IconSuccess from "@/icons/IconSuccess.vue";
 import IconWarning from "@/icons/IconWarning.vue";

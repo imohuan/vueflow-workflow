@@ -5,9 +5,9 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import type { Node, Edge } from "@vue-flow/core";
-import type { NodeData } from "@/typings/nodeEditor";
-import { workflowEmitter } from "@/main";
-import { WorkflowEventType } from "@/typings/workflowExecution";
+import type { NodeData } from "../typings/nodeEditor";
+import { workflowEmitter } from "../main";
+import { WorkflowEventType } from "../typings/workflowExecution";
 import {
   // 工具函数
   normalizePadding,
@@ -23,7 +23,7 @@ import {
   useNodeManagement,
   useNodeClipboard,
   useNodeExecution,
-} from "@/composables/nodeEditor";
+} from "../composables/nodeEditor";
 
 export const useNodeEditorStore = defineStore("nodeEditor", () => {
   // ========== 初始化数据 ==========

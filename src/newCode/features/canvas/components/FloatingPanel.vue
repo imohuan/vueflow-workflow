@@ -33,8 +33,8 @@
 
 <script setup lang="ts">
 import { computed, type Component } from "vue";
-import { PanelShell } from "@/newCode/components/ui";
-import { useUiStore } from "@/newCode/stores/ui";
+import { PanelShell } from "../../../components/ui";
+import { useUiStore } from "../../../stores/ui";
 import TestMenuPanel from "./panels/TestMenuPanel.vue";
 import WorkflowTreePanel from "./panels/WorkflowTreePanel.vue";
 import NodeLibraryPanel from "./panels/NodeLibraryPanel.vue";

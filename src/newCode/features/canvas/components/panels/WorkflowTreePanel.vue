@@ -91,12 +91,12 @@ import IconAdd from "@/icons/IconAdd.vue";
 import IconNodeEditor from "@/icons/IconNodeEditor.vue";
 import IconDelete from "@/icons/IconDelete.vue";
 import IconFolder from "@/icons/IconFolder.vue";
-import { useCanvasStore } from "@/newCode/stores/canvas";
+import { useCanvasStore } from "../../../../stores/canvas";
 import {
   useWorkflowStore,
   type WorkflowTreeMeta,
   type WorkflowFolder,
-} from "@/newCode/stores/workflow";
+} from "../../../../stores/workflow";
 
 const message = useMessage();
 const dialog = useDialog();

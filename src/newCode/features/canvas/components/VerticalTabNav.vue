@@ -49,9 +49,9 @@ import { h, computed } from "vue";
 import type { Component } from "vue";
 import { NIcon } from "naive-ui";
 import IconCanvas from "@/icons/IconCanvas.vue";
-import { mainTabs, bottomTabs } from "@/newCode/config/tabs";
-import { useUiStore } from "@/newCode/stores/ui";
-import type { TabKey } from "@/newCode/stores/ui";
+import { mainTabs, bottomTabs } from "../../../config/tabs";
+import { useUiStore } from "../../../stores/ui";
+import type { TabKey } from "../../../stores/ui";
 
 const uiStore = useUiStore();
 const collapsed = true; // 始终折叠，只显示图标

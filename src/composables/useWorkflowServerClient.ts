@@ -21,9 +21,9 @@ import {
   type ComputedRef,
 } from "vue";
 import type { Emitter } from "mitt";
-import type { WorkflowEvents } from "@/typings/workflowExecution";
+import type { WorkflowEvents } from "../typings/workflowExecution";
 import type { WorkflowNode, WorkflowEdge } from "workflow-node-executor";
-import { useNotifyStore } from "@/stores/notify";
+import { useNotifyStore } from "../stores/notify";
 
 /** 客户端状态 */
 type ClientStatus = "disconnected" | "connecting" | "ready" | "error";

@@ -141,9 +141,9 @@
 import { computed, type Component } from "vue";
 import { Position } from "@vue-flow/core";
 import { PortHandle } from "../ports";
-import { NODE_SIZE, NODE_COLORS, NODE_SPACING } from "@/newCode/config";
+import { NODE_SIZE, NODE_COLORS, NODE_SPACING } from "../../../../config";
 import NodeExecutionBadge from "./NodeExecutionBadge.vue";
-import { useNodeRegistry } from "@/composables/useNodeRegistry";
+import { useNodeRegistry } from "../../../../../composables/useNodeRegistry";
 import type { NodeStyleConfig } from "workflow-flow-nodes";
 import { createNodeInstance } from "workflow-flow-nodes";
 import IconPlay from "@/icons/IconPlay.vue";

@@ -104,8 +104,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useVueFlow } from "@vue-flow/core";
-import { useVueFlowEvents } from "@/newCode/features/vueflow";
-import { useCanvasStore } from "@/newCode/stores/canvas";
+import { useVueFlowEvents } from "../../vueflow";
+import { useCanvasStore } from "../../../stores/canvas";
 import IconUndo from "@/icons/IconUndo.vue";
 import IconRedo from "@/icons/IconRedo.vue";
 import IconFit from "@/icons/IconFit.vue";

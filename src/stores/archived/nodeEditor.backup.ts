@@ -11,17 +11,17 @@ import type {
   NodeResult,
   Connection,
   NodeResultOutput,
-} from "@/typings/nodeEditor";
+} from "../../typings/nodeEditor";
 import type { WorkflowExecutionContext } from "workflow-node-executor";
-import { useNodeRegistry } from "@/composables/useNodeRegistry";
+import { useNodeRegistry } from "../../composables/useNodeRegistry";
 import {
   buildVariableContext,
   resolveConfigWithVariables,
-} from "@/workflow/variables/variableResolver";
-import type { VariableTreeNode } from "@/workflow/variables/variableResolver";
-import { nodeEditorLayoutConfig, type ContainerPaddingConfig } from "@/config";
+} from "../../workflow/variables/variableResolver";
+import type { VariableTreeNode } from "../../workflow/variables/variableResolver";
+import { nodeEditorLayoutConfig, type ContainerPaddingConfig } from "../../config";
 import { IfNode } from "workflow-node-executor";
-import type { IfConfig } from "@/workflow/nodes";
+import type { IfConfig } from "../../workflow/nodes";
 import {
   executeWorkflow as runWorkflow,
   type ExecutionLog,
@@ -29,8 +29,8 @@ import {
   type WorkflowEdge,
   type WorkflowExecutionResult,
 } from "workflow-node-executor";
-import { workflowEmitter } from "@/main";
-import { getNodeEditorBridge } from "@/components/node-editor/nodeEditorBridge";
+import { workflowEmitter } from "../../main";
+import { getNodeEditorBridge } from "../../components/node-editor/nodeEditorBridge";
 
 const { containerDefaults, childEstimate } = nodeEditorLayoutConfig;
 

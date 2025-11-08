@@ -598,12 +598,12 @@
 import { ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useMessage } from "naive-ui";
-import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
-import ConfigSection from "@/newCode/components/common/ConfigSection.vue";
-import ExecutionModeSelector from "@/newCode/components/settings/ExecutionModeSelector.vue";
-import EdgeTypeSelector from "@/newCode/components/settings/EdgeTypeSelector.vue";
-import GridTypeSelector from "@/newCode/components/settings/GridTypeSelector.vue";
-import ColorPicker from "@/newCode/components/settings/ColorPicker.vue";
+import { useEditorConfigStore } from "../../../../stores/editorConfig";
+import ConfigSection from "../../../../components/common/ConfigSection.vue";
+import ExecutionModeSelector from "../../../../components/settings/ExecutionModeSelector.vue";
+import EdgeTypeSelector from "../../../../components/settings/EdgeTypeSelector.vue";
+import GridTypeSelector from "../../../../components/settings/GridTypeSelector.vue";
+import ColorPicker from "../../../../components/settings/ColorPicker.vue";
 import IconSettings from "@/icons/IconSettings.vue";
 import IconPlay from "@/icons/IconPlay.vue";
 import IconCanvas from "@/icons/IconCanvas.vue";

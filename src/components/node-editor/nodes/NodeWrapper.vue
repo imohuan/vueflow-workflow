@@ -175,21 +175,21 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, inject, type Component } from "vue";
 import { Handle, Position, useVueFlow } from "@vue-flow/core";
-import type { NodeData } from "@/typings/nodeEditor";
-import { useNodeEditorStore } from "@/stores/nodeEditor";
+import type { NodeData } from "../../../typings/nodeEditor";
+import { useNodeEditorStore } from "../../../stores/nodeEditor";
 import IconPlay from "@/icons/IconPlay.vue";
 import NodeResult from "../NodeResult.vue";
-import { getNodeTheme } from "@/config/nodeTheme";
+import { getNodeTheme } from "../../../config/nodeTheme";
 import { PORT_STYLE } from "../ports";
 import { usePortPositionUpdate } from "./usePortPositionUpdate";
 import {
   CTRL_CONNECT_CONTEXT_KEY,
   type CtrlConnectContextValue,
-} from "@/components/node-editor/contextKeys";
+} from "../contextKeys";
 import {
   NODE_EDITOR_BRIDGE_KEY,
   type NodeEditorBridge,
-} from "@/components/node-editor/nodeEditorBridge";
+} from "../nodeEditorBridge";
 
 // 导入所有图标组件
 import IconBell from "@/icons/IconBell.vue";

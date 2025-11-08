@@ -4,7 +4,7 @@
  */
 import type { Ref } from "vue";
 import type { Node } from "@vue-flow/core";
-import type { NodeData } from "@/typings/nodeEditor";
+import type { NodeData } from "../../typings/nodeEditor";
 import type { ContainerVisualConfig } from "./types";
 import {
   CONTAINER_DEFAULT_WIDTH,

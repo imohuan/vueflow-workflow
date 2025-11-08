@@ -118,10 +118,10 @@
 </template>
 
 <script setup lang="ts">
-import { useUiStore } from "@/newCode/stores/ui";
-import { useCanvasStore } from "@/newCode/stores/canvas";
+import { useUiStore } from "../../../../stores/ui";
+import { useCanvasStore } from "../../../../stores/canvas";
 import { useMessage, useDialog } from "naive-ui";
-import type { PanelSize } from "@/newCode/stores/ui";
+import type { PanelSize } from "../../../../stores/ui";
 
 const uiStore = useUiStore();
 const canvasStore = useCanvasStore();

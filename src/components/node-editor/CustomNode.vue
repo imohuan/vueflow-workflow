@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import type { NodeData } from "@/typings/nodeEditor";
+import type { NodeData } from "../../typings/nodeEditor";
 import BasicNode from "./nodes/BasicNode.vue";
 import IfNode from "./nodes/IfNode.vue";
 import ForNode from "./nodes/ForNode.vue";

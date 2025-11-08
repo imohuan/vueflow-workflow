@@ -130,8 +130,8 @@ import {
   CONTROLS_CONFIG,
   MINIMAP_CONFIG,
 } from "../core/vueflowConfig";
-import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
-import { NODE_SIZE } from "@/newCode/config";
+import { useEditorConfigStore } from "../../../stores/editorConfig";
+import { NODE_SIZE } from "../../../config";
 import { eventBusUtils } from "../events";
 import CustomNode from "./nodes/CustomNode.vue";
 import NoteNode from "./nodes/NoteNode.vue";

@@ -153,8 +153,8 @@ import IconSettings from "@/icons/IconSettings.vue";
 import IconDocument from "@/icons/IconDocument.vue";
 import IconStart from "@/icons/IconStart.vue";
 import IconEnd from "@/icons/IconEnd.vue";
-import { useVueFlowExecution } from "@/newCode/features/vueflow/executor";
-import type { NodeMetadataItem } from "@/newCode/features/vueflow/executor/types";
+import { useVueFlowExecution } from "../../../vueflow/executor";
+import type { NodeMetadataItem } from "../../../vueflow/executor/types";
 
 // 节点分类接口
 interface NodeCategory {

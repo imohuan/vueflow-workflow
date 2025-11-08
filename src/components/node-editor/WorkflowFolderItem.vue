@@ -228,7 +228,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from "vue";
-import type { WorkflowFolder, Workflow } from "@/stores/workflow";
+import type { WorkflowFolder, Workflow } from "../../stores/workflow";
 
 const props = defineProps<{
   folder: WorkflowFolder;

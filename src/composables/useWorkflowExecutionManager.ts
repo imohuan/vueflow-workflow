@@ -14,11 +14,11 @@ import {
   type UseWorkflowServerClientReturn,
 } from "./useWorkflowServerClient";
 import type { Emitter } from "mitt";
-import type { WorkflowEvents } from "@/typings/workflowExecution";
+import type { WorkflowEvents } from "../typings/workflowExecution";
 import {
   getExecutionModeConfig,
   type ExecutionModeConfig,
-} from "@/config/executionMode";
+} from "../config/executionMode";
 import type { WorkflowNode, WorkflowEdge } from "workflow-node-executor";
 
 const config = ref<ExecutionModeConfig>(getExecutionModeConfig());

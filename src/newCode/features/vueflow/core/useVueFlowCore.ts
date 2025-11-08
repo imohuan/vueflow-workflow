@@ -5,7 +5,7 @@
 
 import { ref, watch, type Ref } from "vue";
 import { useVueFlow, type Node, type Edge } from "@vue-flow/core";
-import { useCanvasStore } from "@/newCode/stores/canvas";
+import { useCanvasStore } from "../../../stores/canvas";
 import { useVueFlowEvents } from "../events/useVueFlowEvents";
 import type { PluginManager } from "../plugins";
 

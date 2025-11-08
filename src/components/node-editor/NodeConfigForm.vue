@@ -401,23 +401,23 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, nextTick, toRaw } from "vue";
-import { useNodeEditorStore } from "@/stores/nodeEditor";
-import InputText from "@/components/common/InputText.vue";
-import Select from "@/components/common/Select.vue";
+import { useNodeEditorStore } from "../../stores/nodeEditor";
+import InputText from "../common/InputText.vue";
+import Select from "../common/Select.vue";
 import VariableTextInput from "./VariableTextInput.vue";
 import ConditionEditor from "./ConditionEditor.vue";
-import CodeEditor from "@/components/common/CodeEditor.vue";
-import type { IfConfig } from "@/workflow/nodes";
+import CodeEditor from "../common/CodeEditor.vue";
+import type { IfConfig } from "../../workflow/nodes";
 import { useDebounceFn } from "@vueuse/core";
 import IconPlus from "@/icons/IconPlus.vue";
 import IconTrash from "@/icons/IconTrash.vue";
 import IconCode from "@/icons/IconCode.vue";
 import IconType from "@/icons/IconType.vue";
-import { generateParamsInterface } from "@/utils/typeInference";
+import { generateParamsInterface } from "../../utils/typeInference";
 import {
   buildVariableContext,
   resolveConfigWithVariables,
-} from "@/workflow/variables/variableResolver";
+} from "../../workflow/variables/variableResolver";
 
 const CODE_DEBUG_ENABLED = false;
 

@@ -66,11 +66,11 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import type { NodeData } from "@/typings/nodeEditor";
-import type { Condition, IfConfig } from "@/workflow/nodes";
-import { OPERATOR_LABELS } from "@/workflow/nodes";
+import type { NodeData } from "../../../typings/nodeEditor";
+import type { Condition, IfConfig } from "../../../workflow/nodes";
+import { OPERATOR_LABELS } from "../../../workflow/nodes";
 import NodeWrapper from "./NodeWrapper.vue";
-import VariableBadge from "@/components/common/VariableBadge.vue";
+import VariableBadge from "../../common/VariableBadge.vue";
 
 interface Props {
   id: string;

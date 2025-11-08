@@ -198,14 +198,14 @@ import { computed, ref, watch } from "vue";
 import IconChevronRight from "@/icons/IconChevronRight.vue";
 import IconFx from "@/icons/IconFx.vue";
 import IconExternalLink from "@/icons/IconExternalLink.vue";
-import Dropdown from "@/components/common/Dropdown.vue";
+import Dropdown from "../common/Dropdown.vue";
 import VariablePreview from "./VariablePreview.vue";
 import VariableEditorModal from "./VariableEditorModal.vue";
-import { useNodeEditorStore } from "@/stores/nodeEditor";
+import { useNodeEditorStore } from "../../stores/nodeEditor";
 import {
   buildVariableContext,
   resolveConfigWithVariables,
-} from "@/workflow/variables/variableResolver";
+} from "../../workflow/variables/variableResolver";
 
 defineOptions({
   inheritAttrs: false,

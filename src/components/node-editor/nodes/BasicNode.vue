@@ -165,9 +165,9 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import type { NodeData } from "@/typings/nodeEditor";
+import type { NodeData } from "../../../typings/nodeEditor";
 import NodeWrapper from "./NodeWrapper.vue";
-import VariableBadge from "@/components/common/VariableBadge.vue";
+import VariableBadge from "../../common/VariableBadge.vue";
 import { useNodeConfig } from "./useNodeConfig";
 
 interface Props {

@@ -4,7 +4,7 @@
  */
 import { ref, type Ref } from "vue";
 import type { Node, Edge } from "@vue-flow/core";
-import type { NodeData } from "@/typings/nodeEditor";
+import type { NodeData } from "../../typings/nodeEditor";
 import type { NodeClipboardData, NodeClipboardNode } from "./types";
 import {
   cloneDeep,

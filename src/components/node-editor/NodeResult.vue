@@ -380,11 +380,11 @@ import type {
   NodeData,
   NodeResult,
   NodeResultOutput,
-} from "@/typings/nodeEditor";
+} from "../../typings/nodeEditor";
 import IconChevronRight from "@/icons/IconChevronRight.vue";
-import JsonViewer from "@/components/common/JsonViewer.vue";
+import JsonViewer from "../common/JsonViewer.vue";
 import IconFit from "@/icons/IconFit.vue";
-import { useNodeEditorStore } from "@/stores/nodeEditor";
+import { useNodeEditorStore } from "../../stores/nodeEditor";
 import { storeToRefs } from "pinia";
 
 type IterationStatus = "success" | "error" | "skipped";

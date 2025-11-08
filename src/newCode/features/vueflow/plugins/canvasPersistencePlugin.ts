@@ -5,7 +5,7 @@
 
 import { watch } from "vue";
 import type { VueFlowPlugin, PluginContext } from "./types";
-import { useCanvasStore } from "@/newCode/stores/canvas";
+import { useCanvasStore } from "../../../stores/canvas";
 
 /** localStorage 存储键 */
 const STORAGE_KEY = "canvas-view-state";

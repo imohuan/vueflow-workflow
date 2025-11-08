@@ -10,7 +10,7 @@
 
 import { ref, computed, inject, type Ref } from "vue";
 import type { Emitter } from "mitt";
-import type { WorkflowEvents } from "@/typings/workflowExecution";
+import type { WorkflowEvents } from "../typings/workflowExecution";
 import type { WorkflowNode, WorkflowEdge } from "workflow-node-executor";
 
 // ==================== 类型定义 ====================

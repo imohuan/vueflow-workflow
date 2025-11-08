@@ -26,11 +26,11 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useNodeEditorStore } from "@/stores/nodeEditor";
+import { useNodeEditorStore } from "../../stores/nodeEditor";
 import {
   resolveConfigWithVariables,
   buildVariableContext,
-} from "@/workflow/variables/variableResolver";
+} from "../../workflow/variables/variableResolver";
 
 interface Props {
   value?: string | number;

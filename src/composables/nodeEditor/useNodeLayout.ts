@@ -5,7 +5,7 @@
 import type { Ref } from "vue";
 import dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@vue-flow/core";
-import type { NodeData } from "@/typings/nodeEditor";
+import type { NodeData } from "../../typings/nodeEditor";
 import type {
   AutoLayoutOptions,
   DagreLayoutDirection,

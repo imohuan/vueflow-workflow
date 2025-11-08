@@ -86,9 +86,9 @@ import { Position } from "@vue-flow/core";
 import StandardNode from "./StandardNode.vue";
 import { PortHandle } from "../ports";
 import type { NodeStyleConfig } from "workflow-flow-nodes";
-import type { Condition, IfConfig } from "@/workflow/nodes";
-import { OPERATOR_LABELS } from "@/workflow/nodes";
-import VariableBadge from "@/components/common/VariableBadge.vue";
+import type { Condition, IfConfig } from "../../../../../workflow/nodes";
+import { OPERATOR_LABELS } from "../../../../../workflow/nodes";
+import VariableBadge from "../../../../../components/common/VariableBadge.vue";
 
 interface Props {
   id: string;

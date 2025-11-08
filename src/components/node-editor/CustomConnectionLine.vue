@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, inject } from "vue";
 import { getBezierPath, type ConnectionLineProps } from "@vue-flow/core";
-import { useNodeEditorStore } from "@/stores/nodeEditor";
+import { useNodeEditorStore } from "../../stores/nodeEditor";
 import {
   CTRL_CONNECT_CONTEXT_KEY,
   type CtrlConnectContextValue,
-} from "@/components/node-editor/contextKeys";
+} from "./contextKeys";
 
 // 连接线属性
 const props = defineProps<ConnectionLineProps>();

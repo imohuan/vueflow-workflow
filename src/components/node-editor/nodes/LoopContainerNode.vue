@@ -72,9 +72,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Handle, Position, type Node } from "@vue-flow/core";
-import { useNodeEditorStore } from "@/stores/nodeEditor";
-import type { NodeData } from "@/typings/nodeEditor";
-import { nodeEditorLayoutConfig } from "@/config";
+import { useNodeEditorStore } from "../../../stores/nodeEditor";
+import type { NodeData } from "../../../typings/nodeEditor";
+import { nodeEditorLayoutConfig } from "../../../config";
 import { PORT_STYLE } from "../ports";
 
 interface Props {

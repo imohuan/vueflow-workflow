@@ -5,7 +5,7 @@
 
 import { watch } from "vue";
 import type { VueFlowPlugin, PluginContext } from "./types";
-import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
+import { useEditorConfigStore } from "../../../stores/editorConfig";
 import { storeToRefs } from "pinia";
 
 /**

@@ -94,14 +94,14 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { useNodeEditorStore } from "@/stores/nodeEditor";
+import { useNodeEditorStore } from "../../stores/nodeEditor";
 import IconEmptyNode from "@/icons/IconEmptyNode.vue";
-import CodeEditor from "@/components/common/CodeEditor.vue";
+import CodeEditor from "../common/CodeEditor.vue";
 import IconCog from "@/icons/IconCog.vue";
 import IconClose from "@/icons/IconClose.vue";
 import IconReset from "@/icons/IconReset.vue";
 import IconPlayCircle from "@/icons/IconPlayCircle.vue";
-import type { MonacoInstance } from "@/utils/monaco";
+import type { MonacoInstance } from "../../utils/monaco";
 
 const CODE_DEFAULT_SOURCE = `/**
  * 主函数入口

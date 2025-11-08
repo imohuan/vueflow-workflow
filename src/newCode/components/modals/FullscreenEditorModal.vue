@@ -51,7 +51,7 @@
 import { ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import ModalShell from "../ui/ModalShell.vue";
-import { useUiStore } from "@/newCode/stores/ui";
+import { useUiStore } from "../../stores/ui";
 import { useMessage } from "naive-ui";
 
 const uiStore = useUiStore();

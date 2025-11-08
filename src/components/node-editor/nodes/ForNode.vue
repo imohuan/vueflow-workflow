@@ -122,10 +122,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import type { NodeData } from "@/typings/nodeEditor";
+import type { NodeData } from "../../../typings/nodeEditor";
 import type { ForConfig } from "workflow-node-executor";
 import NodeWrapper from "./NodeWrapper.vue";
-import VariableBadge from "@/components/common/VariableBadge.vue";
+import VariableBadge from "../../common/VariableBadge.vue";
 import { PORT_STYLE } from "../ports";
 
 interface Props {

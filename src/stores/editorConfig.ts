@@ -3,7 +3,7 @@
  */
 import { defineStore } from "pinia";
 import { useLocalStorage } from "@vueuse/core";
-import { editorConfigSchema } from "@/config/editorConfig";
+import { editorConfigSchema } from "../config/editorConfig";
 
 /**
  * 从 URL query 参数读取配置

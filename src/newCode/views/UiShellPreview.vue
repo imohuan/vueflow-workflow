@@ -158,7 +158,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { ModalShell, PanelShell } from "@/newCode/components/ui";
+import { ModalShell, PanelShell } from "../components/ui";
 
 const modalVisible = ref(false);
 const bottomModalVisible = ref(false);

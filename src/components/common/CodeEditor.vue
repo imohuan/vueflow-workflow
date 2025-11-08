@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, type PropType } from "vue";
-import { loadMonaco, type MonacoInstance } from "@/utils/monaco";
+import { loadMonaco, type MonacoInstance } from "../../utils/monaco";
 import type * as Monaco from "monaco-editor";
 
 const props = defineProps({

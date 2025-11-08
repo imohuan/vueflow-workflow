@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useCanvasStore } from "@/newCode/stores/canvas";
+import { useCanvasStore } from "../../../stores/canvas";
 
 const canvasStore = useCanvasStore();
 

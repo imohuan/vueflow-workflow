@@ -109,13 +109,13 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useNodeRegistry } from "@/composables/useNodeRegistry";
-import type { NodeMetadata } from "@/composables/useNodeRegistry";
-import Accordion from "@/components/common/Accordion.vue";
-import AccordionPanel from "@/components/common/AccordionPanel.vue";
-import AccordionHeader from "@/components/common/AccordionHeader.vue";
-import AccordionContent from "@/components/common/AccordionContent.vue";
-import InputText from "@/components/common/InputText.vue";
+import { useNodeRegistry } from "../../composables/useNodeRegistry";
+import type { NodeMetadata } from "../../composables/useNodeRegistry";
+import Accordion from "../common/Accordion.vue";
+import AccordionPanel from "../common/AccordionPanel.vue";
+import AccordionHeader from "../common/AccordionHeader.vue";
+import AccordionContent from "../common/AccordionContent.vue";
+import InputText from "../common/InputText.vue";
 import IconMap from "@/icons/IconMap.vue";
 import IconEmptyNode from "@/icons/IconEmptyNode.vue";
 

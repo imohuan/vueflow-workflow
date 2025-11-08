@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import CodeEditor from "@/components/common/CodeEditor.vue";
+import CodeEditor from "../components/common/CodeEditor.vue";
 import type * as Monaco from "monaco-editor";
-import type { MonacoInstance } from "@/utils/monaco";
+import type { MonacoInstance } from "../utils/monaco";
 
 /** 左侧 TypeScript 声明 */
 const declarations = ref(`// main 函数参数类型声明

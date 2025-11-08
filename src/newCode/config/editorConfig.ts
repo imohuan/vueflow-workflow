@@ -1,4 +1,4 @@
-import type { ConfigSchema } from "@/newCode/typings/config";
+import type { ConfigSchema } from "../typings/config";
 import IconSettings from "@/icons/IconSettings.vue";
 import IconCode from "@/icons/IconCode.vue";
 import IconServer from "@/icons/IconServer.vue";

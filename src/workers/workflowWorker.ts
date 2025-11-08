@@ -14,7 +14,7 @@ import {
   type BaseNode,
 } from "workflow-node-executor";
 import type { WorkflowExecutorOptions } from "workflow-node-executor";
-import type { WorkflowEvents } from "@/typings/workflowExecution";
+import type { WorkflowEvents } from "../typings/workflowExecution";
 import type { WorkflowNode, WorkflowEdge } from "workflow-node-executor";
 
 // ==================== Worker 消息类型定义 ====================

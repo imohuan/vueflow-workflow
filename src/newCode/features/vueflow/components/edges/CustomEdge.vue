@@ -32,7 +32,7 @@ import {
   getSmoothStepPath,
   getStraightPath,
 } from "@vue-flow/core";
-import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
+import { useEditorConfigStore } from "../../../../stores/editorConfig";
 import { storeToRefs } from "pinia";
 
 const props = defineProps<EdgeProps>();

@@ -59,10 +59,10 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import InputText from "@/components/common/InputText.vue";
+import InputText from "../common/InputText.vue";
 import IconEmptyNode from "@/icons/IconEmptyNode.vue";
-import { useNodeRegistry } from "@/composables/useNodeRegistry";
-import type { NodeMetadata } from "@/composables/useNodeRegistry";
+import { useNodeRegistry } from "../../composables/useNodeRegistry";
+import type { NodeMetadata } from "../../composables/useNodeRegistry";
 
 interface Position {
   x: number;

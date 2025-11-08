@@ -8,7 +8,7 @@ import type {
   NodeData,
   Connection,
   ConnectionValidationOptions,
-} from "@/typings/nodeEditor";
+} from "../../typings/nodeEditor";
 
 export function useEdgeManagement(
   nodes: Ref<Node<NodeData>[]>,

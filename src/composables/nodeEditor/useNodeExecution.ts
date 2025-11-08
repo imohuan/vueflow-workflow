@@ -17,21 +17,21 @@ import type {
   NodeData,
   NodeResult,
   NodeResultOutput,
-} from "@/typings/nodeEditor";
+} from "../../typings/nodeEditor";
 import {
   buildVariableContext,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   resolveConfigWithVariables, // 保留：其他组件（VariablePreview等）需要此导出
-} from "@/workflow/variables/variableResolver";
-import type { VariableTreeNode } from "@/workflow/variables/variableResolver";
+} from "../../workflow/variables/variableResolver";
+import type { VariableTreeNode } from "../../workflow/variables/variableResolver";
 import {
   type ExecutionLog,
   type WorkflowNode,
   type WorkflowEdge,
 } from "workflow-node-executor";
 import { getNodeTypeKey } from "./utils";
-import { useWorkflowExecutionManager } from "@/composables/useWorkflowExecutionManager";
-import { useNotifyStore } from "@/stores/notify";
+import { useWorkflowExecutionManager } from "../useWorkflowExecutionManager";
+import { useNotifyStore } from "../../stores/notify";
 
 export { resolveConfigWithVariables };
 

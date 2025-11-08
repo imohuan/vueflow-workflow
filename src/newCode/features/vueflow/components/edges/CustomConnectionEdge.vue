@@ -31,7 +31,7 @@ import {
   useVueFlow,
   type ConnectionLineProps,
 } from "@vue-flow/core";
-import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
+import { useEditorConfigStore } from "../../../../stores/editorConfig";
 import { storeToRefs } from "pinia";
 import { PLUGIN_MANAGER_KEY, type PluginManager } from "../../plugins";
 import { useVueFlowEvents } from "../../events";

@@ -125,7 +125,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import IconChevronRight from "@/icons/IconChevronRight.vue";
-import type { VariableTreeNode } from "@/workflow/variables/variableResolver";
+import type { VariableTreeNode } from "../../workflow/variables/variableResolver";
 import IconHand from "@/icons/IconHand.vue";
 
 defineOptions({ name: "VariableTreeItem" });

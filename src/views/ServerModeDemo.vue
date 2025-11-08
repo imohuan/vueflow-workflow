@@ -176,10 +176,10 @@
 
 <script setup lang="ts">
 import { ref, computed, inject } from "vue";
-import { useWorkflowServerClient } from "@/composables/useWorkflowServerClient";
+import { useWorkflowServerClient } from "../composables/useWorkflowServerClient";
 import type { Emitter } from "mitt";
-import type { WorkflowEvents } from "@/typings/workflowExecution";
-import { WorkflowEventType } from "@/typings/workflowExecution";
+import type { WorkflowEvents } from "../typings/workflowExecution";
+import { WorkflowEventType } from "../typings/workflowExecution";
 
 // WebSocket 服务器地址
 const serverUrl = "ws://localhost:3001";

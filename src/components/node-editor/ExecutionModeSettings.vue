@@ -55,9 +55,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { useWorkflowExecutionManager } from "@/composables/useWorkflowExecutionManager";
-import { saveExecutionModeConfig } from "@/config/executionMode";
-import type { ExecutionMode } from "@/config/executionMode";
+import { useWorkflowExecutionManager } from "../../composables/useWorkflowExecutionManager";
+import { saveExecutionModeConfig } from "../../config/executionMode";
+import type { ExecutionMode } from "../../config/executionMode";
 import IconWorker from "@/icons/IconWorker.vue";
 import IconServer from "@/icons/IconServer.vue";
 

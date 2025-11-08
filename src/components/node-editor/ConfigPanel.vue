@@ -125,16 +125,16 @@
 <script setup lang="ts">
 import type { Component } from "vue";
 import { storeToRefs } from "pinia";
-import { useEditorConfigStore } from "@/stores/editorConfig";
+import { useEditorConfigStore } from "../../stores/editorConfig";
 import {
   editorConfigSchema,
   type ConfigSectionIcon,
-} from "@/config/editorConfig";
-import Checkbox from "@/components/common/Checkbox.vue";
-import Select from "@/components/common/Select.vue";
-import InputText from "@/components/common/InputText.vue";
-import Slider from "@/components/common/Slider.vue";
-import ExecutionModeSettings from "@/components/node-editor/ExecutionModeSettings.vue";
+} from "../../config/editorConfig";
+import Checkbox from "../common/Checkbox.vue";
+import Select from "../common/Select.vue";
+import InputText from "../common/InputText.vue";
+import Slider from "../common/Slider.vue";
+import ExecutionModeSettings from "./ExecutionModeSettings.vue";
 import IconReset from "@/icons/IconReset.vue";
 import IconCog from "@/icons/IconCog.vue";
 import IconEdgeStyle from "@/icons/IconEdgeStyle.vue";

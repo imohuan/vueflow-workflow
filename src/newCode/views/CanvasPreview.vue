@@ -8,5 +8,5 @@
 
 <script setup lang="ts">
 import { NMessageProvider, NDialogProvider } from "naive-ui";
-import CanvasView from "@/newCode/features/canvas/CanvasView.vue";
+import CanvasView from "../features/canvas/CanvasView.vue";
 </script>

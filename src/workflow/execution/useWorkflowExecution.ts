@@ -28,8 +28,8 @@ import {
   type IterationStartedPayload,
   type IterationCompletedPayload,
   type LoopCompletedPayload,
-} from "@/typings/workflowExecution";
-import { useNotifyStore } from "@/stores/notify";
+} from "../../typings/workflowExecution";
+import { useNotifyStore } from "../../stores/notify";
 
 // ==================== 状态定义 ====================
 

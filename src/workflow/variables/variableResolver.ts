@@ -1,6 +1,6 @@
 import { cloneDeep } from "lodash-es";
 import type { Edge, Node } from "@vue-flow/core";
-import type { NodeData, PortDefinition } from "@/typings/nodeEditor";
+import type { NodeData, PortDefinition } from "../../typings/nodeEditor";
 
 export interface VariableTreeNode {
   /** 唯一标识 */

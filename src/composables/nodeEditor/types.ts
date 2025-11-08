@@ -2,7 +2,7 @@
  * 节点编辑器 Hooks 共享类型定义
  */
 import type { Node, Edge } from "@vue-flow/core";
-import type { NodeData } from "@/typings/nodeEditor";
+import type { NodeData } from "../../typings/nodeEditor";
 
 /** Dagre 布局方向 */
 export type DagreLayoutDirection = "TB" | "BT" | "LR" | "RL";

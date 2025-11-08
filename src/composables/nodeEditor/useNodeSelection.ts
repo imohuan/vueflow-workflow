@@ -4,7 +4,7 @@
  */
 import { ref, computed, type Ref } from "vue";
 import type { Node } from "@vue-flow/core";
-import type { NodeData } from "@/typings/nodeEditor";
+import type { NodeData } from "../../typings/nodeEditor";
 
 export function useNodeSelection(
   nodes: Ref<Node<NodeData>[]>,

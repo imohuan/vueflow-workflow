@@ -263,27 +263,27 @@ import type {
   EdgeUpdateEvent,
   HandleElement,
 } from "@vue-flow/core";
-import CustomNode from "@/components/node-editor/CustomNode.vue";
-import LoopContainerNode from "@/components/node-editor/nodes/LoopContainerNode.vue";
-import ConfigPanel from "@/components/node-editor/ConfigPanel.vue";
-import NodeEditorPanel from "@/components/node-editor/NodeEditorPanel.vue";
-import CodeEditorPanel from "@/components/node-editor/CodeEditorPanel.vue";
-import NodeListPanel from "@/components/node-editor/NodeListPanel.vue";
-import QuickNodeMenu from "@/components/node-editor/QuickNodeMenu.vue";
-import InteractiveEdge from "@/components/node-editor/edges/InteractiveEdge.vue";
-import VerticalTabMenu from "@/components/node-editor/VerticalTabMenu.vue";
-import WorkflowFileTree from "@/components/node-editor/WorkflowFileTree.vue";
-import CustomConnectionLine from "@/components/node-editor/CustomConnectionLine.vue";
-import { useNodeEditorStore } from "@/stores/nodeEditor";
-import { useEditorConfigStore } from "@/stores/editorConfig";
-import { useWorkflowStore } from "@/stores/workflow";
+import CustomNode from "../components/node-editor/CustomNode.vue";
+import LoopContainerNode from "../components/node-editor/nodes/LoopContainerNode.vue";
+import ConfigPanel from "../components/node-editor/ConfigPanel.vue";
+import NodeEditorPanel from "../components/node-editor/NodeEditorPanel.vue";
+import CodeEditorPanel from "../components/node-editor/CodeEditorPanel.vue";
+import NodeListPanel from "../components/node-editor/NodeListPanel.vue";
+import QuickNodeMenu from "../components/node-editor/QuickNodeMenu.vue";
+import InteractiveEdge from "../components/node-editor/edges/InteractiveEdge.vue";
+import VerticalTabMenu from "../components/node-editor/VerticalTabMenu.vue";
+import WorkflowFileTree from "../components/node-editor/WorkflowFileTree.vue";
+import CustomConnectionLine from "../components/node-editor/CustomConnectionLine.vue";
+import { useNodeEditorStore } from "../stores/nodeEditor";
+import { useEditorConfigStore } from "../stores/editorConfig";
+import { useWorkflowStore } from "../stores/workflow";
 import type {
   NodeData,
   PortDefinition,
   Connection as EditorConnection,
-} from "@/typings/nodeEditor";
-import { nodeEditorLayoutConfig } from "@/config";
-import Button from "@/components/common/Button.vue";
+} from "../typings/nodeEditor";
+import { nodeEditorLayoutConfig } from "../config";
+import Button from "../components/common/Button.vue";
 import IconMap from "@/icons/IconMap.vue";
 import IconUndo from "@/icons/IconUndo.vue";
 import IconRedo from "@/icons/IconRedo.vue";
@@ -292,17 +292,17 @@ import IconFit from "@/icons/IconFit.vue";
 import IconPlayCircle from "@/icons/IconPlayCircle.vue";
 
 // 引入工作流执行状态管理
-import { useWorkflowExecution } from "@/workflow/execution/useWorkflowExecution";
+import { useWorkflowExecution } from "../workflow/execution/useWorkflowExecution";
 import {
   CTRL_CONNECT_CONTEXT_KEY,
   type CtrlConnectCandidateState,
-} from "@/components/node-editor/contextKeys";
+} from "../components/node-editor/contextKeys";
 import {
   NODE_EDITOR_BRIDGE_KEY,
   registerNodeEditorBridge,
   unregisterNodeEditorBridge,
-} from "@/components/node-editor/nodeEditorBridge";
-import type { NodeEditorBridge } from "@/components/node-editor/nodeEditorBridge";
+} from "../components/node-editor/nodeEditorBridge";
+import type { NodeEditorBridge } from "../components/node-editor/nodeEditorBridge";
 
 type DagreLayoutDirection = "TB" | "BT" | "LR" | "RL";
 
@@ -313,7 +313,7 @@ import "@vue-flow/minimap/dist/style.css";
 import "@vue-flow/controls/dist/style.css";
 
 // 引入端口样式
-import "@/components/node-editor/ports/portStyles.css";
+import "../components/node-editor/ports/portStyles.css";
 
 const store = useNodeEditorStore();
 const { nodes, edges, isExecutingWorkflow, selectedNodeId } =
@@ -2235,7 +2235,7 @@ async function handleExecuteWorkflow() {
 </script>
 
 <style scoped>
-@import "@/style.css";
+@import "../style.css";
 
 /* VueFlow 样式 */
 :deep(.vue-flow) {
