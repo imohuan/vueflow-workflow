@@ -79,6 +79,8 @@ const editorConfigStore = useEditorConfigStore();
 const uiStore = useUiStore();
 const workflowStore = useWorkflowStore();
 const { config: editorConfig } = storeToRefs(editorConfigStore);
+const { infoModalVisible, editorModalVisible, nodeConfigModalVisible } =
+  storeToRefs(uiStore);
 const { fitView, getSelectedNodes } = useVueFlow();
 const message = useMessage();
 
@@ -401,6 +403,21 @@ events.on("execution:node:complete", ({ nodeId, result }) => {
     id: nodeId,
     preview: JSON.stringify(result, null, 2).slice(0, 200),
   });
+
+  // 如果当前预览的节点就是执行完成的节点，更新预览数据
+  if (uiStore.previewNodeId === nodeId) {
+    const now = Date.now();
+    // 构建预览数据对象（格式与 NodeExecutionStatus 一致）
+    const previewData = {
+      status: "success" as const,
+      result: result,
+      timestamp: now,
+      // 如果有执行时长信息，可以从节点数据中获取
+      duration: node?.data?.executionDuration,
+    };
+    // 更新预览数据
+    uiStore.showNodePreview(nodeId, previewData);
+  }
 });
 
 // 监听节点执行错误事件
@@ -415,6 +432,21 @@ events.on("execution:node:error", ({ nodeId, error }) => {
       executionError: error,
     },
   });
+
+  // 如果当前预览的节点就是执行错误的节点，更新预览数据
+  if (uiStore.previewNodeId === nodeId) {
+    const now = Date.now();
+    // 构建预览数据对象（格式与 NodeExecutionStatus 一致）
+    const previewData = {
+      status: "error" as const,
+      error: error,
+      timestamp: now,
+      // 如果有执行时长信息，可以从节点数据中获取
+      duration: node?.data?.executionDuration,
+    };
+    // 更新预览数据
+    uiStore.showNodePreview(nodeId, previewData);
+  }
 });
 
 // 监听执行进度事件
@@ -423,7 +455,7 @@ events.on("execution:progress", ({ progress }) => {
 });
 
 // 监听缓存命中事件
-events.on("execution:cache-hit", ({ nodeId }) => {
+events.on("execution:cache-hit", ({ nodeId, cachedResult }) => {
   console.log("[CanvasView] 节点使用缓存:", nodeId);
   const node = canvasStore.nodes.find((n: any) => n.id === nodeId);
   canvasStore.updateNode(nodeId, {
@@ -432,6 +464,20 @@ events.on("execution:cache-hit", ({ nodeId }) => {
       executionStatus: "cached",
     },
   });
+
+  // 如果当前预览的节点就是缓存命中的节点，更新预览数据
+  if (uiStore.previewNodeId === nodeId) {
+    const now = Date.now();
+    // 构建预览数据对象（格式与 NodeExecutionStatus 一致）
+    const previewData = {
+      status: "cached" as const,
+      result: cachedResult.outputs,
+      timestamp: now,
+      duration: cachedResult.duration,
+    };
+    // 更新预览数据
+    uiStore.showNodePreview(nodeId, previewData);
+  }
 });
 
 // 监听节点执行结果预览事件
@@ -470,12 +516,33 @@ onKeyStroke(
   { dedupe: true }
 );
 
-// Escape 键关闭左侧浮动面板
+// Escape 键关闭模态框或左侧浮动面板
 onKeyStroke(
   "Escape",
   (e) => {
     if (notUsingInput.value && !e.ctrlKey && !e.shiftKey && !e.altKey) {
       e.preventDefault();
+
+      // 先检查并关闭模态框（优先级更高）
+      if (nodeConfigModalVisible.value) {
+        uiStore.closeNodeConfigModal();
+        console.log("[CanvasView] Escape 键关闭节点配置模态框");
+        return;
+      }
+
+      if (editorModalVisible.value) {
+        uiStore.closeEditorModal();
+        console.log("[CanvasView] Escape 键关闭全屏编辑器模态框");
+        return;
+      }
+
+      if (infoModalVisible.value) {
+        uiStore.closeInfoModal();
+        console.log("[CanvasView] Escape 键关闭信息模态框");
+        return;
+      }
+
+      // 如果模态框都已关闭，再关闭左侧浮动面板
       uiStore.closeFloatingPanel();
       console.log("[CanvasView] Escape 键关闭左侧面板");
     }
