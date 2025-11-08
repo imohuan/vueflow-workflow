@@ -300,7 +300,8 @@ function loadSampleWorkflow() {
     ],
   };
 
-  canvasStore.loadWorkflow(sampleWorkflow);
+  canvasStore.updateNodes(sampleWorkflow.nodes);
+  canvasStore.updateEdges(sampleWorkflow.edges);
   message?.success("已加载示例工作流");
 }
 

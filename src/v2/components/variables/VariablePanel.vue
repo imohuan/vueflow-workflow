@@ -40,7 +40,7 @@
 
 <script setup lang="ts">
 import VariableTreeItem from "./VariableTreeItem.vue";
-import type { VariableTreeNode } from "../../../workflow/variables/variableResolver";
+import type { VariableTreeNode } from "workflow-node-executor";
 
 interface Props {
   variables: VariableTreeNode[];

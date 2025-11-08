@@ -92,12 +92,17 @@ const targetPoint = computed(() => {
 
 // 计算贝塞尔曲线路径
 const path = computed(() => {
+  const source = sourcePoint.value;
+  const target = targetPoint.value;
+  if (!source || !target) {
+    return "";
+  }
   const [bezierPath] = getBezierPath({
-    sourceX: sourcePoint.value.x,
-    sourceY: sourcePoint.value.y,
+    sourceX: source.x,
+    sourceY: source.y,
     sourcePosition: props.sourcePosition,
-    targetX: targetPoint.value.x,
-    targetY: targetPoint.value.y,
+    targetX: target.x,
+    targetY: target.y,
     targetPosition: props.targetPosition,
   });
   return bezierPath;
@@ -114,6 +119,7 @@ const path = computed(() => {
       class="animated"
     />
     <circle
+      v-if="targetPoint"
       :cx="targetPoint.x"
       :cy="targetPoint.y"
       fill="#fff"

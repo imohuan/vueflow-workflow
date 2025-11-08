@@ -310,7 +310,7 @@ events.on("node:double-clicked", ({ node }) => {
   console.log("[CanvasView] 节点被双击，打开配置面板:", node.data?.label);
   // TODO: 打开节点配置面板
   // 如果节点是连接节点，则不选中
-  if (node.type === "connector") return;
+  if (["connector", "note"].includes(node.type || "")) return;
   // 选中节点并打开配置面板
   uiStore.selectNode(node.id);
 });

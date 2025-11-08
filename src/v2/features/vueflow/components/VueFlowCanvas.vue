@@ -390,10 +390,77 @@ function handleConnectStart(params: any) {
 }
 
 /**
+ * 获取边的唯一标识 key
+ * 包含 source、target、sourceHandle、targetHandle、sourceY、targetY
+ * 注意：一个节点可能存在多个输出端口，需要添加 sourceY 坐标来区分
+ */
+function getEdgeKey(edge: Edge): string {
+  // 尝试从多个来源获取 sourceY 和 targetY
+  let sourceY: number | string = "";
+  let targetY: number | string = "";
+
+  if ("sourceY" in edge && typeof edge.sourceY === "number") {
+    sourceY = edge.sourceY;
+  }
+  if ("targetY" in edge && typeof edge.targetY === "number") {
+    targetY = edge.targetY;
+  }
+
+  // 生成唯一标识符：source_target_sourceHandle_targetHandle_sourceY_targetY
+  return `${edge.source}_${edge.target}_${edge.sourceHandle || ""}_${
+    edge.targetHandle || ""
+  }_${sourceY}_${targetY}`;
+}
+
+/**
+ * 删除重复的边
+ * 根据 source、target、sourceHandle、targetHandle、sourceY、targetY 判断是否重复
+ * 保留第一个出现的边，删除后续重复的边
+ */
+function removeDuplicateEdges() {
+  const seen = new Set<string>();
+  const uniqueEdges: Edge[] = [];
+  const removedEdgeIds: string[] = [];
+
+  for (const edge of coreEdges.value) {
+    const key = getEdgeKey(edge);
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueEdges.push(edge);
+    } else {
+      // 记录被删除的重复边
+      removedEdgeIds.push(edge.id);
+      console.log("[VueFlowCanvas] 删除重复的边:", edge.id, key);
+    }
+  }
+
+  // 如果有重复的边被删除，更新边数组并发送事件
+  if (removedEdgeIds.length > 0) {
+    coreEdges.value = uniqueEdges;
+    console.log(`[VueFlowCanvas] 已删除 ${removedEdgeIds.length} 条重复的边`);
+
+    // 发送边删除事件
+    if (events) {
+      removedEdgeIds.forEach((edgeId) => {
+        events.emit("edge:deleted", { edgeId });
+      });
+    }
+  }
+}
+
+/**
  * 处理连接结束
  */
 function handleConnectEnd(event: any) {
   // 通过事件系统通知外部和插件
+  console.log("[VueFlowCanvas] 连接结束:", event);
+
+  // 延迟删除重复的边，确保新连接的边已经添加到数组中
+  setTimeout(() => {
+    removeDuplicateEdges();
+  }, 100);
+
   if (events) {
     events.emit("edge:connect-end", event);
   }
@@ -584,7 +651,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   // 清理事件监听器
-  eventBusUtils.off("node:execute", handleNodeExecute);
   eventBusUtils.off("node:deleted", handleNodeDelete);
 
   // 清理所有插件

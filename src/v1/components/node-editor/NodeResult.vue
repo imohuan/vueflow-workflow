@@ -769,7 +769,7 @@ function formatTimestamp(timestamp: number): string {
 /**
  * 处理滚轮事件，防止滚动内容时缩放画布
  */
-function handleWheel(event: WheelEvent) {
+function handleWheel(_event: WheelEvent) {
   // 关闭这个功能
   // const path = event.composedPath() as HTMLElement[];
   // for (const element of path) {

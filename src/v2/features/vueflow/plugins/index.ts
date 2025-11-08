@@ -4,7 +4,7 @@
  */
 
 import { ref, type Ref } from "vue";
-import type { VueFlowPlugin, PluginContext } from "./types";
+import type { VueFlowPlugin, PluginContext, PluginSharedState } from "./types";
 
 export * from "./types";
 export { createCopyPastePlugin } from "./copyPastePlugin";
@@ -21,6 +21,7 @@ export type { EdgeEditPluginOptions, EdgeValidationFn } from "./edgeEditPlugin";
 export type {
   CtrlConnectPluginOptions,
   ConnectCandidateState,
+  ConnectionState,
 } from "./ctrlConnectPlugin";
 export type {
   AutoLayoutOptions,
@@ -41,7 +42,7 @@ export class PluginManager {
   private plugins: Map<string, VueFlowPlugin> = new Map();
   private enabledPlugins: Ref<Set<string>> = ref(new Set());
   private context: PluginContext | null = null;
-  private sharedState: Record<string, any> = {};
+  private sharedState: PluginSharedState = {};
 
   /**
    * 设置插件上下文
@@ -57,7 +58,7 @@ export class PluginManager {
   /**
    * 获取插件共享状态
    */
-  getSharedState(): Record<string, any> {
+  getSharedState(): PluginSharedState {
     return this.sharedState;
   }
 

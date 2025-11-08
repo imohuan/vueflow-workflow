@@ -1,6 +1,6 @@
 <template>
   <div
-    class="relative bg-white shadow-sm b"
+    class="relative bg-white shadow-sm"
     :class="{
       'animate-pulse': data.status === 'running',
     }"
@@ -267,8 +267,8 @@ const iconStyle = computed(() => ({
 
 // 计算按钮样式
 const buttonStyle = computed(() => ({
-  width: `${NODE_SIZE.iconSize + 4}px`,
-  height: `${NODE_SIZE.iconSize + 4}px`,
+  width: `${NODE_SIZE.iconSize + 8}px`,
+  height: `${NODE_SIZE.iconSize + 8}px`,
 }));
 
 // 是否显示执行按钮

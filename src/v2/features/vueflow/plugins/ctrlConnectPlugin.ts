@@ -28,7 +28,7 @@ export interface ConnectCandidateState {
 /**
  * 连接状态
  */
-interface ConnectionState {
+export interface ConnectionState {
   /** 源节点 ID */
   nodeId: string | null;
   /** 源端口 ID */
@@ -324,7 +324,16 @@ export function createCtrlConnectPlugin(
           isValid
         );
       }
-    } else if (!exists) {
+    } else if (exists) {
+      // 连接已存在：仍然显示为有效（绿色），允许重连
+      isValid = true;
+      if (debug) {
+        console.log(
+          "[CtrlConnect Plugin] 连接已存在，但显示为有效（允许重连）"
+        );
+      }
+    } else {
+      // 连接不存在：进行正常验证
       if (validateConnection) {
         isValid = validateConnection(connection);
       } else {
@@ -444,9 +453,10 @@ export function createCtrlConnectPlugin(
       )
     ) {
       if (debug) {
-        console.log("[CtrlConnect Plugin] 连接已存在");
+        console.log("[CtrlConnect Plugin] 连接已存在，允许重连");
       }
-      return false;
+      // 连接已存在：允许重连，返回 true 表示操作成功（不需要创建新连接）
+      return true;
     }
 
     // 验证连接

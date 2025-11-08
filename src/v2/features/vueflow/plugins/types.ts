@@ -3,15 +3,56 @@
  * 专注于功能扩展，而非基础组件封装
  */
 
-import type { VueFlowStore } from "@vue-flow/core";
+import type { VueFlowStore, Edge, Node } from "@vue-flow/core";
+import type { ComputedRef, Ref } from "vue";
 import type { useVueFlowCore } from "../core/useVueFlowCore";
+import type {
+  ConnectCandidateState,
+  ConnectionState,
+} from "./ctrlConnectPlugin";
+
+/**
+ * Ctrl 连接插件共享状态
+ */
+export interface CtrlConnectSharedState {
+  /**
+   * 是否处于激活状态（Ctrl 连接指令生效，插件监听事件并响应吸附）
+   */
+  isActive: ComputedRef<boolean>;
+  /**
+   * 当前吸附的连接候选信息（如有吸附，则为目标节点及端口等信息，未吸附则为 null）
+   */
+  candidate: Ref<ConnectCandidateState | null>;
+  /**
+   * 当前连接的起点信息，包括节点 ID、端口 ID、端口类型（source/target）
+   */
+  connectionState: Ref<ConnectionState>;
+}
+
+/**
+ * 边编辑插件共享状态
+ */
+export interface EdgeEditSharedState {
+  /** 是否正在编辑边 */
+  isEditing: Ref<string | null>;
+  /** 正在编辑的边 ID */
+  editingEdgeId: Ref<string | null>;
+  /** 原始边信息 */
+  originalEdge: Ref<Edge | null>;
+  /** 标记边更新成功（供其他插件调用） */
+  markUpdateSuccessful: () => void;
+}
 
 /**
  * 插件共享状态
  * 用于插件暴露状态供其他插件或组件访问
  */
 export interface PluginSharedState {
-  /** 存储各个插件的共享状态 */
+  /** Ctrl 连接插件共享状态 */
+  "ctrl-connect"?: CtrlConnectSharedState;
+  /** 边编辑插件共享状态 */
+  "edge-edit"?: EdgeEditSharedState;
+  /** 其他插件的共享状态 */
   [pluginId: string]: any;
 }
 

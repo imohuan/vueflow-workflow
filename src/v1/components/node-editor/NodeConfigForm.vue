@@ -717,17 +717,6 @@ function handleForModeChange() {
   updateConfig();
 }
 
-/**
- * 更新静态数组
- */
-function updateStaticItems() {
-  try {
-    localConfig.value.staticItems = JSON.parse(staticItemsText.value || "[]");
-    updateConfig();
-  } catch (error) {
-    console.error("静态数组格式错误:", error);
-  }
-}
 function setConfigValue(key: string, value: string, fallbackType?: string) {
   const type = getInputType(key) ?? fallbackType;
   localConfig.value[key] = coerceValueByType(value, type);

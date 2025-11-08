@@ -109,16 +109,17 @@ const declarationsReady = ref(false);
 let monacoInstance: MonacoInstance | null = null;
 let libDisposable: { dispose: () => void } | null = null;
 let codeEditorInstance: Monaco.editor.IStandaloneCodeEditor | null = null;
-let declarationsEditorInstance: Monaco.editor.IStandaloneCodeEditor | null =
-  null;
+// 暂时未使用，保留以备将来使用
+// let declarationsEditorInstance: Monaco.editor.IStandaloneCodeEditor | null =
+//   null;
 
 /** 声明编辑器就绪 */
 function onDeclarationsReady(
-  editor: Monaco.editor.IStandaloneCodeEditor,
+  _editor: Monaco.editor.IStandaloneCodeEditor,
   monaco: MonacoInstance
 ) {
   console.log("📝 声明编辑器已就绪");
-  declarationsEditorInstance = editor;
+  // declarationsEditorInstance = _editor;
   if (!monacoInstance) {
     monacoInstance = monaco;
   }

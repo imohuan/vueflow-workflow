@@ -120,16 +120,17 @@ const paramItems = computed<ParamItem[]>(() => {
     .filter((item): item is ParamItem => Boolean(item));
 });
 
-const typeDeclarationPreview = computed(() => {
-  const content = props.data.config?.typeDeclarations;
-  if (typeof content !== "string") {
-    return "";
-  }
-  const trimmed = content.trim();
-  if (!trimmed) {
-    return "";
-  }
-  const lines = trimmed.split("\n");
-  return lines.length > 10 ? `${lines.slice(0, 10).join("\n")}\n...` : trimmed;
-});
+// 暂时未使用，保留以备将来使用
+// const typeDeclarationPreview = computed(() => {
+//   const content = props.data.config?.typeDeclarations;
+//   if (typeof content !== "string") {
+//     return "";
+//   }
+//   const trimmed = content.trim();
+//   if (!trimmed) {
+//     return "";
+//   }
+//   const lines = trimmed.split("\n");
+//   return lines.length > 10 ? `${lines.slice(0, 10).join("\n")}\n...` : trimmed;
+// });
 </script>

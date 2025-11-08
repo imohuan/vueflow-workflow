@@ -11,8 +11,8 @@
 
     <!-- 终点圆点（使用吸附后的坐标） -->
     <circle
-      :cx="targetPoint.x"
-      :cy="targetPoint.y"
+      :cx="targetPoint?.x ?? 0"
+      :cy="targetPoint?.y ?? 0"
       fill="#fff"
       r="3"
       :stroke="strokeColor"
@@ -176,6 +176,10 @@ const path = computed(() => {
   const source = sourcePoint.value;
   const target = targetPoint.value;
   // console.log("[path computed]", props.targetPosition, config.value);
+
+  if (!source || !target) {
+    return "";
+  }
 
   const params = {
     sourceX: source.x,
