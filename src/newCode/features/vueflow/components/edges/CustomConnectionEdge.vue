@@ -8,6 +8,7 @@
       :stroke-width="strokeWidth"
       class="connection-line-animated"
     />
+
     <!-- 终点圆点（使用吸附后的坐标） -->
     <circle
       :cx="targetPoint.x"
@@ -26,6 +27,7 @@ import {
   getBezierPath,
   getSmoothStepPath,
   getStraightPath,
+  Position,
   useVueFlow,
   type ConnectionLineProps,
 } from "@vue-flow/core";
@@ -145,14 +147,14 @@ onBeforeUnmount(() => {
 
 // 根据连接有效性决定颜色
 const strokeColor = computed(() => {
-  console.log("isValidConnection", isValidConnection.value);
+  // console.log("isValidConnection", isValidConnection.value);
   return isValidConnection.value ? "#22c55e" : "#ef4444";
 });
 
 // 监听连接结束事件
 onConnectEnd((event) => {
   // 判断连接是否无效（使用延迟更新的值）
-  console.log("delayedIsValidConnection", delayedIsValidConnection.value);
+  // console.log("delayedIsValidConnection", delayedIsValidConnection.value);
   if (!delayedIsValidConnection.value) {
     // 发送连接失败事件，携带鼠标位置
     events.emit("edge:connection-failed", {
@@ -173,6 +175,7 @@ const path = computed(() => {
   const edgeType = config.value.edgeType;
   const source = sourcePoint.value;
   const target = targetPoint.value;
+  // console.log("[path computed]", props.targetPosition, config.value);
 
   const params = {
     sourceX: source.x,
@@ -180,7 +183,8 @@ const path = computed(() => {
     sourcePosition: props.sourcePosition,
     targetX: target.x,
     targetY: target.y,
-    targetPosition: props.targetPosition,
+    targetPosition:
+      props.sourcePosition === "left" ? Position.Right : Position.Left,
   };
 
   // 根据配置的边类型选择路径算法
