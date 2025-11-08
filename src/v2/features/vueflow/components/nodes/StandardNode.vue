@@ -1,6 +1,6 @@
 <template>
   <div
-    class="relative bg-white shadow-sm"
+    class="relative bg-white shadow-sm min-h-24"
     :class="{
       'animate-pulse': data.status === 'running',
     }"
@@ -24,6 +24,7 @@
           :position="defaultInputPort.position"
           :node-id="defaultInputPort.nodeId"
           :variant="defaultInputPort.variant"
+          :style="defaultInputPort.style"
         />
       </slot>
     </template>
@@ -131,6 +132,7 @@
           :position="defaultOutputPort.position"
           :node-id="defaultOutputPort.nodeId"
           :variant="defaultOutputPort.variant"
+          :style="defaultOutputPort.style"
         />
       </slot>
     </template>
@@ -355,6 +357,12 @@ const showOutputPort = computed(() => {
   return !props.data.noOutputs;
 });
 
+const defaultPortPosition = computed(() => {
+  return {
+    top: `${NODE_SIZE.headerHeight + 20}px!important`,
+  };
+});
+
 // 默认输入端口配置（供 slot 使用）
 const defaultInputPort = computed(() => ({
   id: "input",
@@ -362,6 +370,7 @@ const defaultInputPort = computed(() => ({
   position: Position.Left,
   nodeId: props.id,
   variant: "ellipse" as const,
+  style: defaultPortPosition.value,
 }));
 
 // 默认输出端口配置（供 slot 使用）
@@ -371,5 +380,6 @@ const defaultOutputPort = computed(() => ({
   position: Position.Right,
   nodeId: props.id,
   variant: "ellipse" as const,
+  style: defaultPortPosition.value,
 }));
 </script>
