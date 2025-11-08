@@ -609,6 +609,7 @@ onMounted(() => {
 
   const ctrlConnectPlugin = createCtrlConnectPlugin({
     debug: true, // 开启调试模式，可以在控制台看到日志
+    autoEnable: true,
     allowReconnectToOriginal: true, // 允许重连回原端口（边编辑时）
     validateConnection,
   });

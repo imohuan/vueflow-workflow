@@ -55,6 +55,11 @@ export interface CtrlConnectPluginOptions {
    * @default true
    */
   allowReconnectToOriginal?: boolean;
+  /**
+   * 是否自动开启吸附功能（为 true 时无需按 Ctrl 键）
+   * @default false
+   */
+  autoEnable?: boolean;
 }
 
 /**
@@ -67,6 +72,7 @@ export function createCtrlConnectPlugin(
     debug = false,
     validateConnection,
     allowReconnectToOriginal = true,
+    autoEnable = false,
   } = options;
 
   // 插件状态
@@ -76,6 +82,8 @@ export function createCtrlConnectPlugin(
   let isActive: ComputedRef<boolean>;
   let lastPointerPosition: Ref<{ x: number; y: number } | null>;
   let lastClientPointer: Ref<{ x: number; y: number } | null>;
+  /** 是否启用吸附功能（从 source 端口拖拽时禁用） */
+  let isSnapEnabled: Ref<boolean>;
 
   // 边编辑状态（通过事件系统获取）
   let isEditingEdge: Ref<boolean>;
@@ -521,20 +529,32 @@ export function createCtrlConnectPlugin(
     config: {
       id: "ctrl-connect",
       name: "Ctrl 连接吸附",
-      description: "拖拽连接线时按住 Ctrl 键自动吸附到鼠标下方节点的最佳端口",
+      description: autoEnable
+        ? "拖拽连接线时自动吸附到鼠标下方节点的最佳端口"
+        : "拖拽连接线时按住 Ctrl 键自动吸附到鼠标下方节点的最佳端口",
       enabled: true,
       version: "1.0.0",
     },
 
-    shortcuts: [
-      {
-        key: "ctrl+drag",
-        description: "按住 Ctrl 键拖拽连接线时自动吸附到最近的端口",
-        handler: () => {
-          // 这个是描述性的，实际逻辑在 setup 中
-        },
-      },
-    ],
+    shortcuts: autoEnable
+      ? [
+          {
+            key: "drag",
+            description: "拖拽连接线时自动吸附到最近的端口",
+            handler: () => {
+              // 这个是描述性的，实际逻辑在 setup 中
+            },
+          },
+        ]
+      : [
+          {
+            key: "ctrl+drag",
+            description: "按住 Ctrl 键拖拽连接线时自动吸附到最近的端口",
+            handler: () => {
+              // 这个是描述性的，实际逻辑在 setup 中
+            },
+          },
+        ],
 
     setup(context: PluginContext) {
       // 初始化状态
@@ -547,6 +567,7 @@ export function createCtrlConnectPlugin(
       candidate = ref<ConnectCandidateState | null>(null);
       lastPointerPosition = ref<{ x: number; y: number } | null>(null);
       lastClientPointer = ref<{ x: number; y: number } | null>(null);
+      isSnapEnabled = ref(true); // 默认启用吸附功能
 
       // 初始化边编辑状态
       isEditingEdge = ref(false);
@@ -555,6 +576,51 @@ export function createCtrlConnectPlugin(
 
       // 监听边编辑事件（通过事件系统）
       if (context.core.events) {
+        context.core.events.on("edge:connect-start", (event: any) => {
+          const { handleId, handleType, nodeId } = event;
+          if (!handleId || !handleType || !nodeId) return;
+
+          // 设置连接状态
+          connectionState.value = {
+            nodeId: nodeId ?? null,
+            handleId: handleId ?? null,
+            handleType: (handleType ?? null) as "source" | "target" | null,
+          };
+
+          isSnapEnabled.value = handleType === "source";
+
+          if (isActive.value) {
+            updateCandidate(context);
+          }
+
+          if (debug) {
+            console.log("[CtrlConnect Plugin] 连接开始:", {
+              handleType,
+              nodeId,
+              handleId,
+              isSnapEnabled: isSnapEnabled.value,
+            });
+          }
+        });
+
+        context.core.events.on("edge:connect-end", () => {
+          // 尝试完成 Ctrl 连接
+          const connected = finalizeConnection(context);
+
+          // 重置状态
+          connectionState.value = {
+            nodeId: null,
+            handleId: null,
+            handleType: null,
+          };
+          isSnapEnabled.value = true; // 重置为默认启用状态
+          resetCandidate();
+
+          if (debug && connected) {
+            console.log("[CtrlConnect Plugin] Ctrl 连接已完成");
+          }
+        });
+
         context.core.events.on("edge:update-start", (event: any) => {
           isEditingEdge.value = true;
           editingEdgeId.value = event.edge?.id ?? null;
@@ -568,16 +634,18 @@ export function createCtrlConnectPlugin(
           isEditingEdge.value = false;
           editingEdgeId.value = null;
           originalEdgeInfo.value = null;
+          isSnapEnabled.value = true; // 重置为默认启用状态
           if (debug) {
             console.log("[CtrlConnect Plugin] 边编辑结束:", event.edge);
           }
         });
       }
 
-      // 计算激活状态
+      // 计算激活状态（需要启用吸附功能且满足其他条件）
       isActive = computed(
         () =>
-          isCtrlPressed.value &&
+          isSnapEnabled.value &&
+          (autoEnable || isCtrlPressed.value) &&
           connectionState.value.nodeId !== null &&
           connectionState.value.handleId !== null &&
           connectionState.value.handleType !== null
@@ -662,58 +730,6 @@ export function createCtrlConnectPlugin(
       eventCleanups.push(useEventListener(window, "blur", onBlur));
       eventCleanups.push(useEventListener(window, "mousemove", onMouseMove));
 
-      // 监听连接开始事件
-      const vueflowInstance = context.vueflow;
-      const disposeConnectStart = vueflowInstance.onConnectStart?.(
-        (params: any) => {
-          connectionState.value = {
-            nodeId: params.nodeId ?? null,
-            handleId: params.handleId ?? null,
-            handleType: (params.handleType ?? null) as
-              | "source"
-              | "target"
-              | null,
-          };
-
-          if (isActive.value) {
-            updateCandidate(context);
-          }
-
-          if (debug) {
-            console.log(
-              "[CtrlConnect Plugin] 连接开始:",
-              connectionState.value
-            );
-          }
-        }
-      );
-
-      // 监听连接结束事件
-      const disposeConnectEnd = vueflowInstance.onConnectEnd?.(() => {
-        // 尝试完成 Ctrl 连接
-        const connected = finalizeConnection(context);
-
-        // 重置状态
-        connectionState.value = {
-          nodeId: null,
-          handleId: null,
-          handleType: null,
-        };
-        resetCandidate();
-
-        if (debug && connected) {
-          console.log("[CtrlConnect Plugin] Ctrl 连接已完成");
-        }
-      });
-
-      // 保存清理函数
-      if (disposeConnectStart) {
-        eventCleanups.push(disposeConnectStart.off);
-      }
-      if (disposeConnectEnd) {
-        eventCleanups.push(disposeConnectEnd.off);
-      }
-
       // 暴露状态到插件共享状态，供 CustomConnectionLine 等组件访问
       context.shared["ctrl-connect"] = {
         isActive,
@@ -722,12 +738,19 @@ export function createCtrlConnectPlugin(
       };
 
       console.log("[CtrlConnect Plugin] Ctrl 连接吸附插件已启用");
-      console.log(
-        "[CtrlConnect Plugin] 使用方式: 拖拽连接线时按住 Ctrl 键，将自动吸附到鼠标下方节点的最佳端口"
-      );
+      if (autoEnable) {
+        console.log(
+          "[CtrlConnect Plugin] 使用方式: 拖拽连接线时将自动吸附到鼠标下方节点的最佳端口（自动模式，无需按 Ctrl 键）"
+        );
+      } else {
+        console.log(
+          "[CtrlConnect Plugin] 使用方式: 拖拽连接线时按住 Ctrl 键，将自动吸附到鼠标下方节点的最佳端口"
+        );
+      }
       console.log(
         `[CtrlConnect Plugin] 允许重连回原端口: ${allowReconnectToOriginal}`
       );
+      console.log(`[CtrlConnect Plugin] 自动模式: ${autoEnable}`);
       console.log(`[CtrlConnect Plugin] 调试模式: ${debug}`);
     },
 
