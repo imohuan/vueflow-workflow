@@ -164,7 +164,7 @@ import IconChevronRight from "@/icons/IconChevronRight.vue";
 import VariablePanel from "./VariablePanel.vue";
 import VariablePreview from "./VariablePreview.vue";
 import Button from "../common/Button.vue";
-import Splitter from "@/volt/Splitter.vue";
+import Splitter from "@/v1/volt/Splitter.vue";
 import SplitterPanel from "primevue/splitterpanel";
 import { useNodeEditorStore } from "../../stores/nodeEditor";
 import {

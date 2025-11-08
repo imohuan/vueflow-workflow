@@ -58,7 +58,7 @@
         <div
           class="flex-1 text-[13px] font-medium overflow-hidden text-ellipsis whitespace-nowrap"
         >
-          {{ data.label || nodeMetadata?.label || "节点" }}
+          {{ data.label || "节点" }}
         </div>
 
         <!-- 状态指示器 -->
@@ -143,7 +143,6 @@ import { Position } from "@vue-flow/core";
 import { PortHandle } from "../ports";
 import { NODE_SIZE, NODE_COLORS, NODE_SPACING } from "../../../../config";
 import NodeExecutionBadge from "./NodeExecutionBadge.vue";
-import { useNodeRegistry } from "../../../../../composables/useNodeRegistry";
 import type { NodeStyleConfig } from "workflow-flow-nodes";
 import { createNodeInstance } from "workflow-flow-nodes";
 import IconPlay from "@/icons/IconPlay.vue";
@@ -182,15 +181,6 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-
-// 节点注册表
-const { getNodeMetadata } = useNodeRegistry();
-
-// 获取节点元数据
-const nodeMetadata = computed(() => {
-  if (!props.data.type) return undefined;
-  return getNodeMetadata(props.data.type);
-});
 
 // 获取样式配置（优先使用 data.style，其次从 BaseFlowNode 实例获取）
 const styleConfig = computed<NodeStyleConfig>(() => {

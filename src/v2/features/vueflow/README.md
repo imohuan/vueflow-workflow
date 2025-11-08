@@ -42,7 +42,7 @@ vueflow/
 </template>
 
 <script setup>
-import { VueFlowCanvas } from "@/newCode/features/vueflow";
+import { VueFlowCanvas } from "@/v2/features/vueflow";
 import CustomNode from "./CustomNode.vue";
 </script>
 ```
@@ -85,7 +85,7 @@ import CustomNode from "./CustomNode.vue";
 #### 使用示例
 
 ```ts
-import { useVueFlowEvents } from "@/newCode/features/vueflow";
+import { useVueFlowEvents } from "@/v2/features/vueflow";
 
 const events = useVueFlowEvents();
 

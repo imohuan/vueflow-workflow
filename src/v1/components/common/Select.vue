@@ -31,7 +31,7 @@ import Select, {
   type SelectProps,
   type SelectChangeEvent,
 } from "primevue/select";
-import { ptViewMerge } from "@/volt/utils";
+import { ptViewMerge } from "@/v1/volt/utils";
 import IconChevronDown from "@/icons/IconChevronDown.vue";
 
 interface Props extends /* @vue-ignore */ Partial<SelectProps> {

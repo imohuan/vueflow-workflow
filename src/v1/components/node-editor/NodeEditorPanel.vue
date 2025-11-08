@@ -139,7 +139,7 @@ import IconCog from "@/icons/IconCog.vue";
 import IconClose from "@/icons/IconClose.vue";
 import IconPlayCircle from "@/icons/IconPlayCircle.vue";
 import IconTrash from "@/icons/IconTrash.vue";
-import Splitter from "@/volt/Splitter.vue";
+import Splitter from "@/v1/volt/Splitter.vue";
 import SplitterPanel from "primevue/splitterpanel";
 
 const store = useNodeEditorStore();

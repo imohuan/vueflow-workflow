@@ -59,8 +59,8 @@ import VariablePanel from "../../../../components/variables/VariablePanel.vue";
 import IconEmptyNode from "@/icons/IconEmptyNode.vue";
 import { useUiStore } from "../../../../stores/ui";
 import { useCanvasStore } from "../../../../stores/canvas";
-import { buildVariableContext } from "../../../../../workflow/variables/variableResolver";
-import type { VariableTreeNode } from "../../../../../workflow/variables/variableResolver";
+import { buildVariableContext } from "@/v1/workflow/variables/variableResolver";
+import type { VariableTreeNode } from "@/v1/workflow/variables/variableResolver";
 
 const uiStore = useUiStore();
 const canvasStore = useCanvasStore();

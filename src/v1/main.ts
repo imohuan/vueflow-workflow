@@ -2,10 +2,10 @@ import { createApp } from "vue";
 import { createPinia } from "pinia";
 import PrimeVue from "primevue/config";
 import mitt from "mitt";
-import router from "./router";
-import "./style.css";
-import App from "./App.vue";
-import type { WorkflowEvents } from "./typings/workflowExecution";
+import router from "@/v1/router";
+import "@/v1/style.css";
+import App from "@/v1/App.vue";
+import type { WorkflowEvents } from "@/v1/typings/workflowExecution";
 
 // NaiveUI 配置（用于 newCode 模块）
 import naive from "naive-ui";
