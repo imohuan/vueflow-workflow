@@ -70,7 +70,7 @@
         class="w-3 h-3 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors shrink-0"
         @click.stop="toggle"
       >
-        <IconChevronRight
+        <IconRight
           class="transition-transform"
           :class="{ 'rotate-90': expanded }"
         />
@@ -124,9 +124,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import IconChevronRight from "@/icons/IconChevronRight.vue";
+import IconRight from "@/icons/IconRight.vue";
 import type { VariableTreeNode } from "workflow-node-executor";
 import IconHand from "@/icons/IconHand.vue";
+import { useEditableDrag } from "@/v2/composables/useEditableDrag";
 
 defineOptions({ name: "VariableTreeItem" });
 
@@ -140,16 +141,8 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const expanded = ref(props.level < 1);
-const isDragging = ref(false);
-const showDragFollower = ref(false);
-const dragPosition = ref({ x: 0, y: 0 });
-const initialMousePosition = ref({ x: 0, y: 0 });
-const dropTargetState = ref<"default" | "empty" | "hasContent">("default");
-const currentEditableElement = ref<HTMLElement | null>(null);
 
-// 拖拽阈值：只有移动超过这个距离才显示拖拽跟随元素
-const DRAG_THRESHOLD = 5;
-
+// 拖拽相关
 interface DraggedVariableData {
   payload: {
     reference: string;
@@ -159,40 +152,18 @@ interface DraggedVariableData {
   reference: string;
 }
 
-let draggedVariableData: DraggedVariableData | null = null;
 const hasChildren = computed(
   () => Array.isArray(props.node.children) && props.node.children.length > 0
 );
 
-// 计算拖拽跟随元素的样式（实现吸附效果）
-const dragFollowerStyle = computed(() => {
-  const editable = currentEditableElement.value;
-
-  // 只有空输入框才吸附到左侧
-  if (editable && dropTargetState.value === "empty") {
-    const rect = editable.getBoundingClientRect();
-    // 定位到输入框左侧，向左偏移 8px 间距
-    return {
-      left: rect.left - 8 + "px",
-      top: rect.top + rect.height / 2 + "px",
-      transform: "translate(12px, -50%)",
-    };
-  }
-
-  if (editable && dropTargetState.value === "hasContent") {
-    return {
-      left: dragPosition.value.x + "px",
-      top: dragPosition.value.y + "px",
-      // transform: "translate(12px, -50%)",
-    };
-  }
-
-  // 其他情况（有内容的输入框、默认状态）都跟随鼠标，显示在右下角
-  return {
-    left: dragPosition.value.x + "px",
-    top: dragPosition.value.y + "px",
-    transform: "translate(-50%, -100%)",
-  };
+const {
+  showDragFollower,
+  dragPosition,
+  dropTargetState,
+  dragFollowerStyle,
+  startDrag,
+} = useEditableDrag<DraggedVariableData>({
+  eventName: "variable-drop",
 });
 
 const formattedValue = computed(() => {
@@ -233,149 +204,17 @@ function handleRowClick() {
 function handleMouseDown(event: MouseEvent) {
   if (!props.node.reference) return;
 
-  event.preventDefault();
-
-  isDragging.value = true;
-  showDragFollower.value = false; // 初始不显示，只有移动超过阈值才显示
-  dropTargetState.value = "default";
-  currentEditableElement.value = null;
-
-  // 记录初始鼠标位置
-  initialMousePosition.value = {
-    x: event.clientX,
-    y: event.clientY,
-  };
-
-  dragPosition.value = {
-    x: event.clientX,
-    y: event.clientY,
-  };
-
   // 准备拖拽数据
   const variableRef = props.node.reference.trim();
-  const payload = {
-    reference: variableRef,
-    type: props.node.valueType,
-    label: props.node.label,
-  };
-
-  // 存储拖拽数据供 drop 时使用
-  draggedVariableData = {
-    payload,
+  const draggedVariableData: DraggedVariableData = {
+    payload: {
+      reference: variableRef,
+      type: props.node.valueType,
+      label: props.node.label,
+    },
     reference: variableRef,
   };
 
-  // 绑定全局事件
-  document.addEventListener("mousemove", handleMouseMove);
-  document.addEventListener("mouseup", handleMouseUp);
-}
-
-function handleMouseMove(event: MouseEvent) {
-  if (!isDragging.value) return;
-
-  // 更新当前鼠标位置
-  dragPosition.value = {
-    x: event.clientX,
-    y: event.clientY,
-  };
-
-  // 计算移动距离
-  const deltaX = event.clientX - initialMousePosition.value.x;
-  const deltaY = event.clientY - initialMousePosition.value.y;
-  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-  // 只有移动超过阈值才显示拖拽跟随元素
-  if (distance > DRAG_THRESHOLD) {
-    if (!showDragFollower.value) {
-      showDragFollower.value = true;
-      // 设置拖拽时的手掌光标样式
-      document.body.style.cursor = "grabbing";
-    }
-  } else {
-    // 如果距离不够，不显示拖拽跟随元素，也不检测目标元素
-    return;
-  }
-
-  // 检测鼠标下方的元素
-  const target = document.elementFromPoint(event.clientX, event.clientY);
-  if (!target) {
-    dropTargetState.value = "default";
-    currentEditableElement.value = null;
-    return;
-  }
-
-  // 检查是否是可编辑的元素（contenteditable 或 input/textarea）
-  const isEditable =
-    target.getAttribute("contenteditable") === "true" ||
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement;
-
-  let editableElement: HTMLElement | null = null;
-
-  if (!isEditable) {
-    // 检查父元素是否可编辑
-    const editableParent = target.closest("[contenteditable='true']");
-    if (!editableParent) {
-      dropTargetState.value = "default";
-      currentEditableElement.value = null;
-      return;
-    }
-
-    editableElement = editableParent as HTMLElement;
-  } else {
-    editableElement = target as HTMLElement;
-  }
-
-  // 更新当前可编辑元素
-  currentEditableElement.value = editableElement;
-
-  // 检查可编辑元素是否有内容
-  const content = getPlainTextContent(editableElement);
-  dropTargetState.value = content.trim() === "" ? "empty" : "hasContent";
-}
-
-/**
- * 获取元素的纯文本内容
- */
-function getPlainTextContent(element: HTMLElement): string {
-  if (
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLTextAreaElement
-  ) {
-    return element.value;
-  }
-  return (
-    element.textContent?.replace(/\u00a0/g, " ").replace(/\u200B/g, "") || ""
-  );
-}
-
-function handleMouseUp(event: MouseEvent) {
-  if (!isDragging.value) return;
-
-  isDragging.value = false;
-  showDragFollower.value = false;
-  dropTargetState.value = "default";
-  currentEditableElement.value = null;
-
-  // 恢复鼠标样式
-  document.body.style.cursor = "";
-
-  // 移除全局事件监听
-  document.removeEventListener("mousemove", handleMouseMove);
-  document.removeEventListener("mouseup", handleMouseUp);
-
-  // 触发 drop 事件到鼠标位置的元素
-  const target = document.elementFromPoint(event.clientX, event.clientY);
-  if (target) {
-    // 创建自定义事件传递数据
-    const dropEvent = new CustomEvent("variable-drop", {
-      bubbles: true,
-      detail: draggedVariableData,
-    });
-    target.dispatchEvent(dropEvent);
-  }
-
-  // 清理拖拽数据
-  draggedVariableData = null;
+  startDrag(event, draggedVariableData);
 }
 </script>

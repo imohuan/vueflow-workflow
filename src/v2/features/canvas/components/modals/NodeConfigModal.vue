@@ -18,45 +18,110 @@
     </div>
 
     <!-- 已选中节点时 -->
-    <div v-else class="flex flex-col h-full">
-      <n-split
-        direction="horizontal"
-        class="flex-1"
-        :default-size="0.25"
-        :max="0.5"
-        :min="0.15"
-      >
-        <template #1>
+    <SplitLayout
+      v-else
+      center-title="节点配置"
+      :show-back-button="false"
+      :center-width="500"
+      :min-left-width="0.2"
+      :min-right-width="0.2"
+      @resize="handleResize"
+    >
+      <!-- 左侧面板：变量面板 -->
+      <template #left>
+        <VariablePanel :variables="availableVariables" />
+      </template>
+
+      <!-- 中间面板：节点配置面板 -->
+      <template #center>
+        <NodeConfigPanel />
+      </template>
+
+      <!-- 右侧面板：输出/日志 -->
+      <template #right>
+        <div class="h-full flex flex-col">
           <div
-            class="w-full h-full overflow-hidden bg-white border-r border-slate-200"
+            class="shrink-0 flex items-center justify-between border-b border-slate-200 px-4 py-3"
           >
-            <VariablePanel :variables="availableVariables" />
+            <ToggleButtonGroup
+              v-model="rightPanelMode"
+              :options="rightPanelOptions"
+            />
+            <!-- 编辑模式：显示保存和取消按钮 -->
+            <div v-if="isEditing" class="flex items-center gap-2">
+              <button
+                class="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded transition-colors"
+                @click="handleCancel"
+              >
+                取消
+              </button>
+              <button
+                class="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                @click="handleSave"
+              >
+                保存
+              </button>
+            </div>
+            <!-- 查看模式且为 output：显示编辑图标 -->
+            <button
+              v-else-if="rightPanelMode === 'output'"
+              class="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
+              @click="handleEdit"
+            >
+              <svg
+                class="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+            </button>
           </div>
-        </template>
-        <template #2>
-          <div
-            class="w-full h-full overflow-y-auto variable-scroll bg-[#f6f6f8]"
-          >
-            <div class="max-w-3xl mx-auto p-4 space-y-3">
-              <!-- 节点配置面板 -->
-              <NodeConfigPanel />
+          <div class="flex-1 overflow-auto">
+            <!-- 编辑模式：显示代码编辑器 -->
+            <CodeEditor
+              v-if="isEditing"
+              v-model="editorContent"
+              language="json"
+              class="h-full"
+              :options="{
+                minimap: { enabled: false },
+                fontSize: 13,
+              }"
+            />
+            <!-- 查看模式：显示原有内容 -->
+            <div v-else class="px-4 py-6">
+              <p class="text-sm text-slate-500">
+                Execute this node to view data or set mock data
+              </p>
             </div>
           </div>
-        </template>
-      </n-split>
-    </div>
+        </div>
+      </template>
+    </SplitLayout>
   </ModalShell>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
 import type { Node } from "@vue-flow/core";
-import ModalShell from "../../../../components/ui/ModalShell.vue";
+import {
+  ModalShell,
+  SplitLayout,
+  ToggleButtonGroup,
+} from "../../../../components/ui";
 import NodeConfigPanel from "../panels/NodeConfigPanel.vue";
-import VariablePanel from "../../../../components/variables/VariablePanel.vue";
+import VariablePanel from "../panels/VariablePanel.vue";
 import IconEmptyNode from "@/icons/IconEmptyNode.vue";
+import CodeEditor from "@/v2/components/code/CodeEditor.vue";
 import { useUiStore } from "../../../../stores/ui";
 import { useCanvasStore } from "../../../../stores/canvas";
 import { buildVariableContext } from "@/v1/workflow/variables/variableResolver";
@@ -89,6 +154,79 @@ const availableVariables = computed<VariableTreeNode[]>(() => {
   }
 });
 
+const leftWidth = ref(320);
+const rightWidth = ref(320);
+const rightPanelMode = ref<"output" | "logs">("output");
+const isEditing = ref(false);
+const editorContent = ref("");
+const originalEditorContent = ref("");
+
+const rightPanelOptions = [
+  { value: "output", label: "输出" },
+  { value: "logs", label: "日志" },
+];
+
+// 初始化编辑器内容
+const initEditorContent = () => {
+  try {
+    // 这里可以根据节点数据初始化编辑器内容
+    editorContent.value = "{}";
+  } catch (error) {
+    console.error("初始化编辑器内容失败:", error);
+    editorContent.value = "";
+  }
+};
+
+// 监听编辑模式，初始化编辑器内容
+watch(
+  () => isEditing.value,
+  (editing) => {
+    if (editing) {
+      if (!editorContent.value) {
+        initEditorContent();
+      }
+      // 保存原始内容
+      originalEditorContent.value = editorContent.value;
+    }
+  }
+);
+
+// 初始化编辑器内容
+initEditorContent();
+
+// 处理编辑
+const handleEdit = () => {
+  isEditing.value = true;
+};
+
+// 处理保存
+const handleSave = () => {
+  try {
+    // 验证 JSON 格式
+    JSON.parse(editorContent.value);
+    // 保存成功，更新原始内容
+    originalEditorContent.value = editorContent.value;
+    isEditing.value = false;
+    console.log("保存成功:", editorContent.value);
+  } catch (error) {
+    console.error("保存失败：JSON 格式错误", error);
+    // 这里可以添加错误提示
+    alert("保存失败：JSON 格式错误");
+  }
+};
+
+// 处理取消
+const handleCancel = () => {
+  // 恢复原始内容
+  editorContent.value = originalEditorContent.value;
+  isEditing.value = false;
+};
+
+const handleResize = (data: { leftWidth: number; rightWidth: number }) => {
+  leftWidth.value = data.leftWidth;
+  rightWidth.value = data.rightWidth;
+};
+
 /**
  * 关闭模态框
  */
@@ -98,4 +236,6 @@ function handleClose() {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+@import "@/v2/style.css";
+</style>

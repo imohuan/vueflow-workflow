@@ -49,7 +49,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import JsonTreeViewer from "@/v2/components/json/JsonTreeViewer.vue";
+import JsonTreeViewer from "@/v2/components/variables/JsonTreeViewer.vue";
 
 defineOptions({ name: "JsonTreePreview" });
 

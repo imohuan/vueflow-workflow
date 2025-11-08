@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import VariableTreeItem from "./VariableTreeItem.vue";
+import VariableTreeItem from "../../../../components/variables/VariableTreeItem.vue";
 import type { VariableTreeNode } from "workflow-node-executor";
 
 interface Props {

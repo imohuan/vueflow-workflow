@@ -129,6 +129,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { useEditableDrag } from "@/v2/composables/useEditableDrag";
 
 defineOptions({ name: "JsonTreeNode" });
 
@@ -301,176 +302,37 @@ const valueClass = computed(() => {
 });
 
 // 拖拽相关
-const isDragging = ref(false);
-const showDragFollower = ref(false);
-const dragPosition = ref({ x: 0, y: 0 });
-const initialMousePosition = ref({ x: 0, y: 0 });
-const dropTargetState = ref<"default" | "empty" | "hasContent">("default");
-const currentEditableElement = ref<HTMLElement | null>(null);
-const isHighlighted = ref(false);
-
-const DRAG_THRESHOLD = 5;
-
 interface DraggedKeyData {
   key: string;
   path: string;
   value: unknown;
 }
 
-let draggedKeyData: DraggedKeyData | null = null;
-
-// 计算拖拽跟随元素的样式
-const dragFollowerStyle = computed(() => {
-  const editable = currentEditableElement.value;
-
-  if (editable && dropTargetState.value === "empty") {
-    const rect = editable.getBoundingClientRect();
-    return {
-      left: rect.left - 8 + "px",
-      top: rect.top + rect.height / 2 + "px",
-      transform: "translate(12px, -50%)",
-    };
-  }
-
-  if (editable && dropTargetState.value === "hasContent") {
-    return {
-      left: dragPosition.value.x + "px",
-      top: dragPosition.value.y + "px",
-    };
-  }
-
-  return {
-    left: dragPosition.value.x + "px",
-    top: dragPosition.value.y + "px",
-    transform: "translate(-50%, -100%)",
-  };
+const {
+  isDragging,
+  showDragFollower,
+  dropTargetState,
+  isHighlighted,
+  dragFollowerStyle,
+  startDrag,
+} = useEditableDrag<DraggedKeyData>({
+  eventName: "json-key-drop",
+  enableHighlight: true,
 });
 
 // 处理键的鼠标按下事件
 const handleKeyMouseDown = (event: MouseEvent) => {
   if (props.keyName === null) return;
 
-  event.preventDefault();
   event.stopPropagation();
 
-  isDragging.value = true;
-  showDragFollower.value = false;
-  dropTargetState.value = "default";
-  currentEditableElement.value = null;
-  isHighlighted.value = true;
-
-  initialMousePosition.value = {
-    x: event.clientX,
-    y: event.clientY,
-  };
-
-  dragPosition.value = {
-    x: event.clientX,
-    y: event.clientY,
-  };
-
-  draggedKeyData = {
+  const draggedKeyData: DraggedKeyData = {
     key: props.keyName,
     path: props.path,
     value: props.data,
   };
 
-  document.addEventListener("mousemove", handleMouseMove);
-  document.addEventListener("mouseup", handleMouseUp);
-};
-
-// 处理鼠标移动
-const handleMouseMove = (event: MouseEvent) => {
-  if (!isDragging.value) return;
-
-  dragPosition.value = {
-    x: event.clientX,
-    y: event.clientY,
-  };
-
-  const deltaX = event.clientX - initialMousePosition.value.x;
-  const deltaY = event.clientY - initialMousePosition.value.y;
-  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-  if (distance > DRAG_THRESHOLD) {
-    if (!showDragFollower.value) {
-      showDragFollower.value = true;
-      document.body.style.cursor = "grabbing";
-    }
-  } else {
-    return;
-  }
-
-  const target = document.elementFromPoint(event.clientX, event.clientY);
-  if (!target) {
-    dropTargetState.value = "default";
-    currentEditableElement.value = null;
-    return;
-  }
-
-  const isEditable =
-    target.getAttribute("contenteditable") === "true" ||
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement;
-
-  let editableElement: HTMLElement | null = null;
-
-  if (!isEditable) {
-    const editableParent = target.closest("[contenteditable='true']");
-    if (!editableParent) {
-      dropTargetState.value = "default";
-      currentEditableElement.value = null;
-      return;
-    }
-    editableElement = editableParent as HTMLElement;
-  } else {
-    editableElement = target as HTMLElement;
-  }
-
-  currentEditableElement.value = editableElement;
-
-  const content = getPlainTextContent(editableElement);
-  dropTargetState.value = content.trim() === "" ? "empty" : "hasContent";
-};
-
-// 获取纯文本内容
-const getPlainTextContent = (element: HTMLElement): string => {
-  if (
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLTextAreaElement
-  ) {
-    return element.value;
-  }
-  return (
-    element.textContent?.replace(/\u00a0/g, " ").replace(/\u200B/g, "") || ""
-  );
-};
-
-// 处理鼠标抬起
-const handleMouseUp = (event: MouseEvent) => {
-  if (!isDragging.value) return;
-
-  isDragging.value = false;
-  showDragFollower.value = false;
-  dropTargetState.value = "default";
-  currentEditableElement.value = null;
-  isHighlighted.value = false;
-
-  document.body.style.cursor = "";
-
-  document.removeEventListener("mousemove", handleMouseMove);
-  document.removeEventListener("mouseup", handleMouseUp);
-
-  const target = document.elementFromPoint(event.clientX, event.clientY);
-  if (target && draggedKeyData) {
-    const dropEvent = new CustomEvent("json-key-drop", {
-      bubbles: true,
-      detail: draggedKeyData,
-    });
-    target.dispatchEvent(dropEvent);
-  }
-
-  draggedKeyData = null;
+  startDrag(event, draggedKeyData);
 };
 </script>
 

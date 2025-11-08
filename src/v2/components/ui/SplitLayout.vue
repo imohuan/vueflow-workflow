@@ -36,7 +36,9 @@
           class="overflow-hidden bg-white border-r border-slate-200 my-6 rounded-l-lg shrink-0"
           :style="leftPanelStyle"
         >
-          <slot name="left" />
+          <div class="h-full overflow-auto variable-scroll">
+            <slot name="left" />
+          </div>
         </div>
 
         <!-- 中间面板 -->
@@ -108,7 +110,7 @@
             </div>
 
             <!-- 中间面板内容 -->
-            <div class="flex-1 overflow-auto">
+            <div class="flex-1 h-full overflow-auto variable-scroll">
               <slot name="center" />
             </div>
           </div>
@@ -120,7 +122,9 @@
           class="overflow-hidden bg-white border-l border-slate-200 my-6 rounded-r-lg flex-1 min-w-0"
           :style="rightPanelStyle"
         >
-          <slot name="right" />
+          <div class="h-full overflow-auto variable-scroll">
+            <slot name="right" />
+          </div>
         </div>
       </div>
     </div>
