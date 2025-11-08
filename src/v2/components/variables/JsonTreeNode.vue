@@ -62,8 +62,10 @@
         <template v-else-if="keyName !== null">
           <span class="json-key">
             <span
-              class="json-key-content cursor-grab active:cursor-grabbing"
+              class="json-key-content"
               :class="{
+                'cursor-grab active:cursor-grabbing': props.enableDrag,
+                'cursor-default': !props.enableDrag,
                 'is-dragging': isDragging,
                 'is-highlight': isHighlighted,
               }"
@@ -103,6 +105,7 @@
         :path="getChildPath(childKey, index)"
         :is-last="isLastChild(index)"
         :parent-is-last="isLast"
+        :enable-drag="props.enableDrag"
       />
       <!-- 闭合括号 -->
       <div class="json-tree-node">
@@ -146,6 +149,8 @@ interface Props {
   isLast?: boolean;
   /** 父节点是否为最后一个 */
   parentIsLast?: boolean;
+  /** 是否启用拖拽 */
+  enableDrag?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -154,6 +159,7 @@ const props = withDefaults(defineProps<Props>(), {
   path: "",
   isLast: true,
   parentIsLast: true,
+  enableDrag: true,
 });
 
 // 展开状态
@@ -322,7 +328,8 @@ const {
 
 // 处理键的鼠标按下事件
 const handleKeyMouseDown = (event: MouseEvent) => {
-  if (props.keyName === null) return;
+  // 如果禁用了拖拽，则不处理
+  if (!props.enableDrag || props.keyName === null) return;
 
   event.stopPropagation();
 

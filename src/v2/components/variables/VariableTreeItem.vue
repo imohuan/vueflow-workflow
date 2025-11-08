@@ -81,7 +81,8 @@
       <span
         class="px-2 py-0.5 text-xs font-medium text-slate-800 bg-white/90 rounded-lg shadow-sm border border-slate-200 shrink-0 transition-all duration-150 hover:shadow-md"
         :class="{
-          'cursor-grab': node.reference,
+          'cursor-grab': node.reference && props.enableDrag,
+          'cursor-default': !props.enableDrag || !node.reference,
         }"
         @mousedown.stop="handleMouseDown"
       >
@@ -117,6 +118,7 @@
         :key="child.id"
         :node="child"
         :level="level + 1"
+        :enable-drag="props.enableDrag"
       />
     </div>
   </div>
@@ -134,10 +136,13 @@ defineOptions({ name: "VariableTreeItem" });
 interface Props {
   node: VariableTreeNode;
   level?: number;
+  /** 是否启用拖拽 */
+  enableDrag?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   level: 0,
+  enableDrag: true,
 });
 
 const expanded = ref(props.level < 1);
@@ -202,7 +207,8 @@ function handleRowClick() {
 }
 
 function handleMouseDown(event: MouseEvent) {
-  if (!props.node.reference) return;
+  // 如果禁用了拖拽，则不处理
+  if (!props.enableDrag || !props.node.reference) return;
 
   // 准备拖拽数据
   const variableRef = props.node.reference.trim();

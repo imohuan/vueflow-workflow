@@ -1,7 +1,13 @@
 <template>
   <div class="json-tree-viewer">
     <div class="json-tree-list">
-      <JsonTreeNode :data="data" :depth="0" :path="''" :is-last="true" />
+      <JsonTreeNode
+        :data="data"
+        :depth="0"
+        :path="''"
+        :is-last="true"
+        :enable-drag="enableDrag"
+      />
     </div>
   </div>
 </template>
@@ -12,9 +18,13 @@ import JsonTreeNode from "./JsonTreeNode.vue";
 interface Props {
   /** JSON 数据 */
   data: unknown;
+  /** 是否启用拖拽 */
+  enableDrag?: boolean;
 }
 
-defineProps<Props>();
+withDefaults(defineProps<Props>(), {
+  enableDrag: true,
+});
 </script>
 
 <style scoped>

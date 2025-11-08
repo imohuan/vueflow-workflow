@@ -1,204 +1,204 @@
 <template>
-  <div class="h-full overflow-y-auto variable-scroll bg-white">
-    <!-- 未选中节点时的提示 -->
-    <div
-      v-if="!selectedNode"
-      class="flex h-full items-center justify-center text-slate-400"
+  <div class="flex h-full flex-col bg-white">
+    <!-- Tab 切换 -->
+    <n-tabs
+      v-model:value="activeTab"
+      type="line"
+      size="small"
+      class="border-b border-slate-200 node-config-tabs"
     >
-      <div class="text-center">
-        <IconConfig class="mx-auto mb-3 h-12 w-12 opacity-50" />
-        <p class="text-sm">请在画布中选择一个节点</p>
-        <p class="mt-1 text-xs text-slate-500">点击节点即可进行配置</p>
-      </div>
-    </div>
-
-    <!-- 选中节点时显示配置表单 -->
-    <div v-else>
-      <!-- 节点基本信息 -->
-      <div class="border-b border-slate-200 bg-slate-50 p-4">
-        <div class="flex items-start gap-3">
-          <!-- 节点图标 -->
+      <n-tab-pane name="node" tab="节点配置">
+        <div class="h-[calc(100vh-120px)] overflow-y-auto variable-scroll">
+          <!-- 未选中节点时的提示 -->
           <div
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-            :style="{ backgroundColor: nodeColor + '20' }"
+            v-if="!selectedNode"
+            class="flex h-full items-center justify-center text-slate-400"
           >
-            <component
-              :is="selectedNode.data.icon"
-              v-if="selectedNode.data.icon"
-              class="h-5 w-5"
-              :style="{ color: nodeColor }"
-            />
-            <IconWidget v-else class="h-5 w-5" :style="{ color: nodeColor }" />
+            <div class="text-center">
+              <IconConfig class="mx-auto mb-3 h-12 w-12 opacity-50" />
+              <p class="text-sm">请在画布中选择一个节点</p>
+              <p class="mt-1 text-xs text-slate-500">点击节点即可进行配置</p>
+            </div>
           </div>
 
-          <!-- 节点信息 -->
-          <div class="flex-1 overflow-hidden">
-            <div class="flex items-center gap-2">
-              <h3 class="font-semibold text-slate-800">
-                {{ selectedNode.data.label }}
-              </h3>
-              <n-tag
-                v-if="selectedNode.data.status"
-                :type="getStatusType(selectedNode.data.status)"
-                size="small"
+          <!-- 选中节点时显示配置表单 -->
+          <div v-else class="p-4">
+            <!-- 节点类型特定配置 -->
+            <div
+              v-if="nodeTypeConfig && nodeTypeConfig.length > 0"
+              class="mb-6"
+            >
+              <h4
+                class="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700"
               >
-                {{ getStatusLabel(selectedNode.data.status) }}
-              </n-tag>
-            </div>
-            <p class="mt-1 text-xs text-slate-500">
-              {{ selectedNode.data.description || "暂无描述" }}
-            </p>
-            <p class="mt-1 text-xs text-slate-400">ID: {{ selectedNode.id }}</p>
-          </div>
-        </div>
-      </div>
+                <IconCode class="h-4 w-4" />
+                节点参数
+              </h4>
 
-      <!-- 配置表单区域 -->
-      <div class="p-4">
-        <!-- 基础配置 -->
-        <div class="mb-6">
-          <h4
-            class="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700"
-          >
-            <IconSettings class="h-4 w-4" />
-            基础配置
-          </h4>
-
-          <div class="space-y-4">
-            <!-- 节点名称 -->
-            <div>
-              <label class="mb-2 block text-sm font-medium text-slate-700">
-                节点名称
-                <span class="text-red-500">*</span>
-              </label>
-              <n-input
-                v-model:value="nodeConfig.label"
-                placeholder="输入节点名称..."
-                size="small"
-                @update:value="handleConfigChange"
-              />
-            </div>
-
-            <!-- 节点描述 -->
-            <div>
-              <label class="mb-2 block text-sm font-medium text-slate-700">
-                节点描述
-              </label>
-              <n-input
-                v-model:value="nodeConfig.description"
-                type="textarea"
-                placeholder="输入节点描述..."
-                :rows="3"
-                size="small"
-                @update:value="handleConfigChange"
-              />
-            </div>
-
-            <!-- 节点颜色 -->
-            <div>
-              <label class="mb-2 block text-sm font-medium text-slate-700">
-                节点颜色
-              </label>
-              <n-color-picker
-                v-model:value="nodeConfig.color"
-                :show-alpha="false"
-                :modes="['hex']"
-                @update:value="handleConfigChange"
-              />
-            </div>
-          </div>
-        </div>
-
-        <!-- 节点类型特定配置 -->
-        <div v-if="nodeTypeConfig && nodeTypeConfig.length > 0" class="mb-6">
-          <h4
-            class="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700"
-          >
-            <IconCode class="h-4 w-4" />
-            节点参数
-          </h4>
-
-          <div class="space-y-4">
-            <ConfigField
-              v-for="field in nodeTypeConfig"
-              :key="field.key"
-              :field="field"
-              :model-value="nodeConfig.params?.[field.key] ?? field.default"
-              @update:model-value="(val) => handleParamChange(field.key, val)"
-            />
-          </div>
-        </div>
-
-        <!-- 高级配置 -->
-        <div class="mb-6">
-          <n-collapse>
-            <n-collapse-item title="高级配置" name="advanced">
               <div class="space-y-4">
-                <!-- 节点类型（只读） -->
-                <div>
-                  <label class="mb-2 block text-sm font-medium text-slate-700">
-                    节点类型
-                  </label>
-                  <n-input
-                    :value="selectedNode.data.type || '未设置'"
-                    size="small"
-                    disabled
+                <ConfigField
+                  v-for="field in nodeTypeConfig"
+                  :key="field.key"
+                  :field="field"
+                  :model-value="nodeConfig.params?.[field.key] ?? field.default"
+                  @update:model-value="
+                    (val) => handleParamChange(field.key, val)
+                  "
+                />
+              </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="flex gap-2 border-t border-slate-200 pt-4">
+              <n-button size="small" @click="handleReset">
+                <template #icon>
+                  <n-icon :component="IconReset" />
+                </template>
+                重置
+              </n-button>
+              <n-button
+                type="error"
+                size="small"
+                secondary
+                @click="handleDeleteNode"
+              >
+                <template #icon>
+                  <n-icon :component="IconTrash" />
+                </template>
+                删除节点
+              </n-button>
+            </div>
+          </div>
+        </div>
+      </n-tab-pane>
+
+      <n-tab-pane name="general" tab="通用设置">
+        <div class="h-[calc(100vh-120px)] overflow-y-auto variable-scroll">
+          <!-- 未选中节点时的提示 -->
+          <div
+            v-if="!selectedNode"
+            class="flex h-full items-center justify-center text-slate-400"
+          >
+            <div class="text-center">
+              <IconConfig class="mx-auto mb-3 h-12 w-12 opacity-50" />
+              <p class="text-sm">请在画布中选择一个节点</p>
+              <p class="mt-1 text-xs text-slate-500">点击节点即可进行配置</p>
+            </div>
+          </div>
+
+          <!-- 选中节点时显示配置表单 -->
+          <div v-else>
+            <!-- 节点基本信息 -->
+            <div class="border-b border-slate-200 bg-slate-50 p-4">
+              <div class="flex items-start gap-3">
+                <!-- 节点图标 -->
+                <div
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                  :style="{ backgroundColor: nodeColor + '20' }"
+                >
+                  <component
+                    :is="selectedNode.data.icon"
+                    v-if="selectedNode.data.icon"
+                    class="h-5 w-5"
+                    :style="{ color: nodeColor }"
+                  />
+                  <IconWidget
+                    v-else
+                    class="h-5 w-5"
+                    :style="{ color: nodeColor }"
                   />
                 </div>
 
-                <!-- 节点位置 -->
-                <div>
-                  <label class="mb-2 block text-sm font-medium text-slate-700">
-                    节点位置
-                  </label>
-                  <n-space>
-                    <n-input-number
-                      :value="selectedNode.position.x"
+                <!-- 节点信息 -->
+                <div class="flex-1 overflow-hidden">
+                  <div class="flex items-center gap-2">
+                    <h3 class="font-semibold text-slate-800">
+                      {{ selectedNode.data.label }}
+                    </h3>
+                    <n-tag
+                      v-if="selectedNode.data.status"
+                      :type="getStatusType(selectedNode.data.status)"
                       size="small"
-                      placeholder="X"
-                      :step="10"
-                      @update:value="(val: number | null) => handlePositionChange('x', val)"
                     >
-                      <template #prefix>X:</template>
-                    </n-input-number>
-                    <n-input-number
-                      :value="selectedNode.position.y"
-                      size="small"
-                      placeholder="Y"
-                      :step="10"
-                      @update:value="(val: number | null) => handlePositionChange('y', val)"
-                    >
-                      <template #prefix>Y:</template>
-                    </n-input-number>
-                  </n-space>
+                      {{ getStatusLabel(selectedNode.data.status) }}
+                    </n-tag>
+                  </div>
+                  <p class="mt-1 text-xs text-slate-500">
+                    {{ selectedNode.data.description || "暂无描述" }}
+                  </p>
+                  <p class="mt-1 text-xs text-slate-400">
+                    ID: {{ selectedNode.id }}
+                  </p>
                 </div>
               </div>
-            </n-collapse-item>
-          </n-collapse>
-        </div>
+            </div>
 
-        <!-- 操作按钮 -->
-        <div class="flex gap-2 border-t border-slate-200 pt-4">
-          <n-button size="small" @click="handleReset">
-            <template #icon>
-              <n-icon :component="IconReset" />
-            </template>
-            重置
-          </n-button>
-          <n-button
-            type="error"
-            size="small"
-            secondary
-            @click="handleDeleteNode"
-          >
-            <template #icon>
-              <n-icon :component="IconTrash" />
-            </template>
-            删除节点
-          </n-button>
+            <!-- 配置表单区域 -->
+            <div class="p-4">
+              <!-- 基础配置 -->
+              <div class="mb-6">
+                <h4
+                  class="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700"
+                >
+                  <IconSettings class="h-4 w-4" />
+                  基础配置
+                </h4>
+
+                <div class="space-y-4">
+                  <!-- 节点名称 -->
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-slate-700"
+                    >
+                      节点名称
+                      <span class="text-red-500">*</span>
+                    </label>
+                    <n-input
+                      v-model:value="nodeConfig.label"
+                      placeholder="输入节点名称..."
+                      size="small"
+                      @update:value="handleConfigChange"
+                    />
+                  </div>
+
+                  <!-- 节点描述 -->
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-slate-700"
+                    >
+                      节点描述
+                    </label>
+                    <n-input
+                      v-model:value="nodeConfig.description"
+                      type="textarea"
+                      placeholder="输入节点描述..."
+                      :rows="3"
+                      size="small"
+                      @update:value="handleConfigChange"
+                    />
+                  </div>
+
+                  <!-- 节点颜色 -->
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-slate-700"
+                    >
+                      节点颜色
+                    </label>
+                    <n-color-picker
+                      v-model:value="nodeConfig.color"
+                      :show-alpha="false"
+                      :modes="['hex']"
+                      @update:value="handleConfigChange"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </n-tab-pane>
+    </n-tabs>
   </div>
 </template>
 
@@ -220,6 +220,9 @@ import IconTrash from "@/icons/IconTrash.vue";
 const uiStore = useUiStore();
 const message = useMessage();
 const { findNode, updateNode, removeNodes } = useVueFlow();
+
+/** 当前激活的 Tab */
+const activeTab = ref<"node" | "general">("node");
 
 /** 当前选中的节点 */
 const selectedNode = computed<Node | undefined>(() => {
@@ -420,5 +423,15 @@ function getStatusType(
 </script>
 
 <style scoped>
-/* 自定义样式 */
+/* Tab 左侧 padding */
+:deep(.node-config-tabs .n-tabs-nav) {
+  padding-left: 16px;
+  padding-right: 16px;
+  border-bottom: solid 1px #eee;
+}
+
+:deep(.node-config-tabs .n-tabs-tab) {
+  padding-left: 8px;
+  padding-right: 8px;
+}
 </style>

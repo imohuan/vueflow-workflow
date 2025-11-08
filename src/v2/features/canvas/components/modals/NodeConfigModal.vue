@@ -30,109 +30,15 @@
     >
       <!-- 左侧面板：变量面板 -->
       <template #left>
-        <div class="h-full flex flex-col">
-          <div class="shrink-0 border-b border-slate-200 px-4 py-3">
-            <div class="flex items-center justify-between gap-3">
-              <h3
-                class="text-sm font-semibold text-slate-900 uppercase tracking-wide"
-              >
-                可用变量
-              </h3>
-              <div class="flex items-center gap-2">
-                <!-- 搜索区域（固定高度容器） -->
-                <div class="h-7 flex items-center relative">
-                  <div
-                    class="overflow-hidden transition-all duration-200 ease-out"
-                    :style="{
-                      width: isSearchExpanded ? '8rem' : '1.75rem',
-                      opacity: isSearchExpanded ? 1 : 0,
-                    }"
-                  >
-                    <n-input
-                      v-show="isSearchExpanded"
-                      v-model:value="searchQuery"
-                      size="small"
-                      placeholder="搜索..."
-                      class="w-32 n-input-gray"
-                      @blur="handleSearchBlur"
-                      @keyup.escape="isSearchExpanded = false"
-                      ref="searchInputRef"
-                    >
-                      <template #prefix>
-                        <IconSearch class="w-4 h-4 text-slate-400" />
-                      </template>
-                    </n-input>
-                  </div>
-                  <button
-                    v-show="!isSearchExpanded"
-                    @click="expandSearch"
-                    class="absolute left-0 h-7 w-7 flex items-center justify-center text-slate-600 cursor-pointer transition-opacity duration-200"
-                  >
-                    <IconSearch class="w-4 h-4" />
-                  </button>
-                </div>
-                <!-- 按钮组 -->
-                <ToggleButtonGroup
-                  v-model="leftViewMode"
-                  :options="leftViewModeOptions"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div class="flex-1 overflow-auto variable-scroll px-4 py-4">
-            <!-- Schema 视图：VariableTreeItem -->
-            <template v-if="leftViewMode === 'schema'">
-              <div
-                v-if="filteredVariables.length === 0"
-                class="flex items-center justify-center p-5"
-              >
-                <div
-                  class="text-[11px] text-slate-400 bg-slate-50 border border-dashed border-slate-200 rounded-md p-4 text-center"
-                >
-                  暂无可用变量<br />
-                  <span class="text-[10px]">执行上游节点后显示</span>
-                </div>
-              </div>
-              <div v-else class="space-y-1">
-                <VariableTreeItem
-                  v-for="node in filteredVariables"
-                  :key="node.id"
-                  :node="node"
-                  :level="0"
-                />
-              </div>
-            </template>
-
-            <!-- JSON 视图：JsonTreeViewer -->
-            <template v-else-if="leftViewMode === 'json'">
-              <!-- 下拉框和数据条数 -->
-              <div class="shrink-0 flex items-center gap-2 pb-2">
-                <div class="w-32">
-                  <n-select
-                    v-model:value="selectedVariableNode"
-                    :options="variableNodeOptions"
-                    size="small"
-                    placeholder="选择变量"
-                  />
-                </div>
-                <span class="text-xs text-slate-500 font-mono">
-                  {{ dataItemCount }}
-                </span>
-              </div>
-              <JsonTreeViewer
-                v-if="selectedVariableData"
-                :data="selectedVariableData"
-              />
-              <div
-                v-else
-                class="flex items-center justify-center p-5 text-sm text-slate-400"
-              >
-                请选择一个变量节点
-              </div>
-            </template>
-          </div>
-        </div>
+        <VariablePanel
+          title="可用变量"
+          :variables="availableVariables"
+          :show-search="true"
+          :show-view-mode-toggle="true"
+          :view-mode-options="leftViewModeOptions"
+          :default-view-mode="leftViewMode"
+          @update:view-mode="leftViewMode = $event"
+        />
       </template>
 
       <!-- 中间面板：节点配置面板 -->
@@ -157,16 +63,13 @@
 
       <!-- 右侧面板：输出/日志 -->
       <template #right>
-        <div class="h-full flex flex-col">
+        <!-- 编辑模式：显示代码编辑器 -->
+        <div v-if="isEditing" class="h-full flex flex-col">
           <div
             class="shrink-0 flex items-center justify-between border-b border-slate-200 px-4 py-3"
           >
-            <ToggleButtonGroup
-              v-model="rightPanelMode"
-              :options="rightPanelOptions"
-            />
-            <!-- 编辑模式：显示保存和取消按钮 -->
-            <div v-if="isEditing" class="flex items-center gap-2">
+            <span class="text-sm font-semibold text-slate-900">编辑输出</span>
+            <div class="flex items-center gap-2">
               <button
                 class="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded transition-colors"
                 @click="handleCancel"
@@ -180,11 +83,39 @@
                 保存
               </button>
             </div>
-            <!-- 查看模式且为 output：显示编辑图标 -->
+          </div>
+          <CodeEditor
+            v-model="editorContent"
+            language="json"
+            class="flex-1"
+            :options="{
+              minimap: { enabled: false },
+              fontSize: 13,
+            }"
+          />
+        </div>
+
+        <!-- 有执行结果：显示变量面板 -->
+        <VariablePanel
+          v-else-if="hasExecutionResult"
+          title="输出"
+          :variables="executionResultVariables"
+          :show-search="true"
+          :show-view-mode-toggle="true"
+          :view-mode-options="rightViewModeOptions"
+          :default-view-mode="rightViewMode"
+          :enable-drag="false"
+          :show-json-selector="false"
+          empty-text="暂无执行结果"
+          empty-hint="执行节点后显示结果"
+          @update:view-mode="(mode) => (rightViewMode = mode)"
+        >
+          <!-- 标题右侧：编辑按钮 -->
+          <template #header-actions>
             <button
-              v-else-if="rightPanelMode === 'output'"
               class="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
               @click="handleEdit"
+              title="编辑"
             >
               <svg
                 class="h-4 w-4"
@@ -200,62 +131,47 @@
                 />
               </svg>
             </button>
+          </template>
+        </VariablePanel>
+
+        <!-- 没有执行结果：显示原有的输出/日志切换界面 -->
+        <div v-else class="h-full flex flex-col">
+          <div
+            class="shrink-0 flex items-center justify-between border-b border-slate-200 px-4 py-3"
+          >
+            <ToggleButtonGroup
+              v-model="rightPanelMode"
+              :options="rightPanelOptions"
+            />
           </div>
           <div class="flex-1 overflow-auto variable-scroll">
-            <!-- 编辑模式：显示代码编辑器 -->
-            <CodeEditor
-              v-if="isEditing"
-              v-model="editorContent"
-              language="json"
-              class="h-full"
-              :options="{
-                minimap: { enabled: false },
-                fontSize: 13,
-              }"
-            />
-            <!-- 查看模式：显示执行结果或提示 -->
-            <div v-else class="h-full">
-              <!-- 有执行结果时显示结果 -->
-              <div v-if="executionStatus?.result" class="h-full">
-                <CodeEditor
-                  :model-value="formattedExecutionResult"
-                  language="json"
-                  class="h-full"
-                  :options="{
-                    minimap: { enabled: false },
-                    fontSize: 13,
-                    readOnly: true,
-                  }"
-                />
-              </div>
-              <!-- 执行错误时显示错误信息 -->
-              <div
-                v-else-if="
-                  executionStatus?.status === 'error' && executionStatus.error
-                "
-                class="px-4 py-6"
-              >
-                <div class="rounded-lg border border-red-200 bg-red-50 p-3">
-                  <div class="flex items-start gap-2">
-                    <IconErrorCircle
-                      class="h-4 w-4 shrink-0 text-red-500 mt-0.5"
-                    />
-                    <div class="flex-1 min-w-0">
-                      <p class="text-xs font-medium text-red-800">执行错误</p>
-                      <pre
-                        class="mt-1 text-xs text-red-700 whitespace-pre-wrap"
-                        >{{ executionStatus.error }}</pre
-                      >
-                    </div>
+            <!-- 执行错误时显示错误信息 -->
+            <div
+              v-if="
+                executionStatus?.status === 'error' && executionStatus.error
+              "
+              class="px-4 py-6"
+            >
+              <div class="rounded-lg border border-red-200 bg-red-50 p-3">
+                <div class="flex items-start gap-2">
+                  <IconErrorCircle
+                    class="h-4 w-4 shrink-0 text-red-500 mt-0.5"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-medium text-red-800">执行错误</p>
+                    <pre
+                      class="mt-1 text-xs text-red-700 whitespace-pre-wrap"
+                      >{{ executionStatus.error }}</pre
+                    >
                   </div>
                 </div>
               </div>
-              <!-- 无执行结果时显示提示 -->
-              <div v-else class="px-4 py-6">
-                <p class="text-sm text-slate-500">
-                  Execute this node to view data or set mock data
-                </p>
-              </div>
+            </div>
+            <!-- 无执行结果时显示提示 -->
+            <div v-else class="px-4 py-6">
+              <p class="text-sm text-slate-500">
+                Execute this node to view data or set mock data
+              </p>
             </div>
           </div>
         </div>
@@ -265,31 +181,22 @@
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  computed,
-  watch,
-  onMounted,
-  onBeforeUnmount,
-  nextTick,
-} from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
 import type { Node, Edge } from "@vue-flow/core";
-import { useMessage, NInput, NSelect } from "naive-ui";
+import { useMessage } from "naive-ui";
 import {
   ModalShell,
   SplitLayout,
   ToggleButtonGroup,
 } from "../../../../components/ui";
 import NodeConfigPanel from "../panels/NodeConfigPanel.vue";
-import VariableTreeItem from "../../../../components/variables/VariableTreeItem.vue";
-import JsonTreeViewer from "../../../../components/variables/JsonTreeViewer.vue";
+import VariablePanel from "../../../../components/variables/VariablePanel.vue";
 import IconEmptyNode from "@/icons/IconEmptyNode.vue";
 import IconPlay from "@/icons/IconPlay.vue";
 import IconLoading from "@/icons/IconLoading.vue";
 import IconErrorCircle from "@/icons/IconErrorCircle.vue";
-import IconSearch from "@/icons/IconSearch.vue";
 import CodeEditor from "@/v2/components/code/CodeEditor.vue";
 import { useUiStore } from "../../../../stores/ui";
 import { useCanvasStore } from "../../../../stores/canvas";
@@ -304,6 +211,7 @@ import {
   getAvailableVariableTree,
   type VariableTreeNode,
 } from "../../utils/variableResolver";
+import { jsonToVariableTree } from "../../../../components/json/jsonToVariableTree";
 
 const uiStore = useUiStore();
 const canvasStore = useCanvasStore();
@@ -337,118 +245,6 @@ const availableVariables = computed<VariableTreeNode[]>(() => {
   }
 });
 
-/** 过滤后的变量列表（根据搜索关键词） */
-const filteredVariables = computed<VariableTreeNode[]>(() => {
-  if (!searchQuery.value.trim()) {
-    return availableVariables.value;
-  }
-
-  const query = searchQuery.value.toLowerCase().trim();
-
-  const filterNode = (node: VariableTreeNode): VariableTreeNode | null => {
-    // 检查当前节点是否匹配
-    const matchesLabel = node.label.toLowerCase().includes(query);
-
-    // 递归过滤子节点
-    const filteredChildren =
-      node.children
-        ?.map(filterNode)
-        .filter((n): n is VariableTreeNode => n !== null) || [];
-
-    // 如果当前节点匹配或有匹配的子节点，则保留
-    if (matchesLabel || filteredChildren.length > 0) {
-      return {
-        ...node,
-        children:
-          filteredChildren.length > 0 ? filteredChildren : node.children,
-      };
-    }
-
-    return null;
-  };
-
-  return availableVariables.value
-    .map(filterNode)
-    .filter((n): n is VariableTreeNode => n !== null);
-});
-
-/** 变量节点选项（用于下拉框） */
-const variableNodeOptions = computed(() => {
-  return availableVariables.value.map((node) => ({
-    label: node.label,
-    value: node.id,
-  }));
-});
-
-/**
- * 将 VariableTreeNode 转换为 JSON 数据
- * 如果节点有子节点，从子节点构建对象/数组；否则使用节点的 value
- */
-function variableTreeNodeToJson(node: VariableTreeNode): unknown {
-  // 如果有子节点，从子节点构建数据结构
-  if (node.children && node.children.length > 0) {
-    // 判断是数组还是对象
-    // 如果所有子节点的 label 都是数字索引格式（如 [0], [1]），则视为数组
-    const isArray = node.children.every((child) => {
-      const label = child.label.trim();
-      return /^\[\d+\]$/.test(label);
-    });
-
-    if (isArray) {
-      // 构建数组：按索引排序
-      const array: unknown[] = [];
-      node.children.forEach((child) => {
-        const match = child.label.match(/^\[(\d+)\]$/);
-        if (match && match[1]) {
-          const index = parseInt(match[1], 10);
-          array[index] = variableTreeNodeToJson(child);
-        }
-      });
-      return array;
-    } else {
-      // 构建对象：使用 label 作为 key
-      const obj: Record<string, unknown> = {};
-      node.children.forEach((child) => {
-        obj[child.label] = variableTreeNodeToJson(child);
-      });
-      return obj;
-    }
-  }
-
-  // 没有子节点，直接返回 value
-  return node.value;
-}
-
-/** 选中的变量数据 */
-const selectedVariableData = computed(() => {
-  if (!selectedVariableNode.value) {
-    return null;
-  }
-  const node = availableVariables.value.find(
-    (n) => n.id === selectedVariableNode.value
-  );
-  if (!node) {
-    return null;
-  }
-  return variableTreeNodeToJson(node);
-});
-
-/** 计算数据条数 */
-const dataItemCount = computed(() => {
-  const data = selectedVariableData.value;
-  if (!data) return "0 items";
-
-  if (Array.isArray(data)) {
-    const count = data.length;
-    return count === 1 ? "1 item" : `${count} items`;
-  }
-  if (typeof data === "object" && data !== null) {
-    const count = Object.keys(data).length;
-    return count === 1 ? "1 item" : `${count} items`;
-  }
-  return "1 item";
-});
-
 const leftWidth = ref(320);
 const rightWidth = ref(320);
 const rightPanelMode = ref<"output" | "logs">("output");
@@ -458,12 +254,16 @@ const originalEditorContent = ref("");
 
 // 左侧面板状态
 const leftViewMode = ref<"schema" | "json">("schema");
-const isSearchExpanded = ref(false);
-const searchQuery = ref("");
-const searchInputRef = ref<InstanceType<typeof NInput> | null>(null);
-const selectedVariableNode = ref<string | null>(null);
+
+// 右侧面板状态
+const rightViewMode = ref<"schema" | "json">("schema");
 
 const leftViewModeOptions = [
+  { value: "schema", label: "Schema" },
+  { value: "json", label: "JSON" },
+];
+
+const rightViewModeOptions = [
   { value: "schema", label: "Schema" },
   { value: "json", label: "JSON" },
 ];
@@ -496,41 +296,54 @@ const executionStatus = computed(() => {
   };
 });
 
+/** 是否有执行结果 */
+const hasExecutionResult = computed(() => {
+  return !!executionStatus.value?.result;
+});
+
+/** 执行结果转换为变量树 */
+const executionResultVariables = computed<VariableTreeNode[]>(() => {
+  if (!hasExecutionResult.value || !executionStatus.value?.result) {
+    return [];
+  }
+
+  try {
+    const result = executionStatus.value.result;
+    // 将执行结果转换为变量树
+    const tree = jsonToVariableTree(result);
+    // jsonToVariableTree 返回单个节点，需要包装成数组
+    return tree ? [tree] : [];
+  } catch (error) {
+    console.error("[NodeConfigModal] 转换执行结果为变量树失败:", error);
+    return [];
+  }
+});
+
 const rightPanelOptions = [
   { value: "output", label: "输出" },
   { value: "logs", label: "日志" },
 ];
 
-// 初始化编辑器内容
-const initEditorContent = () => {
-  try {
-    // 这里可以根据节点数据初始化编辑器内容
-    editorContent.value = "{}";
-  } catch (error) {
-    console.error("初始化编辑器内容失败:", error);
-    editorContent.value = "";
-  }
-};
-
-// 监听编辑模式，初始化编辑器内容
-watch(
-  () => isEditing.value,
-  (editing) => {
-    if (editing) {
-      if (!editorContent.value) {
-        initEditorContent();
-      }
-      // 保存原始内容
-      originalEditorContent.value = editorContent.value;
-    }
-  }
-);
-
-// 初始化编辑器内容
-initEditorContent();
-
 // 处理编辑
 const handleEdit = () => {
+  // 初始化编辑器内容为当前执行结果的 JSON
+  if (executionStatus.value?.result) {
+    try {
+      editorContent.value = JSON.stringify(
+        executionStatus.value.result,
+        null,
+        2
+      );
+      originalEditorContent.value = editorContent.value;
+    } catch (error) {
+      console.error("初始化编辑器内容失败:", error);
+      editorContent.value = "{}";
+      originalEditorContent.value = "{}";
+    }
+  } else {
+    editorContent.value = "{}";
+    originalEditorContent.value = "{}";
+  }
   isEditing.value = true;
 };
 
@@ -538,15 +351,23 @@ const handleEdit = () => {
 const handleSave = () => {
   try {
     // 验证 JSON 格式
-    JSON.parse(editorContent.value);
-    // 保存成功，更新原始内容
+    const parsed = JSON.parse(editorContent.value);
+    // 保存成功，更新执行结果
+    if (selectedNode.value) {
+      canvasStore.updateNode(selectedNode.value.id, {
+        data: {
+          ...selectedNode.value.data,
+          executionResult: parsed,
+          executionTimestamp: Date.now(),
+        },
+      });
+    }
     originalEditorContent.value = editorContent.value;
     isEditing.value = false;
-    console.log("保存成功:", editorContent.value);
+    message.success("保存成功");
   } catch (error) {
     console.error("保存失败：JSON 格式错误", error);
-    // 这里可以添加错误提示
-    alert("保存失败：JSON 格式错误");
+    message.error("保存失败：JSON 格式错误");
   }
 };
 
@@ -561,73 +382,6 @@ const handleResize = (data: { leftWidth: number; rightWidth: number }) => {
   leftWidth.value = data.leftWidth;
   rightWidth.value = data.rightWidth;
 };
-
-// 搜索相关处理
-const handleSearchBlur = () => {
-  if (!searchQuery.value) {
-    isSearchExpanded.value = false;
-  }
-};
-
-// 当搜索框展开时自动聚焦
-const expandSearch = async () => {
-  isSearchExpanded.value = true;
-  await nextTick();
-  searchInputRef.value?.focus();
-};
-
-// 自动选中第一个变量节点
-const selectFirstVariable = () => {
-  if (
-    leftViewMode.value === "json" &&
-    availableVariables.value.length > 0 &&
-    (!selectedVariableNode.value ||
-      !availableVariables.value.find(
-        (n) => n.id === selectedVariableNode.value
-      ))
-  ) {
-    selectedVariableNode.value = availableVariables.value[0]?.id ?? null;
-  }
-};
-
-// 监听变量变化，自动选中第一个
-watch(
-  () => availableVariables.value,
-  () => {
-    selectFirstVariable();
-  },
-  { immediate: true }
-);
-
-// 监听视图模式切换，自动选中第一个
-watch(
-  () => leftViewMode.value,
-  (newMode) => {
-    if (newMode === "json") {
-      selectFirstVariable();
-    }
-  }
-);
-
-/**
- * 格式化执行结果为 JSON 字符串（参考 NodeResultPreviewPanel.vue）
- */
-const formattedExecutionResult = computed(() => {
-  if (!executionStatus.value?.result) return "";
-
-  const result = executionStatus.value.result;
-
-  // 如果是对象或数组，格式化为 JSON
-  if (typeof result === "object") {
-    try {
-      return JSON.stringify(result, null, 2);
-    } catch (e) {
-      return String(result);
-    }
-  }
-
-  return String(result);
-});
 
 /**
  * 执行当前节点（使用事件总线）

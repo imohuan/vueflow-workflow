@@ -50,6 +50,15 @@ const pluginManager = inject<PluginManager>(PLUGIN_MANAGER_KEY);
 const { onConnectEnd } = useVueFlow();
 const events = useVueFlowEvents();
 
+const isEditing = computed(() => {
+  if (!pluginManager) {
+    return false;
+  }
+  const sharedState = pluginManager.getSharedState();
+  const edgeEdit = sharedState["edge-edit"];
+  return edgeEdit?.isEditing.value;
+});
+
 // 获取 Ctrl 连接候选状态
 const ctrlConnectCandidate = computed(() => {
   if (!pluginManager) {
@@ -155,7 +164,7 @@ const strokeColor = computed(() => {
 onConnectEnd((event) => {
   // 判断连接是否无效（使用延迟更新的值）
   // console.log("delayedIsValidConnection", delayedIsValidConnection.value);
-  if (!delayedIsValidConnection.value) {
+  if (!delayedIsValidConnection.value && !isEditing.value) {
     // 发送连接失败事件，携带鼠标位置
     events.emit("edge:connection-failed", {
       event: event as MouseEvent,

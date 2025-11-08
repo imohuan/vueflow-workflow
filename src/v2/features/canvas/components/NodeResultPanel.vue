@@ -16,12 +16,15 @@
         :key="item.id"
         class="border-b border-slate-100 px-4 py-3 text-xs text-slate-600"
       >
-        <div class="mb-2 flex items-center justify-between text-[11px] text-slate-400">
+        <div
+          class="mb-2 flex items-center justify-between text-[11px] text-slate-400"
+        >
           <span class="font-semibold text-slate-500">{{ item.id }}</span>
           <span>{{ item.timestamp }}</span>
         </div>
-        <pre class="max-h-40 overflow-auto variable-scroll rounded-lg bg-slate-50 px-3 py-2 text-slate-700">
-{{ item.preview }}
+        <pre
+          class="max-h-40 overflow-auto variable-scroll rounded-lg bg-slate-50 px-3 py-2 text-slate-700"
+          >{{ item.preview }}
         </pre>
       </div>
     </div>
@@ -38,4 +41,3 @@ const results = computed(() => canvasStore.lastNodeResults);
 </script>
 
 <style scoped></style>
-
