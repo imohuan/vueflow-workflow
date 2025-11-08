@@ -56,6 +56,11 @@
         <EndNode v-bind="nodeProps" />
       </template>
 
+      <!-- 连接节点插槽 -->
+      <template #node-connector="nodeProps">
+        <ConnectorNode v-bind="nodeProps" />
+      </template>
+
       <!-- 自定义连接线（拖拽时的临时连接线） -->
       <template #connection-line="connectionLineProps">
         <CustomConnectionEdge v-bind="connectionLineProps" />
@@ -113,6 +118,7 @@ import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
 import { useVueFlowCore } from "../core/useVueFlowCore";
 import { useNodeExecutionStatus } from "../composables/useNodeExecutionStatus";
+import { useConnectionValidation } from "../composables/useConnectionValidation";
 import {
   DEFAULT_VUEFLOW_CONFIG,
   BACKGROUND_CONFIG,
@@ -125,6 +131,7 @@ import CustomNode from "./nodes/CustomNode.vue";
 import NoteNode from "./nodes/NoteNode.vue";
 import StartNode from "./nodes/StartNode.vue";
 import EndNode from "./nodes/EndNode.vue";
+import ConnectorNode from "./nodes/ConnectorNode.vue";
 import CustomConnectionEdge from "./edges/CustomConnectionEdge.vue";
 import CustomEdge from "./edges/CustomEdge.vue";
 import {
@@ -139,6 +146,7 @@ import {
   createCtrlConnectPlugin,
   createAutoLayoutPlugin,
   createDeletePlugin,
+  createAutoReconnectPlugin,
 } from "../plugins";
 
 // 配置 Store
@@ -217,6 +225,7 @@ const nodeTypes = {
   note: () => NoteNode,
   start: () => StartNode,
   end: () => EndNode,
+  connector: () => ConnectorNode,
 };
 
 // 边类型映射
@@ -237,16 +246,19 @@ const NODE_TYPE_SPECIFIC_DATA: Record<string, Record<string, any>> = {
 
 // VueFlow API
 const vueFlowApi = useVueFlow();
+// 插件管理器（需要在 useVueFlowCore 之前创建）
+const pluginManager = new PluginManager();
 // VueFlow 核心逻辑
 const vueFlowCore = useVueFlowCore({
   enableStoreSync: true,
   enableEvents: true,
+  pluginManager,
 });
 
 const { nodes: coreNodes, edges: coreEdges, events } = vueFlowCore;
 
-// 插件管理器
-const pluginManager = new PluginManager();
+// 连接验证工具
+const { validateConnection } = useConnectionValidation(coreEdges);
 
 // 提供插件管理器供子组件访问
 provide(PLUGIN_MANAGER_KEY, pluginManager);
@@ -298,8 +310,10 @@ function handleDrop(event: DragEvent) {
       y: position.y - NODE_SIZE.headerHeight / 2, // 垂直对齐到标题中心
     };
 
-    // 确定节点类型（note、start、end 使用对应类型，其他使用 custom）
-    const nodeType = ["note", "start", "end"].includes(draggedNode.id)
+    // 确定节点类型（note、start、end、connector 使用对应类型，其他使用 custom）
+    const nodeType = ["note", "start", "end", "connector"].includes(
+      draggedNode.id
+    )
       ? draggedNode.id
       : "custom";
 
@@ -509,18 +523,7 @@ onMounted(() => {
   const ctrlConnectPlugin = createCtrlConnectPlugin({
     debug: true, // 开启调试模式，可以在控制台看到日志
     allowReconnectToOriginal: true, // 允许重连回原端口（边编辑时）
-    validateConnection: (connection) => {
-      // 检查连接是否已存在
-      const exists = coreEdges.value.some(
-        (edge: Edge) =>
-          edge.source === connection.source &&
-          edge.sourceHandle === connection.sourceHandle &&
-          edge.target === connection.target &&
-          edge.targetHandle === connection.targetHandle
-      );
-      // 只要连接不存在且不是同一个节点，就是有效的
-      return !exists && connection.source !== connection.target;
-    },
+    validateConnection,
   });
   pluginManager.register(ctrlConnectPlugin);
 
@@ -529,6 +532,12 @@ onMounted(() => {
 
   const deletePlugin = createDeletePlugin();
   pluginManager.register(deletePlugin);
+
+  const autoReconnectPlugin = createAutoReconnectPlugin({
+    debug: true, // 开启调试模式，可以在控制台看到日志
+    validateConnection,
+  });
+  pluginManager.register(autoReconnectPlugin);
 
   console.log("[VueFlowCanvas] 画布已挂载");
   console.log(

@@ -16,6 +16,7 @@ export { createEdgeEditPlugin } from "./edgeEditPlugin";
 export { createCtrlConnectPlugin } from "./ctrlConnectPlugin";
 export { createAutoLayoutPlugin } from "./autoLayoutPlugin";
 export { createDeletePlugin } from "./deletePlugin";
+export { createAutoReconnectPlugin } from "./autoReconnectPlugin";
 export type { EdgeEditPluginOptions, EdgeValidationFn } from "./edgeEditPlugin";
 export type {
   CtrlConnectPluginOptions,
@@ -25,6 +26,7 @@ export type {
   AutoLayoutOptions,
   DagreLayoutDirection,
 } from "./autoLayoutPlugin";
+export type { AutoReconnectPluginOptions } from "./autoReconnectPlugin";
 
 /**
  * 插件管理器注入 Key
@@ -175,6 +177,34 @@ export class PluginManager {
    */
   getAllShortcuts() {
     return this.getEnabledPlugins().flatMap((plugin) => plugin.shortcuts || []);
+  }
+
+  /**
+   * 调用插件钩子（供核心方法使用）
+   */
+  callHook(
+    hookName: keyof NonNullable<VueFlowPlugin["hooks"]>,
+    ...args: unknown[]
+  ): boolean | void {
+    if (!this.context) {
+      return;
+    }
+
+    const enabledPlugins = this.getEnabledPlugins();
+    for (const plugin of enabledPlugins) {
+      const hook = plugin.hooks?.[hookName];
+      if (hook && typeof hook === "function") {
+        // 将 context 作为第一个参数传递
+        const result = (hook as (...args: unknown[]) => boolean | void)(
+          this.context,
+          ...args
+        );
+        // 如果钩子返回 false，则阻止操作
+        if (result === false) {
+          return false;
+        }
+      }
+    }
   }
 }
 

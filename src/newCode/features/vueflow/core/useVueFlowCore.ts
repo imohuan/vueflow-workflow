@@ -7,19 +7,26 @@ import { ref, watch, type Ref } from "vue";
 import { useVueFlow, type Node, type Edge } from "@vue-flow/core";
 import { useCanvasStore } from "@/newCode/stores/canvas";
 import { useVueFlowEvents } from "../events/useVueFlowEvents";
+import type { PluginManager } from "../plugins";
 
 export interface UseVueFlowCoreOptions {
   /** 是否启用 Pinia Store 同步 */
   enableStoreSync?: boolean;
   /** 是否启用事件通知 */
   enableEvents?: boolean;
+  /** 插件管理器（用于调用插件钩子） */
+  pluginManager?: PluginManager;
 }
 
 /**
  * VueFlow 核心逻辑
  */
 export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
-  const { enableStoreSync = true, enableEvents = true } = options;
+  const {
+    enableStoreSync = true,
+    enableEvents = true,
+    pluginManager,
+  } = options;
 
   // Canvas Store
   const canvasStore = useCanvasStore();
@@ -142,6 +149,16 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
    * 删除节点
    */
   function deleteNode(nodeId: string) {
+    // 调用插件钩子：节点删除前
+    if (pluginManager) {
+      const result = pluginManager.callHook("beforeNodeDelete", nodeId);
+      // 如果钩子返回 false，则阻止删除
+      if (result === false) {
+        console.log(`[VueFlowCore] 插件阻止了节点删除: ${nodeId}`);
+        return;
+      }
+    }
+
     // 删除节点
     nodes.value = nodes.value.filter((n: Node) => n.id !== nodeId);
 
@@ -149,6 +166,11 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
     edges.value = edges.value.filter(
       (e: Edge) => e.source !== nodeId && e.target !== nodeId
     );
+
+    // 调用插件钩子：节点删除后
+    if (pluginManager) {
+      pluginManager.callHook("afterNodeDelete", nodeId);
+    }
 
     if (events) {
       events.emit("node:deleted", { nodeId });
@@ -170,7 +192,22 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
    * 删除边
    */
   function deleteEdge(edgeId: string) {
+    // 调用插件钩子：边删除前
+    if (pluginManager) {
+      const result = pluginManager.callHook("beforeEdgeDelete", edgeId);
+      // 如果钩子返回 false，则阻止删除
+      if (result === false) {
+        console.log(`[VueFlowCore] 插件阻止了边删除: ${edgeId}`);
+        return;
+      }
+    }
+
     edges.value = edges.value.filter((e: Edge) => e.id !== edgeId);
+
+    // 调用插件钩子：边删除后
+    if (pluginManager) {
+      pluginManager.callHook("afterEdgeDelete", edgeId);
+    }
 
     if (events) {
       events.emit("edge:deleted", { edgeId });

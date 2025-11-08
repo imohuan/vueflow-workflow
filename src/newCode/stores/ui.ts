@@ -78,6 +78,9 @@ export const useUiStore = defineStore("ui", () => {
     language: "javascript" as string,
   });
 
+  /** 节点配置 Modal 是否显示 */
+  const nodeConfigModalVisible = ref(false);
+
   // ==================== 节点选中状态 ====================
 
   /** 当前选中的节点 ID */
@@ -201,8 +204,10 @@ export const useUiStore = defineStore("ui", () => {
     selectedNodeId.value = nodeId;
     if (nodeId) {
       // 自动切换到节点配置 tab 并打开面板
-      activeTab.value = "node-config";
-      floatingPanelVisible.value = true;
+      // activeTab.value = "node-config";
+      // floatingPanelVisible.value = true;
+      // 改为打开节点配置模态框
+      nodeConfigModalVisible.value = true;
     }
   }
 
@@ -211,10 +216,28 @@ export const useUiStore = defineStore("ui", () => {
    */
   function clearNodeSelection() {
     selectedNodeId.value = null;
+    // 关闭节点配置模态框
+    nodeConfigModalVisible.value = false;
     // 如果当前显示的是节点配置面板，则关闭面板
     if (activeTab.value === "node-config") {
       floatingPanelVisible.value = false;
     }
+  }
+
+  /**
+   * 打开节点配置模态框
+   */
+  function openNodeConfigModal() {
+    if (selectedNodeId.value) {
+      nodeConfigModalVisible.value = true;
+    }
+  }
+
+  /**
+   * 关闭节点配置模态框
+   */
+  function closeNodeConfigModal() {
+    nodeConfigModalVisible.value = false;
   }
 
   /**
@@ -252,6 +275,7 @@ export const useUiStore = defineStore("ui", () => {
     infoModalContent,
     editorModalVisible,
     editorModalContent,
+    nodeConfigModalVisible,
     selectedNodeId,
     previewNodeId,
     previewNodeData,
@@ -270,6 +294,8 @@ export const useUiStore = defineStore("ui", () => {
     closeEditorModal,
     selectNode,
     clearNodeSelection,
+    openNodeConfigModal,
+    closeNodeConfigModal,
     showNodePreview,
     clearNodePreview,
   };

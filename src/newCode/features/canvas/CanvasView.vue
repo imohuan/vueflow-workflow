@@ -48,6 +48,7 @@
     <!-- Modals -->
     <InfoModal />
     <FullscreenEditorModal />
+    <NodeConfigModal />
   </n-layout>
 </template>
 <script setup lang="ts">
@@ -63,6 +64,7 @@ import FloatingPanel from "./components/FloatingPanel.vue";
 import NodeInfoCard from "./components/NodeInfoCard.vue";
 import InfoModal from "@/newCode/components/modals/InfoModal.vue";
 import FullscreenEditorModal from "@/newCode/components/modals/FullscreenEditorModal.vue";
+import NodeConfigModal from "./components/modals/NodeConfigModal.vue";
 import { useCanvasStore } from "@/newCode/stores/canvas";
 import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
 import { useUiStore } from "@/newCode/stores/ui";
@@ -282,9 +284,12 @@ events.on("node:added", ({ node }) => {
 
 // 监听节点点击事件
 events.on("node:clicked", ({ node }) => {
-  console.log("[CanvasView] 节点被点击:", node.data?.label);
+  console.log("[CanvasView] 节点被点击:", node, node.data?.label);
   // 点击节点时关闭快捷菜单
   quickMenu.visible = false;
+
+  // 如果节点是连接节点，则不选中
+  if (node.type === "connector") return;
 
   // 选中节点并打开配置面板
   uiStore.selectNode(node.id);

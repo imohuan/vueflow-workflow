@@ -5,17 +5,19 @@
         v-if="modelValue"
         :style="{ zIndex: zIndex.toString() }"
         :class="[
-          'fixed inset-0 flex justify-center bg-slate-900/40 backdrop-blur-sm transition',
+          'fixed inset-0 flex justify-center bg-black/10 backdrop-blur-sm transition',
           verticalAlign === 'center' ? 'items-center' : 'items-end',
         ]"
         @click.self="handleOverlayClick"
       >
         <div
           :class="[
-            'modal-shell relative mx-auto flex w-full flex-col overflow-hidden border border-slate-200 bg-white text-slate-900 shadow-xl',
+            'modal-shell relative mx-auto flex w-10/12 flex-col overflow-hidden bg-[#fafafa] text-slate-900 shadow-[0_8px_40px_rgba(0,0,0,0.08)]',
             widthClass,
             verticalAlign === 'center'
-              ? 'my-auto max-h-[calc(100vh-4rem)] rounded-2xl'
+              ? props.width === 'full'
+                ? 'rounded-md border border-slate-200'
+                : 'my-auto max-h-[calc(100vh-4rem)] rounded-md border border-slate-200'
               : 'max-h-[85vh] rounded-t-2xl',
           ]"
           role="dialog"
@@ -23,36 +25,43 @@
         >
           <header
             v-if="hasHeader"
-            class="flex items-start gap-3 border-b border-slate-200 px-6 py-5"
+            class="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-200 shrink-0"
           >
-            <div v-if="$slots.icon" class="shrink-0 text-slate-500">
-              <slot name="icon" />
-            </div>
-            <div class="flex-1 min-w-0">
-              <h2
-                v-if="title"
-                class="text-base font-semibold leading-6 text-slate-900"
+            <div class="flex items-center gap-3">
+              <div
+                v-if="$slots.icon"
+                class="flex items-center justify-center w-7 h-7 rounded-lg bg-linear-to-br from-purple-500 to-purple-700 text-white transition-transform duration-200 hover:scale-105"
               >
-                {{ title }}
-              </h2>
-              <p
-                v-if="description"
-                class="mt-1 text-sm leading-6 text-slate-500"
+                <slot name="icon" />
+              </div>
+              <div
+                v-else-if="title"
+                class="flex items-center justify-center w-7 h-7 rounded-lg bg-linear-to-br from-purple-500 to-purple-700 text-white transition-transform duration-200 hover:scale-105"
               >
-                {{ description }}
-              </p>
-              <slot name="header" />
+                <IconCog class="w-4 h-4" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <h2
+                  v-if="title"
+                  class="text-[15px] font-medium text-[#1a1a1a] tracking-tight"
+                >
+                  {{ title }}
+                </h2>
+                <p v-if="description" class="mt-1 text-sm text-slate-500">
+                  {{ description }}
+                </p>
+                <slot name="header" />
+              </div>
             </div>
             <div class="flex items-center gap-2">
               <slot name="actions" />
-              <n-button
+              <button
                 v-if="closable"
-                text
-                class="h-10! w-10! min-w-0! p-0!"
+                class="flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-700"
                 @click="close()"
               >
-                <IconClose class="h-5 w-5" />
-              </n-button>
+                <IconClose class="w-4 h-4" />
+              </button>
             </div>
           </header>
 
@@ -82,6 +91,7 @@ import {
   useSlots,
 } from "vue";
 import IconClose from "@/icons/IconClose.vue";
+import IconCog from "@/icons/IconCog.vue";
 
 interface Props {
   modelValue: boolean;
@@ -136,7 +146,7 @@ const widthClass = computed(() => {
     lg: "max-w-3xl",
     xl: "max-w-4xl",
     "2xl": "max-w-5xl",
-    full: "max-w-6xl",
+    full: "w-[95vw] h-[95vh]",
   };
   return map[props.width];
 });

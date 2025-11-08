@@ -57,13 +57,17 @@ export interface PluginHooks {
   /** 画布初始化完成后调用 */
   onCanvasReady?: (context: PluginContext) => void;
   /** 节点添加前调用，返回 false 可阻止添加 */
-  beforeNodeAdd?: (node: Node, context: PluginContext) => boolean | void;
+  beforeNodeAdd?: (context: PluginContext, node: Node) => boolean | void;
   /** 节点添加后调用 */
-  afterNodeAdd?: (node: Node, context: PluginContext) => void;
+  afterNodeAdd?: (context: PluginContext, node: Node) => void;
   /** 节点删除前调用，返回 false 可阻止删除 */
-  beforeNodeDelete?: (nodeId: string, context: PluginContext) => boolean | void;
+  beforeNodeDelete?: (context: PluginContext, nodeId: string) => boolean | void;
   /** 节点删除后调用 */
-  afterNodeDelete?: (nodeId: string, context: PluginContext) => void;
+  afterNodeDelete?: (context: PluginContext, nodeId: string) => void;
+  /** 边删除前调用，返回 false 可阻止删除 */
+  beforeEdgeDelete?: (context: PluginContext, edgeId: string) => boolean | void;
+  /** 边删除后调用 */
+  afterEdgeDelete?: (context: PluginContext, edgeId: string) => void;
 }
 
 /**
