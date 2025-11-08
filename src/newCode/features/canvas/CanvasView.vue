@@ -189,8 +189,9 @@ function handleStop() {
 
 /**
  * 执行工作流
+ * @param selectedNodeIds 可选，指定要执行的节点 ID 列表。如果不传，则使用当前选中的节点
  */
-async function handleExecute() {
+async function handleExecute(selectedNodeIds?: string[]) {
   // 检查是否有当前工作流
   const currentWorkflow = workflowStore.currentWorkflow;
   if (!currentWorkflow) {
@@ -225,9 +226,15 @@ async function handleExecute() {
   canvasStore.setExecuting(true);
 
   try {
-    // 获取当前选中的节点 ID 列表
-    const selectedNodes = getSelectedNodes.value || [];
-    const selectedNodeIds = selectedNodes.map((node) => node.id);
+    // 获取要执行的节点 ID 列表
+    // 如果传入了 selectedNodeIds，使用传入的；否则使用当前选中的节点
+    let finalSelectedNodeIds: string[];
+    if (selectedNodeIds && selectedNodeIds.length > 0) {
+      finalSelectedNodeIds = selectedNodeIds;
+    } else {
+      const selectedNodes = getSelectedNodes.value || [];
+      finalSelectedNodeIds = selectedNodes.map((node) => node.id);
+    }
 
     // 构建 Workflow 对象并移除 Vue 响应式代理
     // 使用 JSON 序列化来移除 Proxy 和不可序列化的对象
@@ -235,7 +242,7 @@ async function handleExecute() {
       workflow_id: currentWorkflow.workflow_id,
       name: currentWorkflow.name,
       description: currentWorkflow.description,
-      selectedNodeIds,
+      selectedNodeIds: finalSelectedNodeIds,
       nodes: currentWorkflow.nodes.map((node: any) => ({
         id: node.id,
         type: node.type || "custom",
@@ -277,6 +284,12 @@ async function handleExecute() {
 
 // ========== 节点交互事件 ==========
 
+// 监听节点执行事件
+events.on("node:execute", async ({ nodeId }) => {
+  console.log("[CanvasView] 节点执行请求:", nodeId);
+  await handleExecute([nodeId]);
+});
+
 // 监听节点添加事件
 events.on("node:added", ({ node }) => {
   console.log("[CanvasView] 节点已添加:", node);
@@ -287,18 +300,16 @@ events.on("node:clicked", ({ node }) => {
   console.log("[CanvasView] 节点被点击:", node, node.data?.label);
   // 点击节点时关闭快捷菜单
   quickMenu.visible = false;
-
-  // 如果节点是连接节点，则不选中
-  if (node.type === "connector") return;
-
-  // 选中节点并打开配置面板
-  uiStore.selectNode(node.id);
 });
 
 // 监听节点双击事件
 events.on("node:double-clicked", ({ node }) => {
   console.log("[CanvasView] 节点被双击，打开配置面板:", node.data?.label);
   // TODO: 打开节点配置面板
+  // 如果节点是连接节点，则不选中
+  if (node.type === "connector") return;
+  // 选中节点并打开配置面板
+  uiStore.selectNode(node.id);
 });
 
 // 监听节点右键菜单
@@ -434,13 +445,17 @@ events.on("execution:result:preview", (payload: any) => {
 function handleKeydown(event: KeyboardEvent) {
   // 按 Tab 键切换左侧浮动面板
   if (
-    event.key === "Tab" &&
+    (event.key === "Tab" || event.key === "Escape") &&
     !event.ctrlKey &&
     !event.shiftKey &&
     !event.altKey
   ) {
     event.preventDefault(); // 阻止默认的焦点切换行为
-    uiStore.toggleFloatingPanel();
+    if (event.key === "Escape") {
+      uiStore.closeFloatingPanel();
+    } else {
+      uiStore.toggleFloatingPanel();
+    }
     console.log(
       "[CanvasView] Tab 键切换左侧面板:",
       uiStore.floatingPanelVisible ? "显示" : "隐藏"

@@ -35,16 +35,21 @@
         <component
           v-if="showIcon && iconComponent"
           :is="iconComponent"
-          class="w-[18px] h-[18px] shrink-0 text-white"
+          class="shrink-0 text-white"
+          :style="iconStyle"
         />
         <div
           v-else-if="showIcon && iconSvg"
-          class="w-[18px] h-[18px] shrink-0 flex items-center justify-center text-white [&_svg]:w-full [&_svg]:h-full [&_svg]:text-inherit"
+          class="shrink-0 flex items-center justify-center text-white [&_svg]:w-full [&_svg]:h-full [&_svg]:text-inherit"
+          :style="iconStyle"
           v-html="iconSvg"
         />
         <span
           v-else-if="showIcon && iconText"
           class="text-lg leading-none shrink-0 flex items-center justify-center"
+          :style="{
+            fontSize: `${NODE_SIZE.iconSize}px`,
+          }"
         >
           {{ iconText }}
         </span>
@@ -72,12 +77,28 @@
           />
         </div>
 
-        <!-- 标题栏右侧按钮插槽 -->
-        <div
-          v-if="$slots.headerActions"
-          class="shrink-0 flex items-center gap-1 ml-auto"
-        >
-          <slot name="headerActions" />
+        <!-- 标题栏右侧按钮 -->
+        <div class="shrink-0 flex items-center gap-1 ml-auto" @click.stop>
+          <!-- 默认按钮：执行和删除 -->
+          <button
+            v-if="showExecuteButton"
+            class="rounded hover:bg-white/20 transition-colors flex items-center justify-center"
+            :style="buttonStyle"
+            :title="'执行节点'"
+            @click="handleExecute"
+          >
+            <IconPlay :style="iconStyle" class="text-white" />
+          </button>
+          <button
+            v-if="showDeleteButton"
+            class="p-1 rounded hover:bg-white/20 transition-colors flex items-center justify-center"
+            :style="buttonStyle"
+            :title="'删除节点'"
+            @click="handleDelete"
+          >
+            <IconDelete :style="iconStyle" class="text-white" />
+          </button>
+          <slot name="headerActions"> </slot>
         </div>
       </div>
 
@@ -125,6 +146,9 @@ import NodeExecutionBadge from "./NodeExecutionBadge.vue";
 import { useNodeRegistry } from "@/composables/useNodeRegistry";
 import type { NodeStyleConfig } from "workflow-flow-nodes";
 import { createNodeInstance } from "workflow-flow-nodes";
+import IconPlay from "@/icons/IconPlay.vue";
+import IconDelete from "@/icons/IconDelete.vue";
+import { eventBusUtils } from "../../events";
 import "../ports/portStyles.css";
 
 interface Props {
@@ -146,6 +170,10 @@ interface Props {
     noOutputs?: boolean;
     /** 自定义样式配置（覆盖节点元数据中的样式） */
     style?: NodeStyleConfig;
+    /** 是否显示执行按钮 */
+    showExecuteButton?: boolean;
+    /** 是否显示删除按钮 */
+    showDeleteButton?: boolean;
     /** 其他自定义数据 */
     [key: string]: any;
   };
@@ -193,6 +221,7 @@ const headerStyle = computed(() => {
     paddingBottom: `${NODE_SPACING.headerPadding.vertical}px`,
     paddingLeft: `${NODE_SPACING.headerPadding.horizontal}px`,
     paddingRight: `${NODE_SPACING.headerPadding.horizontal}px`,
+    height: `${NODE_SIZE.headerHeight}px`,
     ...styleConfig.value.headerStyle,
   };
 
@@ -239,6 +268,38 @@ const nodeStyle = computed(() => {
   };
   return style;
 });
+
+// 计算图标样式
+const iconStyle = computed(() => ({
+  width: `${NODE_SIZE.iconSize}px`,
+  height: `${NODE_SIZE.iconSize}px`,
+}));
+
+// 计算按钮样式
+const buttonStyle = computed(() => ({
+  width: `${NODE_SIZE.iconSize + 4}px`,
+  height: `${NODE_SIZE.iconSize + 4}px`,
+}));
+
+// 是否显示执行按钮
+const showExecuteButton = computed(() => {
+  return props.data.showExecuteButton !== false; // 默认显示
+});
+
+// 是否显示删除按钮
+const showDeleteButton = computed(() => {
+  return props.data.showDeleteButton !== false; // 默认显示
+});
+
+// 处理执行按钮点击
+function handleExecute() {
+  eventBusUtils.emit("node:execute", { nodeId: props.id });
+}
+
+// 处理删除按钮点击
+function handleDelete() {
+  eventBusUtils.emit("node:deleted", { nodeId: props.id });
+}
 
 // 是否显示图标
 const showIcon = computed(() => {

@@ -7,3 +7,4 @@ export { default as NoteNode } from "./NoteNode.vue";
 export { default as StartNode } from "./StartNode.vue";
 export { default as EndNode } from "./EndNode.vue";
 export { default as ConnectorNode } from "./ConnectorNode.vue";
+export { default as IfNode } from "./IfNode.vue";

@@ -25,6 +25,8 @@ export interface NodeEvents {
   "node:added": { node: Node };
   /** 节点被删除 */
   "node:deleted": { nodeId: string };
+  /** 节点执行请求 */
+  "node:execute": { nodeId: string };
   /** 节点被选中 */
   "node:selected": { node: Node };
   /** 节点被取消选中 */

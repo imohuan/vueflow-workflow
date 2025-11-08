@@ -15,14 +15,32 @@ export const NODE_SIZE = {
   maxWidth: 400,
 
   /** 节点顶部标题高度（padding 10px * 2 + 文字高度约18px） */
-  headerHeight: 38,
+  headerHeight: 30,
   /** 节点内容区域最小高度 */
   contentMinHeight: 50,
+
+  /** 图标size */
+  iconSize: 10,
 
   /** 节点边框宽度 */
   borderWidth: 2,
   /** 节点圆角半径 */
   borderRadius: 8,
+} as const;
+
+/**
+ * 节点间距配置
+ */
+export const NODE_SPACING = {
+  /** 标题内边距 */
+  headerPadding: {
+    vertical: 2,
+    horizontal: 12,
+  },
+  /** 内容内边距 */
+  contentPadding: 12,
+  /** 图标和文字间距 */
+  iconGap: 8,
 } as const;
 
 /**
@@ -59,21 +77,6 @@ export const NODE_PORT = {
   borderWidth: 2,
   /** 端口激活时的大小 */
   activeSize: 16,
-} as const;
-
-/**
- * 节点间距配置
- */
-export const NODE_SPACING = {
-  /** 标题内边距 */
-  headerPadding: {
-    vertical: 10,
-    horizontal: 12,
-  },
-  /** 内容内边距 */
-  contentPadding: 12,
-  /** 图标和文字间距 */
-  iconGap: 8,
 } as const;
 
 /**

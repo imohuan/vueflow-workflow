@@ -61,6 +61,11 @@
         <ConnectorNode v-bind="nodeProps" />
       </template>
 
+      <!-- If 条件判断节点插槽 -->
+      <template #node-if="nodeProps">
+        <IfNode v-bind="nodeProps" />
+      </template>
+
       <!-- 自定义连接线（拖拽时的临时连接线） -->
       <template #connection-line="connectionLineProps">
         <CustomConnectionEdge v-bind="connectionLineProps" />
@@ -127,11 +132,13 @@ import {
 } from "../core/vueflowConfig";
 import { useEditorConfigStore } from "@/newCode/stores/editorConfig";
 import { NODE_SIZE } from "@/newCode/config";
+import { eventBusUtils } from "../events";
 import CustomNode from "./nodes/CustomNode.vue";
 import NoteNode from "./nodes/NoteNode.vue";
 import StartNode from "./nodes/StartNode.vue";
 import EndNode from "./nodes/EndNode.vue";
 import ConnectorNode from "./nodes/ConnectorNode.vue";
+import IfNode from "./nodes/IfNode.vue";
 import CustomConnectionEdge from "./edges/CustomConnectionEdge.vue";
 import CustomEdge from "./edges/CustomEdge.vue";
 import {
@@ -226,6 +233,7 @@ const nodeTypes = {
   start: () => StartNode,
   end: () => EndNode,
   connector: () => ConnectorNode,
+  if: () => IfNode,
 };
 
 // 边类型映射
@@ -310,8 +318,8 @@ function handleDrop(event: DragEvent) {
       y: position.y - NODE_SIZE.headerHeight / 2, // 垂直对齐到标题中心
     };
 
-    // 确定节点类型（note、start、end、connector 使用对应类型，其他使用 custom）
-    const nodeType = ["note", "start", "end", "connector"].includes(
+    // 确定节点类型（note、start、end、connector、if 使用对应类型，其他使用 custom）
+    const nodeType = ["note", "start", "end", "connector", "if"].includes(
       draggedNode.id
     )
       ? draggedNode.id
@@ -492,12 +500,24 @@ function handleEdgeUpdateEnd(event: any) {
   }
 }
 
+/**
+ * 处理节点删除请求（从按钮触发）
+ */
+function handleNodeDelete({ nodeId }: { nodeId: string }) {
+  console.log("[VueFlowCanvas] 节点删除请求:", nodeId);
+  // 使用 vueFlowCore 的 deleteNode 方法删除节点
+  vueFlowCore.deleteNode(nodeId);
+}
+
 onMounted(() => {
   // 设置插件上下文（在挂载后设置，确保 VueFlow 已初始化）
   pluginManager.setContext({
     core: vueFlowCore,
     vueflow: vueFlowApi,
   });
+
+  // 监听节点删除事件（从按钮触发的删除）
+  eventBusUtils.on("node:deleted", handleNodeDelete);
 
   // 注册并启用插件
   const configSyncPlugin = createConfigSyncPlugin();
@@ -563,6 +583,10 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  // 清理事件监听器
+  eventBusUtils.off("node:execute", handleNodeExecute);
+  eventBusUtils.off("node:deleted", handleNodeDelete);
+
   // 清理所有插件
   pluginManager.getEnabledPlugins().forEach((plugin) => {
     pluginManager.disable(plugin.config.id);

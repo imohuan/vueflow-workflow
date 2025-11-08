@@ -18,6 +18,8 @@ interface Props {
     status?: "pending" | "running" | "success" | "error";
     noInputs?: boolean;
     noOutputs?: boolean;
+    showExecuteButton?: boolean;
+    showDeleteButton?: boolean;
     [key: string]: any;
   };
   selected?: boolean;
