@@ -8,6 +8,7 @@
     :type="type"
     :position="position"
     :is-connectable="isConnectable"
+    :is-valid-connection="() => isValidConnection"
     :class="computedClass"
     :style="style"
   />

@@ -34,7 +34,7 @@ export const DEFAULT_VUEFLOW_CONFIG = {
   /** 是否可以连接 */
   connectOnClick: true,
   /** 连接模式：loose 允许在任何地方释放连接，strict 只能连接到 handle */
-  connectionMode: "loose" as ConnectionMode,
+  connectionMode: "strict" as ConnectionMode,
   /** 默认边类型 */
   defaultEdgeOptions: {
     type: "default",
