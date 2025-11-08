@@ -1,8 +1,8 @@
-<!-- 右箭头图标 -->
+<!-- 左箭头图标 -->
 <template>
   <svg
     t="1762602894224"
-    style="transform: rotate(180deg)"
+    class="icon"
     viewBox="0 0 1024 1024"
     version="1.1"
     xmlns="http://www.w3.org/2000/svg"

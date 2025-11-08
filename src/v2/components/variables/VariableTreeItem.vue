@@ -59,8 +59,8 @@
     </Teleport>
 
     <div
-      class="flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-150 group hover:bg-slate-100/70"
-      :style="{ paddingLeft: `${level * 16 + 8}px` }"
+      class="flex items-center gap-2 px-2 py-1 rounded-md transition-colors duration-150 group hover:bg-slate-100/70"
+      :style="{ paddingLeft: `${level * 12 + 6}px` }"
       :class="{ 'cursor-pointer': hasChildren }"
       @click="handleRowClick"
     >
@@ -79,7 +79,7 @@
 
       <!-- 变量名 - 白底黑字+阴影，表示可拖拽 -->
       <span
-        class="px-2.5 py-1 text-xs font-medium text-slate-800 bg-white/90 rounded-lg shadow-sm border border-slate-200 shrink-0 transition-all duration-150 hover:shadow-md"
+        class="px-2 py-0.5 text-xs font-medium text-slate-800 bg-white/90 rounded-lg shadow-sm border border-slate-200 shrink-0 transition-all duration-150 hover:shadow-md"
         :class="{
           'cursor-grab': node.reference,
         }"
@@ -143,8 +143,12 @@ const expanded = ref(props.level < 1);
 const isDragging = ref(false);
 const showDragFollower = ref(false);
 const dragPosition = ref({ x: 0, y: 0 });
+const initialMousePosition = ref({ x: 0, y: 0 });
 const dropTargetState = ref<"default" | "empty" | "hasContent">("default");
 const currentEditableElement = ref<HTMLElement | null>(null);
+
+// 拖拽阈值：只有移动超过这个距离才显示拖拽跟随元素
+const DRAG_THRESHOLD = 5;
 
 interface DraggedVariableData {
   payload: {
@@ -232,12 +236,15 @@ function handleMouseDown(event: MouseEvent) {
   event.preventDefault();
 
   isDragging.value = true;
-  showDragFollower.value = true;
+  showDragFollower.value = false; // 初始不显示，只有移动超过阈值才显示
   dropTargetState.value = "default";
   currentEditableElement.value = null;
 
-  // 设置拖拽时的手掌光标样式
-  document.body.style.cursor = "grabbing";
+  // 记录初始鼠标位置
+  initialMousePosition.value = {
+    x: event.clientX,
+    y: event.clientY,
+  };
 
   dragPosition.value = {
     x: event.clientX,
@@ -266,10 +273,28 @@ function handleMouseDown(event: MouseEvent) {
 function handleMouseMove(event: MouseEvent) {
   if (!isDragging.value) return;
 
+  // 更新当前鼠标位置
   dragPosition.value = {
     x: event.clientX,
     y: event.clientY,
   };
+
+  // 计算移动距离
+  const deltaX = event.clientX - initialMousePosition.value.x;
+  const deltaY = event.clientY - initialMousePosition.value.y;
+  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+  // 只有移动超过阈值才显示拖拽跟随元素
+  if (distance > DRAG_THRESHOLD) {
+    if (!showDragFollower.value) {
+      showDragFollower.value = true;
+      // 设置拖拽时的手掌光标样式
+      document.body.style.cursor = "grabbing";
+    }
+  } else {
+    // 如果距离不够，不显示拖拽跟随元素，也不检测目标元素
+    return;
+  }
 
   // 检测鼠标下方的元素
   const target = document.elementFromPoint(event.clientX, event.clientY);

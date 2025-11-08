@@ -43,6 +43,8 @@ interface Tab {
 const tabs: Tab[] = [
   { path: "#/preview/ui-shell", title: "UI Shell" },
   { path: "#/preview/canvas", title: "Canvas" },
+  { path: "#/preview/code-editor", title: "Code Editor" },
+  { path: "#/preview/split-layout", title: "Split Layout" },
 ];
 
 // 使用 localStorage 持久化当前 tab

@@ -21,6 +21,26 @@ const router = createRouter({
       name: "CanvasPreview",
       component: () => import("@/v2/views/CanvasPreview.vue"),
     },
+    {
+      path: "/preview/code-editor",
+      name: "CodeEditorPreview",
+      component: () => import("@/v2/views/CodeEditorPreview.vue"),
+    },
+    {
+      path: "/preview/json-editor",
+      name: "JsonEditorPreview",
+      component: () => import("@/v2/views/JsonEditorPreview.vue"),
+    },
+    {
+      path: "/preview/json-tree",
+      name: "JsonTreePreview",
+      component: () => import("@/v2/views/JsonTreePreview.vue"),
+    },
+    {
+      path: "/preview/split-layout",
+      name: "SplitLayoutPreview",
+      component: () => import("@/v2/views/SplitLayoutPreview.vue"),
+    },
   ],
 });
 
