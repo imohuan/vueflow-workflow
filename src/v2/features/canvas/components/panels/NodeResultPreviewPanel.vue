@@ -98,7 +98,7 @@
             </button>
           </div>
           <div
-            class="rounded-lg border border-slate-200 bg-slate-50 p-3 overflow-auto max-h-96"
+            class="rounded-lg border border-slate-200 bg-slate-50 p-3 overflow-auto variable-scroll max-h-96"
           >
             <pre
               class="text-xs text-slate-700 whitespace-pre-wrap break-words font-mono"

@@ -30,3 +30,13 @@ export {
   DefaultNodeResolver,
   createNodeResolver,
 } from "./NodeResolver";
+
+// 导出变量解析器
+export {
+  type VariableTreeNode,
+  type VariableContextResult,
+  type NodeOutputExtractor,
+  buildVariableContext,
+  buildVariableContextFromExecutionContext,
+  resolveConfigWithVariables,
+} from "./VariableResolver";

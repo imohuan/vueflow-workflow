@@ -65,7 +65,9 @@
             </div>
           </header>
 
-          <div :class="['flex-1 overflow-auto', bodyPaddingClass]">
+          <div
+            :class="['flex-1 overflow-auto variable-scroll', bodyPaddingClass]"
+          >
             <slot />
           </div>
 

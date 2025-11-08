@@ -25,7 +25,7 @@
     </div>
 
     <!-- 内容区域 -->
-    <div class="flex-1 p-4 overflow-auto">
+    <div class="flex-1 p-4 overflow-auto variable-scroll">
       <div
         class="max-w-4xl mx-auto bg-white rounded-lg shadow-sm border border-slate-200 p-6"
       >

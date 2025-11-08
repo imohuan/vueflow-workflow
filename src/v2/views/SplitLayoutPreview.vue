@@ -61,7 +61,7 @@
           </div>
         </div>
 
-        <div class="flex-1 overflow-auto px-4 py-4">
+        <div class="flex-1 overflow-auto variable-scroll px-4 py-4">
           <!-- Schema 视图：JsonTreeViewer -->
 
           <template v-if="viewMode === 'json'">
@@ -121,7 +121,7 @@
         </div>
 
         <!-- 内容区域 -->
-        <div class="flex-1 overflow-auto px-6 py-6 space-y-6">
+        <div class="flex-1 overflow-auto variable-scroll px-6 py-6 space-y-6">
           <!-- Tip 框 -->
           <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p class="text-sm text-blue-800">
@@ -265,7 +265,7 @@
             </svg>
           </button>
         </div>
-        <div class="flex-1 overflow-auto">
+        <div class="flex-1 overflow-auto variable-scroll">
           <!-- 编辑模式：显示代码编辑器 -->
           <CodeEditor
             v-if="isEditing"

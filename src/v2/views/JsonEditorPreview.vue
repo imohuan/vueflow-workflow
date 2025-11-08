@@ -33,7 +33,7 @@
         <div class="px-4 py-2 bg-slate-50 border-b border-slate-200">
           <h2 class="text-sm font-semibold text-slate-700">JSON 代码预览</h2>
         </div>
-        <div class="flex-1 overflow-auto p-4">
+        <div class="flex-1 overflow-auto variable-scroll p-4">
           <JsonCodeViewer :data="currentData" :indent="2" :formatted="true" />
         </div>
       </div>
@@ -45,7 +45,7 @@
         <div class="px-4 py-2 bg-slate-50 border-b border-slate-200">
           <h2 class="text-sm font-semibold text-slate-700">JsonViewer 预览</h2>
         </div>
-        <div class="flex-1 overflow-auto p-4">
+        <div class="flex-1 overflow-auto variable-scroll p-4">
           <JsonViewer
             :data="currentData"
             root-name="root"
@@ -64,7 +64,7 @@
             VariableTreeItem 预览
           </h2>
         </div>
-        <div class="flex-1 overflow-auto p-4">
+        <div class="flex-1 overflow-auto variable-scroll p-4">
           <div class="space-y-0.5">
             <VariableTreeItem
               v-if="variableTree"

@@ -66,7 +66,8 @@ const mainMenuOptions = computed(() => {
     .filter((tab) => {
       // 如果是节点配置 tab，只在有节点被选中时显示
       if (tab.id === "node-config") {
-        return !!uiStore.selectedNodeId;
+        // return !!uiStore.selectedNodeId;
+        return false;
       }
 
       // 如果是节点预览 tab，只在有预览节点时显示

@@ -20,7 +20,7 @@
           <span class="font-semibold text-slate-500">{{ item.id }}</span>
           <span>{{ item.timestamp }}</span>
         </div>
-        <pre class="max-h-40 overflow-auto rounded-lg bg-slate-50 px-3 py-2 text-slate-700">
+        <pre class="max-h-40 overflow-auto variable-scroll rounded-lg bg-slate-50 px-3 py-2 text-slate-700">
 {{ item.preview }}
         </pre>
       </div>

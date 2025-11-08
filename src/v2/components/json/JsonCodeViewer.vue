@@ -2,7 +2,7 @@
   <div ref="containerRef" class="json-code-viewer">
     <pre
       ref="codeRef"
-      class="font-mono text-sm leading-relaxed overflow-auto"
+      class="font-mono text-sm leading-relaxed overflow-auto variable-scroll"
     ><code class="language-json"></code></pre>
   </div>
 </template>
