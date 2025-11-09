@@ -158,6 +158,7 @@ function handleAutoLayout() {
     fitView: editorConfig.value.autoLayoutFitView,
     fitViewPadding: editorConfig.value.autoLayoutFitViewPadding,
     fitViewDuration: editorConfig.value.autoLayoutFitViewDuration,
+    forNodeSpacing: editorConfig.value.autoLayoutNodeSpacing,
   });
 }
 

@@ -176,8 +176,8 @@ export function createForLoopPlugin(): VueFlowPlugin {
       }
     }
 
-    // 更新边的类名
-    edge.class = classNames.join(" ");
+    // 更新边的类名(不需要 给父元素添加类名就可以了)
+    // edge.class = classNames.join(" ");
   }
 
   /**

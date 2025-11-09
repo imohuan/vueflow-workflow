@@ -766,7 +766,7 @@ onUnmounted(() => {
 }
 
 /* 容器内连接线的 z-index 层级管理 */
-:deep(.edge-layer-container) {
-  z-index: 10 !important;
+.edge-layer-container {
+  z-index: 2001 !important;
 }
 </style>
