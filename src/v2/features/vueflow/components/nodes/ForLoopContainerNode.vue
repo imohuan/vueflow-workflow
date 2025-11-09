@@ -12,7 +12,7 @@
       :style="{ height: `${CONTAINER_HEADER_HEIGHT}px` }"
     >
       <span class="flex items-center gap-2">
-        <span class="text-orange-500">🔁</span>
+        <IconRepeat class="w-4 h-4 text-orange-500" />
         <span>{{ data.label || "批处理体" }}</span>
       </span>
       <span class="text-[10px] text-slate-400 font-mono">
@@ -47,7 +47,9 @@
         left: '-5px',
         right: 'auto!important',
         zIndex: 100,
-        top: `${CONTAINER_HEADER_HEIGHT + 20}px`,
+        top: `${
+          CONTAINER_HEADER_HEIGHT + 50 + CONTAINER_PADDING_TOP
+        }px!important`,
       }"
     />
 
@@ -63,7 +65,9 @@
         left: 'auto!important',
         right: '-5px',
         zIndex: 100,
-        top: `${CONTAINER_HEADER_HEIGHT + 20}px`,
+        top: `${
+          CONTAINER_HEADER_HEIGHT + 50 + CONTAINER_PADDING_TOP
+        }px!important`,
       }"
     />
 
@@ -83,7 +87,7 @@
         v-if="!hasChildren"
         class="flex items-center justify-center h-full text-xs text-slate-400 italic"
       >
-        拖拽节点到此处
+        <!-- 拖拽节点到此处 -->
       </div>
     </div>
   </div>
@@ -95,6 +99,7 @@ import { Position } from "@vue-flow/core";
 import { PortHandle } from "../ports";
 import { PLUGIN_MANAGER_KEY, type PluginManager } from "../../plugins";
 import { CONTAINER_CONFIG } from "../../../../config/nodeConfig";
+import IconRepeat from "@/icons/IconRepeat.vue";
 
 // 从配置中获取容器常量
 const {
@@ -102,6 +107,7 @@ const {
   padding: CONTAINER_PADDING,
   minWidth: CONTAINER_MIN_WIDTH,
   minHeight: CONTAINER_MIN_HEIGHT,
+  padding: { top: CONTAINER_PADDING_TOP },
 } = CONTAINER_CONFIG;
 
 interface Props {

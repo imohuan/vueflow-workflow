@@ -75,10 +75,10 @@ export const CONTAINER_CONFIG = {
   headerHeight: 32,
   /** 容器内边距 */
   padding: {
-    top: 16,
-    right: 100,
-    bottom: 16,
-    left: 100,
+    top: 30,
+    right: 80,
+    bottom: 30,
+    left: 80,
   },
   /** 容器最小宽度 */
   minWidth: 400,

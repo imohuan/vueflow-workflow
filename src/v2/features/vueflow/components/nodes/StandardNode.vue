@@ -325,8 +325,12 @@ const iconComponent = computed<Component | null>(() => {
     return null;
   }
 
-  // 尝试作为组件名称查找（这里需要根据实际项目情况调整）
-  // 暂时返回 null，后续可以根据项目中的图标组件注册表来解析
+  // 如果是 Vue 组件（对象类型），直接返回
+  if (typeof icon === "object") {
+    return icon as Component;
+  }
+
+  // 否则返回 null（使用 iconText）
   return null;
 });
 

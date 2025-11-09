@@ -75,7 +75,6 @@ export class ForNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: ["#f97316", "#ea580c"],
-      icon: "🔁",
       showIcon: true,
     };
   }
@@ -127,11 +126,7 @@ export class ForNode extends BaseFlowNode {
         },
       };
 
-      return this.createOutput(
-        outputs,
-        details,
-        `循环 ${details.count} 次`
-      );
+      return this.createOutput(outputs, details, `循环 ${details.count} 次`);
     } catch (error) {
       return this.createError(error as Error);
     }
@@ -210,7 +205,10 @@ export class ForNode extends BaseFlowNode {
   /**
    * 解析变量值（从上下文中）
    */
-  private resolveVariableValue(variable: any, context: NodeExecutionContext): any {
+  private resolveVariableValue(
+    variable: any,
+    context: NodeExecutionContext
+  ): any {
     if (!variable) {
       return undefined;
     }
@@ -242,7 +240,10 @@ export class ForNode extends BaseFlowNode {
   /**
    * 解析数字值（支持变量）
    */
-  private resolveNumberValue(value: any, context: NodeExecutionContext): number {
+  private resolveNumberValue(
+    value: any,
+    context: NodeExecutionContext
+  ): number {
     if (typeof value === "number") {
       return value;
     }

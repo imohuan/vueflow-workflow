@@ -101,6 +101,7 @@ import StandardNode from "./StandardNode.vue";
 import { PortHandle } from "../ports";
 import type { NodeStyleConfig } from "workflow-flow-nodes";
 import VariableBadge from "@/v1/components/common/VariableBadge.vue";
+import IconRepeat from "@/icons/IconRepeat.vue";
 
 interface ForConfig {
   /** 数据来源模式 */
@@ -180,8 +181,8 @@ const standardNodeData = computed(() => {
   const style: NodeStyleConfig = {
     // 使用橙色渐变作为标题栏颜色
     headerColor: ["#f97316", "#ea580c"],
-    // 使用循环图标
-    icon: "🔁",
+    // 使用循环图标组件
+    icon: IconRepeat as any,
     showIcon: true,
   };
 

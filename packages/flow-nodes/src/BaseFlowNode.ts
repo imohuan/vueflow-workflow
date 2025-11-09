@@ -50,8 +50,8 @@ export interface NodeStyleConfig {
    * - 数组：渐变色（如 ["#a855f7", "#ec4899"]）
    */
   headerColor?: string | string[];
-  /** 节点图标（emoji 或 SVG） */
-  icon?: string;
+  /** 节点图标（emoji、SVG 字符串或 Vue 组件） */
+  icon?: string | any;
   /** 是否显示图标 */
   showIcon?: boolean;
 }
