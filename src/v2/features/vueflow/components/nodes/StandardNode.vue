@@ -290,7 +290,7 @@ function handleExecute() {
 
 // 处理删除按钮点击
 function handleDelete() {
-  eventBusUtils.emit("node:deleted", { nodeId: props.id });
+  eventBusUtils.emit("node:delete-request", { nodeId: props.id });
 }
 
 // 是否显示图标

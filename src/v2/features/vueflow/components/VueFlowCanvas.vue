@@ -66,6 +66,16 @@
         <IfNode v-bind="nodeProps" />
       </template>
 
+      <!-- For 循环节点插槽 -->
+      <template #node-for="nodeProps">
+        <ForNode v-bind="nodeProps" />
+      </template>
+
+      <!-- For 循环容器节点插槽 -->
+      <template #node-forLoopContainer="nodeProps">
+        <ForLoopContainerNode v-bind="nodeProps" />
+      </template>
+
       <!-- 自定义连接线（拖拽时的临时连接线） -->
       <template #connection-line="connectionLineProps">
         <CustomConnectionEdge v-bind="connectionLineProps" />
@@ -139,6 +149,8 @@ import StartNode from "./nodes/StartNode.vue";
 import EndNode from "./nodes/EndNode.vue";
 import ConnectorNode from "./nodes/ConnectorNode.vue";
 import IfNode from "./nodes/IfNode.vue";
+import ForNode from "./nodes/ForNode.vue";
+import ForLoopContainerNode from "./nodes/ForLoopContainerNode.vue";
 import CustomConnectionEdge from "./edges/CustomConnectionEdge.vue";
 import CustomEdge from "./edges/CustomEdge.vue";
 import {
@@ -154,6 +166,7 @@ import {
   createAutoLayoutPlugin,
   createDeletePlugin,
   createAutoReconnectPlugin,
+  createForLoopPlugin,
 } from "../plugins";
 
 // 配置 Store
@@ -234,6 +247,8 @@ const nodeTypes = {
   end: () => EndNode,
   connector: () => ConnectorNode,
   if: () => IfNode,
+  for: () => ForNode,
+  forLoopContainer: () => ForLoopContainerNode,
 };
 
 // 边类型映射
@@ -319,9 +334,15 @@ function handleDrop(event: DragEvent) {
     };
 
     // 确定节点类型（note、start、end、connector、if 使用对应类型，其他使用 custom）
-    const nodeType = ["note", "start", "end", "connector", "if"].includes(
-      draggedNode.id
-    )
+    const nodeType = [
+      "note",
+      "start",
+      "end",
+      "connector",
+      "if",
+      "for",
+      "forLoopContainer",
+    ].includes(draggedNode.id)
       ? draggedNode.id
       : "custom";
 
@@ -350,6 +371,72 @@ function handleDrop(event: DragEvent) {
 
     // 添加到节点数组
     coreNodes.value.push(newNode);
+
+    // 如果是 for 节点，自动创建容器节点并连接
+    if (nodeType === "for") {
+      const containerId = `for-container-${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2, 9)}`;
+
+      // 创建容器节点（放在 for 节点下方）
+      const containerNode: Node = {
+        id: containerId,
+        type: "forLoopContainer",
+        position: {
+          x: adjustedPosition.x - NODE_SIZE.defaultWidth / 2,
+          y:
+            adjustedPosition.y + 100 + editorConfig.value.autoLayoutRankSpacing, // 放在 for 节点下方 150px
+        },
+        data: {
+          label: "批处理体",
+          type: "forLoopContainer",
+          config: {
+            forNodeId: newNode.id,
+          },
+        },
+        width: 400,
+        height: 200,
+      };
+
+      // 添加容器节点
+      coreNodes.value.push(containerNode);
+
+      // 创建连接边（for 节点的 loop 端口 -> 容器的 loop-in 端口）
+      const edgeId = `edge-${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2, 9)}`;
+
+      const connectionEdge: Edge = {
+        id: edgeId,
+        source: newNode.id,
+        sourceHandle: "loop",
+        target: containerId,
+        targetHandle: "loop-in",
+        type: "custom",
+      };
+
+      coreEdges.value.push(connectionEdge);
+
+      // 更新 for 节点的 config，保存 containerId
+      newNode.data = {
+        ...newNode.data,
+        config: {
+          ...(newNode.data.config || {}),
+          containerId: containerId,
+          mode: "variable",
+          variable: "",
+          itemName: "item",
+          indexName: "index",
+        },
+      };
+
+      console.log(
+        "[VueFlowCanvas] 自动创建 For 容器节点:",
+        containerNode,
+        "连接边:",
+        connectionEdge
+      );
+    }
 
     console.log(
       "[VueFlowCanvas] 添加新节点:",
@@ -584,7 +671,7 @@ onMounted(() => {
   });
 
   // 监听节点删除事件（从按钮触发的删除）
-  eventBusUtils.on("node:deleted", handleNodeDelete);
+  eventBusUtils.on("node:delete-request", handleNodeDelete);
 
   // 注册并启用插件
   const configSyncPlugin = createConfigSyncPlugin();
@@ -627,6 +714,9 @@ onMounted(() => {
   });
   pluginManager.register(autoReconnectPlugin);
 
+  const forLoopPlugin = createForLoopPlugin();
+  pluginManager.register(forLoopPlugin);
+
   console.log("[VueFlowCanvas] 画布已挂载");
   console.log(
     "[VueFlowCanvas] 背景网格:",
@@ -652,7 +742,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   // 清理事件监听器
-  eventBusUtils.off("node:deleted", handleNodeDelete);
+  eventBusUtils.off("node:delete-request", handleNodeDelete);
 
   // 清理所有插件
   pluginManager.getEnabledPlugins().forEach((plugin) => {

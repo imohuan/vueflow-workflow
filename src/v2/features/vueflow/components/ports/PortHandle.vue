@@ -8,7 +8,7 @@
     :type="type"
     :position="position"
     :is-connectable="isConnectable"
-    :is-valid-connection="() => isValidConnection"
+    :is-valid-connection="isValidConnection"
     :class="computedClass"
     :style="style"
   />
@@ -21,6 +21,7 @@ import {
   useConnection,
   type Position,
   type ConnectionStatus,
+  type Connection,
 } from "@vue-flow/core";
 import { PORT_STYLE } from "./portStyles";
 import { PLUGIN_MANAGER_KEY, type PluginManager } from "../../plugins";
@@ -109,7 +110,7 @@ const isConnectionTarget = computed((): boolean => {
 /**
  * 判断连接是否有效（候选优先，其次使用 VueFlow 的连接状态）
  */
-const isValidConnection = computed((): boolean => {
+const isValidConnectionLocal = computed((): boolean => {
   if (!isConnectionTarget.value) {
     return true;
   }
@@ -127,6 +128,14 @@ const isValidConnection = computed((): boolean => {
   return status === "valid";
 });
 
+const isValidConnection = (connection: Connection) => {
+  // 禁止
+  if (connection.targetHandle === "loop-in") {
+    return false;
+  }
+  return isValidConnectionLocal.value;
+};
+
 /**
  * 获取高亮 CSS 类
  */
@@ -135,7 +144,9 @@ const highlightClass = computed((): string => {
     return "";
   }
 
-  return isValidConnection.value ? "port-valid-target" : "port-invalid-target";
+  return isValidConnectionLocal.value
+    ? "port-valid-target"
+    : "port-invalid-target";
 });
 
 /**

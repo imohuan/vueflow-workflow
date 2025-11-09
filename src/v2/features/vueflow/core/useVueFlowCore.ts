@@ -148,9 +148,9 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
   /**
    * 删除节点
    */
-  function deleteNode(nodeId: string) {
+  function deleteNode(nodeId: string, enableHook = true) {
     // 调用插件钩子：节点删除前
-    if (pluginManager) {
+    if (pluginManager && enableHook) {
       const result = pluginManager.callHook("beforeNodeDelete", nodeId);
       // 如果钩子返回 false，则阻止删除
       if (result === false) {
@@ -168,7 +168,7 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
     );
 
     // 调用插件钩子：节点删除后
-    if (pluginManager) {
+    if (pluginManager && enableHook) {
       pluginManager.callHook("afterNodeDelete", nodeId);
     }
 
@@ -191,9 +191,9 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
   /**
    * 删除边
    */
-  function deleteEdge(edgeId: string) {
+  function deleteEdge(edgeId: string, enableHook = true) {
     // 调用插件钩子：边删除前
-    if (pluginManager) {
+    if (pluginManager && enableHook) {
       const result = pluginManager.callHook("beforeEdgeDelete", edgeId);
       // 如果钩子返回 false，则阻止删除
       if (result === false) {

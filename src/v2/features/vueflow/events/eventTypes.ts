@@ -21,8 +21,12 @@ import type {
  * 节点相关事件
  */
 export interface NodeEvents {
+  /** 节点添加 请求 */
+  "node:add-request": { node: Node };
   /** 节点被添加 */
   "node:added": { node: Node };
+  /** 节点删除 请求 */
+  "node:delete-request": { nodeId: string };
   /** 节点被删除 */
   "node:deleted": { nodeId: string };
   /** 节点执行请求 */

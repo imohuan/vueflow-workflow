@@ -116,6 +116,15 @@ export function createCtrlConnectPlugin(
   }
 
   /**
+   * 检查端口是否是装饰性端口（不可连接）
+   */
+  function isDecorativeHandle(handleId: string | null | undefined): boolean {
+    if (!handleId) return false;
+    // loop 和 loop-in 是 For 节点和容器节点之间的装饰性连接端口
+    return handleId === "loop" || handleId === "loop-in";
+  }
+
+  /**
    * 获取节点的所有端口候选
    */
   function getHandleCandidates(
@@ -134,17 +143,19 @@ export function createCtrlConnectPlugin(
 
     const basePosition = getGraphNodePosition(graphNode, fallbackNode);
 
-    return handles.map((handle) => {
-      const centerX = basePosition.x + handle.x + (handle.width ?? 0) / 2;
-      const centerY = basePosition.y + handle.y + (handle.height ?? 0) / 2;
-      return {
-        handle,
-        position: {
-          x: centerX,
-          y: centerY,
-        },
-      };
-    });
+    return handles
+      .filter((handle) => !isDecorativeHandle(handle.id)) // 过滤装饰性端口
+      .map((handle) => {
+        const centerX = basePosition.x + handle.x + (handle.width ?? 0) / 2;
+        const centerY = basePosition.y + handle.y + (handle.height ?? 0) / 2;
+        return {
+          handle,
+          position: {
+            x: centerX,
+            y: centerY,
+          },
+        };
+      });
   }
 
   /**

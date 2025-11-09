@@ -17,6 +17,7 @@ export { createCtrlConnectPlugin } from "./ctrlConnectPlugin";
 export { createAutoLayoutPlugin } from "./autoLayoutPlugin";
 export { createDeletePlugin } from "./deletePlugin";
 export { createAutoReconnectPlugin } from "./autoReconnectPlugin";
+export { createForLoopPlugin } from "./forLoopPlugin";
 export type { EdgeEditPluginOptions, EdgeValidationFn } from "./edgeEditPlugin";
 export type {
   CtrlConnectPluginOptions,

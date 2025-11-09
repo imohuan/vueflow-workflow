@@ -105,6 +105,8 @@ const quickMenu = reactive({
 const quickMenuRef = ref<HTMLDivElement | null>(null);
 const canvasContainerRef = ref<HTMLElement | null>(null);
 
+uiStore.activeTab = "node-library";
+
 /**
  * 将浏览器窗口坐标转换为相对于画布容器的坐标
  */
