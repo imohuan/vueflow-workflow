@@ -168,6 +168,27 @@ export interface HistoryEvents {
 }
 
 /**
+ * 变量拖拽相关事件
+ */
+export interface VariableDragEvents {
+  /** 变量拖拽开始 */
+  "variable:drag-start": {
+    data: any;
+    position: { x: number; y: number };
+  };
+  /** 变量拖拽移动 */
+  "variable:drag-move": {
+    data: any;
+    position: { x: number; y: number };
+  };
+  /** 变量拖拽结束 */
+  "variable:drag-end": {
+    data: any | null;
+    position: { x: number; y: number };
+  };
+}
+
+/**
  * 所有事件类型合并
  */
 export type VueFlowEventMap = NodeEvents &
@@ -175,7 +196,8 @@ export type VueFlowEventMap = NodeEvents &
   CanvasEvents &
   WorkflowEvents &
   HistoryEvents &
-  ExecutionEvents;
+  ExecutionEvents &
+  VariableDragEvents;
 
 /**
  * 事件名称类型

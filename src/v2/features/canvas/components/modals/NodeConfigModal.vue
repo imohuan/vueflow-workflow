@@ -44,7 +44,16 @@
       <!-- 中间面板：节点配置面板 -->
       <template #centerHeader>
         <div class="flex items-center justify-between w-full">
-          <h2 class="text-base font-semibold text-slate-900">节点配置</h2>
+          <div class="flex gap-2">
+            <!-- 图标 -->
+            <IconNodeEditor
+              class="h-5 w-5 text-white bg-blue-500 rounded-md p-1 overflow-hidden"
+            />
+
+            <h2 class="text-base font-semibold text-slate-900">
+              {{ selectedNode.data?.label }} - 配置
+            </h2>
+          </div>
           <button
             class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             :disabled="isExecuting || !selectedNode"
@@ -197,6 +206,7 @@ import IconEmptyNode from "@/icons/IconEmptyNode.vue";
 import IconPlay from "@/icons/IconPlay.vue";
 import IconLoading from "@/icons/IconLoading.vue";
 import IconErrorCircle from "@/icons/IconErrorCircle.vue";
+import IconNodeEditor from "@/icons/IconNodeEditor.vue";
 import CodeEditor from "@/v2/components/code/CodeEditor.vue";
 import { useUiStore } from "../../../../stores/ui";
 import { useCanvasStore } from "../../../../stores/canvas";

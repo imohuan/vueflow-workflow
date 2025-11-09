@@ -16,24 +16,28 @@
 
     <!-- 根据字段类型渲染不同的输入组件 -->
     <div class="field-input">
-      <!-- 文本输入 -->
-      <n-input
-        v-if="field.type === 'input'"
-        :value="modelValue"
+      <!-- 文本输入 - 使用 VariableTextInput -->
+      <VariableTextInput
+        v-if="field.type === 'input' || isDraggingVariable"
+        :model-value="modelValue"
         :placeholder="field.placeholder"
         :disabled="field.disabled"
-        @update:value="handleUpdate"
+        :multiline="false"
+        :show-border="isDraggingVariable"
+        preview-mode="bottom"
+        @update:model-value="handleUpdate"
       />
 
-      <!-- 多行文本 -->
-      <n-input
+      <!-- 多行文本 - 使用 VariableTextInput -->
+      <VariableTextInput
         v-else-if="field.type === 'textarea'"
-        type="textarea"
-        :value="modelValue"
+        :model-value="modelValue"
         :placeholder="field.placeholder"
         :disabled="field.disabled"
-        :rows="4"
-        @update:value="handleUpdate"
+        :multiline="true"
+        :show-border="isDraggingVariable"
+        preview-mode="bottom"
+        @update:model-value="handleUpdate"
       />
 
       <!-- 数字输入 -->
@@ -118,26 +122,26 @@
         <n-button secondary>选择文件</n-button>
       </n-upload>
 
-      <!-- JSON 编辑器 -->
-      <n-input
+      <!-- JSON 编辑器 - 使用 VariableTextInput -->
+      <VariableTextInput
         v-else-if="field.type === 'json-editor'"
-        type="textarea"
-        :value="formatJson(modelValue)"
+        :model-value="formatJson(modelValue)"
         :placeholder="field.placeholder || '输入 JSON 数据...'"
         :disabled="field.disabled"
-        :rows="8"
-        @update:value="handleJsonUpdate"
+        :multiline="true"
+        preview-mode="bottom"
+        @update:model-value="handleJsonUpdate"
       />
 
-      <!-- 代码编辑器 -->
-      <n-input
+      <!-- 代码编辑器 - 使用 VariableTextInput -->
+      <VariableTextInput
         v-else-if="field.type === 'code-editor'"
-        type="textarea"
-        :value="modelValue"
+        :model-value="modelValue"
         :placeholder="field.placeholder || '输入代码...'"
         :disabled="field.disabled"
-        :rows="8"
-        @update:value="handleUpdate"
+        :multiline="true"
+        preview-mode="bottom"
+        @update:model-value="handleUpdate"
       />
 
       <!-- 不支持的类型 -->
@@ -155,11 +159,14 @@
 
 <script setup lang="ts">
 import { ref, watch } from "vue";
+import VariableTextInput from "../variables-inputs/VariableTextInput.vue";
 import type { ConfigField } from "../../typings/config";
 
 interface Props {
   field: ConfigField;
   modelValue: any;
+  /** 是否正在拖拽变量 */
+  isDraggingVariable: boolean;
 }
 
 interface Emits {
@@ -190,6 +197,7 @@ function handleUpdate(value: any) {
  */
 function handleJsonUpdate(value: string) {
   try {
+    // VariableTextInput 返回的是字符串，需要解析 JSON
     const parsed = JSON.parse(value);
     validationError.value = "";
     emit("update:modelValue", parsed);

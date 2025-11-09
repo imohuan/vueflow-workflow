@@ -2,6 +2,19 @@
   <div class="json-tree-node-wrapper">
     <!-- 自定义拖拽跟随元素 -->
     <Teleport to="body">
+      <!-- 手掌图标 - 跟随鼠标实时移动 -->
+      <div
+        v-if="dropTargetState !== 'default'"
+        class="fixed pointer-events-none z-10001 w-8 h-8 flex items-center justify-center"
+        :style="{
+          left: dragPosition.x + 'px',
+          top: dragPosition.y + 'px',
+          transform: 'translate(-50%, -50%)',
+        }"
+      >
+        <IconHand class="w-5 h-5 text-slate-800" />
+      </div>
+
       <!-- 拖拽信息提示框 -->
       <div
         v-if="showDragFollower"
@@ -15,7 +28,33 @@
         ]"
         :style="dragFollowerStyle"
       >
-        {{ keyName }}
+        <div class="flex items-center gap-1.5">
+          <!-- 状态图标指示器 -->
+          <span
+            v-if="dropTargetState === 'empty'"
+            class="text-emerald-600 text-xs"
+            >⇱</span
+          >
+          <span
+            v-else-if="dropTargetState === 'hasContent'"
+            class="text-blue-600 text-xs"
+            >↓</span
+          >
+
+          {{ keyName }}
+
+          <!-- 提示文字 -->
+          <span
+            v-if="dropTargetState === 'empty'"
+            class="text-[10px] opacity-70"
+            >吸附左侧</span
+          >
+          <span
+            v-else-if="dropTargetState === 'hasContent'"
+            class="text-[10px] opacity-70"
+            >插入位置</span
+          >
+        </div>
       </div>
     </Teleport>
 
@@ -133,6 +172,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useEditableDrag } from "@/v2/composables/useEditableDrag";
+import IconHand from "@/icons/IconHand.vue";
 
 defineOptions({ name: "JsonTreeNode" });
 
@@ -317,12 +357,13 @@ interface DraggedKeyData {
 const {
   isDragging,
   showDragFollower,
+  dragPosition,
   dropTargetState,
   isHighlighted,
   dragFollowerStyle,
   startDrag,
 } = useEditableDrag<DraggedKeyData>({
-  eventName: "json-key-drop",
+  eventName: "variable-drop",
   enableHighlight: true,
 });
 

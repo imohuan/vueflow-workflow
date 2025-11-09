@@ -49,6 +49,7 @@
     <InfoModal />
     <FullscreenEditorModal />
     <NodeConfigModal />
+    <VariableEditorModal />
   </n-layout>
 </template>
 <script setup lang="ts">
@@ -66,6 +67,7 @@ import NodeInfoCard from "./components/NodeInfoCard.vue";
 import InfoModal from "../../components/modals/InfoModal.vue";
 import FullscreenEditorModal from "../../components/modals/FullscreenEditorModal.vue";
 import NodeConfigModal from "./components/modals/NodeConfigModal.vue";
+import VariableEditorModal from "../../components/variables-inputs/VariableEditorModal.vue";
 import { useCanvasStore } from "../../stores/canvas";
 import { useEditorConfigStore } from "../../stores/editorConfig";
 import { useUiStore } from "../../stores/ui";
@@ -79,8 +81,12 @@ const editorConfigStore = useEditorConfigStore();
 const uiStore = useUiStore();
 const workflowStore = useWorkflowStore();
 const { config: editorConfig } = storeToRefs(editorConfigStore);
-const { infoModalVisible, editorModalVisible, nodeConfigModalVisible } =
-  storeToRefs(uiStore);
+const {
+  infoModalVisible,
+  editorModalVisible,
+  nodeConfigModalVisible,
+  variableEditorModalVisible,
+} = storeToRefs(uiStore);
 const { fitView, getSelectedNodes } = useVueFlow();
 const message = useMessage();
 
@@ -539,6 +545,12 @@ onKeyStroke(
       if (infoModalVisible.value) {
         uiStore.closeInfoModal();
         console.log("[CanvasView] Escape 键关闭信息模态框");
+        return;
+      }
+
+      if (variableEditorModalVisible.value) {
+        uiStore.closeVariableEditorModal();
+        console.log("[CanvasView] Escape 键关闭变量编辑器模态框");
         return;
       }
 

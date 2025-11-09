@@ -5,7 +5,7 @@
       <div class="flex items-center justify-between gap-3">
         <!-- 左侧标题 -->
         <h3
-          class="text-sm font-semibold text-slate-900 uppercase tracking-wide"
+          class="text-sm font-semibold text-slate-900 uppercase tracking-wide truncate"
         >
           {{ title }}
         </h3>

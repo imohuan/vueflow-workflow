@@ -1,4 +1,5 @@
 import { ref, computed, type Ref } from "vue";
+import { eventBusUtils } from "../features/vueflow/events";
 
 /**
  * 拖拽目标状态
@@ -65,6 +66,34 @@ export function useEditableDrag<T = unknown>(
     );
   }
 
+  const setBorderClassDoms: Element[] = [];
+  const borderClassName = "border-green-600!";
+
+  /**
+   * 清除所有 border 样式
+   */
+  const clearBorder = () => {
+    setBorderClassDoms.forEach((dom) => {
+      dom.classList.remove(borderClassName);
+    });
+    setBorderClassDoms.length = 0;
+  };
+
+  /**
+   * 设置元素的 border 样式
+   */
+  const setBorder = (element: HTMLElement) => {
+    // editable 元素向上查询 class包含 variable-text-input 的元素
+    const variableTextInput = element.closest(".variable-text-input");
+    // 先清除所有 border
+    clearBorder();
+    // 如果有目标元素，添加 border（去重）
+    if (variableTextInput && !setBorderClassDoms.includes(variableTextInput)) {
+      setBorderClassDoms.push(variableTextInput);
+      variableTextInput.classList.add(borderClassName);
+    }
+  };
+
   /**
    * 计算拖拽跟随元素的样式
    */
@@ -73,6 +102,7 @@ export function useEditableDrag<T = unknown>(
 
     // 空输入框：吸附到左侧
     if (editable && dropTargetState.value === "empty") {
+      setBorder(editable);
       const rect = editable.getBoundingClientRect();
       return {
         left: rect.left - 8 + "px",
@@ -83,13 +113,15 @@ export function useEditableDrag<T = unknown>(
 
     // 有内容的输入框：跟随鼠标
     if (editable && dropTargetState.value === "hasContent") {
+      setBorder(editable);
       return {
         left: dragPosition.value.x + "px",
         top: dragPosition.value.y + "px",
       };
     }
 
-    // 默认状态：跟随鼠标，显示在鼠标上方
+    // 默认状态：清除 border，跟随鼠标，显示在鼠标上方
+    clearBorder();
     return {
       left: dragPosition.value.x + "px",
       top: dragPosition.value.y + "px",
@@ -119,6 +151,21 @@ export function useEditableDrag<T = unknown>(
       if (!showDragFollower.value) {
         showDragFollower.value = true;
         document.body.style.cursor = "grabbing";
+        // 发送变量拖拽开始事件
+        if (draggedData) {
+          eventBusUtils.emit("variable:drag-start", {
+            data: draggedData,
+            position: dragPosition.value,
+          });
+        }
+      } else {
+        // 发送变量拖拽移动事件
+        if (draggedData) {
+          eventBusUtils.emit("variable:drag-move", {
+            data: draggedData,
+            position: dragPosition.value,
+          });
+        }
       }
     } else {
       // 如果距离不够，不显示拖拽跟随元素，也不检测目标元素
@@ -167,6 +214,20 @@ export function useEditableDrag<T = unknown>(
    */
   function handleMouseUp(event: MouseEvent) {
     if (!isDragging.value) return;
+
+    const finalPosition = {
+      x: event.clientX,
+      y: event.clientY,
+    };
+
+    // 发送变量拖拽结束事件
+    eventBusUtils.emit("variable:drag-end", {
+      data: draggedData,
+      position: finalPosition,
+    });
+
+    // 清除 border 样式
+    clearBorder();
 
     isDragging.value = false;
     showDragFollower.value = false;
@@ -248,6 +309,9 @@ export function useEditableDrag<T = unknown>(
    * 重置所有状态
    */
   function reset() {
+    // 清除 border 样式
+    clearBorder();
+
     isDragging.value = false;
     showDragFollower.value = false;
     dropTargetState.value = "default";

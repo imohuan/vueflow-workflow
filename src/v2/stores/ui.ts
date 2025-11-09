@@ -81,6 +81,15 @@ export const useUiStore = defineStore("ui", () => {
   /** 节点配置 Modal 是否显示 */
   const nodeConfigModalVisible = ref(false);
 
+  /** 变量编辑器 Modal 是否显示 */
+  const variableEditorModalVisible = ref(false);
+
+  /** 变量编辑器内容 */
+  const variableEditorModalContent = ref({
+    value: "",
+    onSave: null as ((value: string) => void) | null,
+  });
+
   // ==================== 节点选中状态 ====================
 
   /** 当前选中的节点 ID */
@@ -241,6 +250,28 @@ export const useUiStore = defineStore("ui", () => {
   }
 
   /**
+   * 打开变量编辑器模态框
+   */
+  function openVariableEditorModal(
+    value: string,
+    onSave: (value: string) => void
+  ) {
+    variableEditorModalContent.value = { value, onSave };
+    variableEditorModalVisible.value = true;
+  }
+
+  /**
+   * 关闭变量编辑器模态框
+   */
+  function closeVariableEditorModal() {
+    variableEditorModalVisible.value = false;
+    // 延迟清理，确保模态框关闭动画完成
+    setTimeout(() => {
+      variableEditorModalContent.value = { value: "", onSave: null };
+    }, 300);
+  }
+
+  /**
    * 显示节点执行结果预览
    */
   function showNodePreview(nodeId: string, nodeData: any) {
@@ -276,6 +307,8 @@ export const useUiStore = defineStore("ui", () => {
     editorModalVisible,
     editorModalContent,
     nodeConfigModalVisible,
+    variableEditorModalVisible,
+    variableEditorModalContent,
     selectedNodeId,
     previewNodeId,
     previewNodeData,
@@ -296,6 +329,8 @@ export const useUiStore = defineStore("ui", () => {
     clearNodeSelection,
     openNodeConfigModal,
     closeNodeConfigModal,
+    openVariableEditorModal,
+    closeVariableEditorModal,
     showNodePreview,
     clearNodePreview,
   };

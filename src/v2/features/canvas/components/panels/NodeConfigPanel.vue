@@ -41,6 +41,7 @@
                   :key="field.key"
                   :field="field"
                   :model-value="nodeConfig.params?.[field.key] ?? field.default"
+                  :is-dragging-variable="isDraggingVariable"
                   @update:model-value="
                     (val) => handleParamChange(field.key, val)
                   "
@@ -203,19 +204,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import type { Node } from "@vue-flow/core";
 import { useVueFlow } from "@vue-flow/core";
 import { useMessage } from "naive-ui";
 import { useUiStore } from "../../../../stores/ui";
 import { ConfigField } from "../../../../components/ui";
 import type { ConfigField as ConfigFieldType } from "../../../../typings/config";
+import { eventBusUtils } from "../../../../features/vueflow/events";
+
 import IconConfig from "@/icons/IconConfig.vue";
 import IconWidget from "@/icons/IconWidget.vue";
 import IconSettings from "@/icons/IconSettings.vue";
 import IconCode from "@/icons/IconCode.vue";
 import IconReset from "@/icons/IconReset.vue";
 import IconTrash from "@/icons/IconTrash.vue";
+import type { VariableDragEvents } from "@/v2/features/vueflow/events/eventTypes";
 
 const uiStore = useUiStore();
 const message = useMessage();
@@ -223,6 +227,8 @@ const { findNode, updateNode, removeNodes } = useVueFlow();
 
 /** 当前激活的 Tab */
 const activeTab = ref<"node" | "general">("node");
+/** 是否正在拖拽变量 */
+const isDraggingVariable = ref(false);
 
 /** 当前选中的节点 */
 const selectedNode = computed<Node | undefined>(() => {
@@ -420,6 +426,36 @@ function getStatusType(
   };
   return types[status] || "default";
 }
+
+function handleVariableDragStart(
+  event: VariableDragEvents["variable:drag-start"]
+) {
+  console.log("[NodeConfigPanel] 变量拖拽开始:", event);
+  isDraggingVariable.value = true;
+}
+
+// function handleVariableDragMove(
+//   event: VariableDragEvents["variable:drag-move"]
+// ) {
+//   console.log("[NodeConfigPanel] 变量拖拽移动:", event);
+// }
+
+function handleVariableDragEnd(event: VariableDragEvents["variable:drag-end"]) {
+  console.log("[NodeConfigPanel] 变量拖拽结束:", event);
+  isDraggingVariable.value = false;
+}
+
+onMounted(() => {
+  eventBusUtils.on("variable:drag-start", handleVariableDragStart);
+  // eventBusUtils.on("variable:drag-move", handleVariableDragMove);
+  eventBusUtils.on("variable:drag-end", handleVariableDragEnd);
+});
+
+onBeforeUnmount(() => {
+  eventBusUtils.off("variable:drag-start", handleVariableDragStart);
+  // eventBusUtils.off("variable:drag-move", handleVariableDragMove);
+  eventBusUtils.off("variable:drag-end", handleVariableDragEnd);
+});
 </script>
 
 <style scoped>
