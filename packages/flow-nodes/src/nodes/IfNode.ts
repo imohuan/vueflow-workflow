@@ -116,6 +116,86 @@ export const OPERATOR_LABELS: Record<OperatorType, string> = {
   "length less than or equal to": "长度小于等于",
 };
 
+/** 数据类型标签映射 */
+export const DATA_TYPE_LABELS: Record<DataType, string> = {
+  string: "字符串",
+  number: "数字",
+  date: "日期",
+  boolean: "布尔值",
+  array: "数组",
+  object: "对象",
+};
+
+/** 按数据类型分组的操作符 */
+export const OPERATORS_BY_TYPE: Record<string, OperatorType[]> = {
+  string: [
+    "is equal to",
+    "is not equal to",
+    "contains",
+    "does not contain",
+    "starts with",
+    "ends with",
+    "exists",
+    "does not exist",
+    "is empty",
+    "is not empty",
+    "length equal to",
+    "length not equal to",
+    "length greater than",
+    "length less than",
+    "length greater than or equal to",
+    "length less than or equal to",
+  ],
+  number: [
+    "is equal to",
+    "is not equal to",
+    "is greater than",
+    "is less than",
+    "is greater than or equal to",
+    "is less than or equal to",
+    "exists",
+    "does not exist",
+  ],
+  date: [
+    "is equal to",
+    "is not equal to",
+    "is before",
+    "is after",
+    "is before or equal to",
+    "is after or equal to",
+    "exists",
+    "does not exist",
+  ],
+  boolean: [
+    "is equal to",
+    "is not equal to",
+    "is true",
+    "is false",
+    "exists",
+    "does not exist",
+  ],
+  array: [
+    "exists",
+    "does not exist",
+    "is empty",
+    "is not empty",
+    "contains",
+    "does not contain",
+    "length equal to",
+    "length not equal to",
+    "length greater than",
+    "length less than",
+    "length greater than or equal to",
+    "length less than or equal to",
+  ],
+  object: [
+    "exists",
+    "does not exist",
+    "is empty",
+    "is not empty",
+  ],
+};
+
 /**
  * If 条件判断节点
  * 根据条件判断返回不同的分支
@@ -132,9 +212,10 @@ export class IfNode extends BaseFlowNode {
   protected defineInputs(): PortConfig[] {
     return [
       {
-        name: "input",
-        type: "any",
-        description: "输入数据",
+        name: "config",
+        type: "object",
+        description: "条件配置",
+        defaultValue: this.getDefaultConfig(),
         required: false,
       },
     ];
@@ -222,22 +303,11 @@ export class IfNode extends BaseFlowNode {
     context: NodeExecutionContext
   ): Promise<NodeExecutionResult> {
     try {
-      // 从实例属性中获取配置（NodeResolver 会将 config 合并到实例上）
-      // 或者从 context 中获取，或者使用当前配置
-      const config: IfConfig =
-        (this as any).config ||
-        (context as any).config ||
-        this.currentConfig ||
-        this.getDefaultConfig();
+      // 通过 this.getInput 获取配置（与 TextProcessNode 的做法一致）
+      const config = this.getInput<IfConfig>(inputs, "config", this.getDefaultConfig());
 
       // 更新当前配置（用于动态输出端口）
-      if ((this as any).config) {
-        this.updateConfig((this as any).config);
-      } else if ((context as any).config) {
-        this.updateConfig((context as any).config);
-      }
-
-      const inputValue = this.getInput(inputs, "input");
+      this.updateConfig(config);
       const conditions = Array.isArray(config.conditions)
         ? config.conditions
         : [];
@@ -245,11 +315,11 @@ export class IfNode extends BaseFlowNode {
       // 评估每个条件
       const evaluations = conditions.map((condition, index) => {
         const subResults = condition.subConditions.map((subCond) => {
+          // 通过变量解析获取字段值（不需要 fallbackSource）
           const actualValue = this.resolveOperandValue(
             subCond.field,
             subCond.dataType,
             {
-              fallbackSource: inputValue,
               preferPath: true,
             }
           );
@@ -302,7 +372,6 @@ export class IfNode extends BaseFlowNode {
             ? {
                 branch: evaluation.outputId,
                 passed: true,
-                input: inputValue,
                 evaluation,
                 allEvaluations: evaluations,
               }
@@ -314,7 +383,6 @@ export class IfNode extends BaseFlowNode {
         ? {
             branch: "else",
             passed: false,
-            input: inputValue,
             allEvaluations: evaluations,
           }
         : undefined;
@@ -327,7 +395,6 @@ export class IfNode extends BaseFlowNode {
         {
           branch: passedEvaluation ? passedEvaluation.outputId : "else",
           passed: anyPassed,
-          input: inputValue,
           evaluations,
         },
         passedEvaluation

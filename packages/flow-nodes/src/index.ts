@@ -32,6 +32,22 @@ export type {
 // 导出 Executor 模块（会导出自己的 NodeExecutionStatus）
 export * from "./executor";
 
+// 导出 IfNode 的类型和常量
+export type {
+  DataType,
+  OperatorType,
+  ConditionOperand,
+  SubCondition,
+  Condition,
+  IfConfig,
+} from "./nodes/IfNode";
+
+export {
+  OPERATOR_LABELS,
+  DATA_TYPE_LABELS,
+  OPERATORS_BY_TYPE,
+} from "./nodes/IfNode";
+
 // 使用 import.meta.glob 动态导入所有节点文件
 const nodeModules = import.meta.glob<Record<string, any>>("./nodes/*.ts", {
   eager: true,

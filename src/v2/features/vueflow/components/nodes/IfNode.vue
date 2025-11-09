@@ -1,29 +1,29 @@
 <template>
   <StandardNode :id="id" :data="standardNodeData" :selected="selected">
     <template #default>
-      <div class="flex flex-col gap-2 py-1.5">
+      <div class="flex flex-col gap-1.5 py-1">
         <!-- 条件预览列表 -->
         <div
           v-for="(condition, condIndex) in conditions"
           :key="condIndex"
-          class="p-2 bg-slate-50 border border-slate-200 rounded-md transition-all duration-200 hover:bg-slate-100"
+          class="px-1.5 py-1 bg-slate-50 border border-slate-200 rounded transition-all duration-200 hover:bg-slate-100"
           :ref="(el) => setConditionRef(el as HTMLElement, condIndex)"
         >
-          <div class="flex items-center justify-between gap-2 mb-1">
+          <div class="flex items-center justify-between gap-1.5 mb-0.5">
             <span
-              class="text-[10px] font-semibold text-slate-600 uppercase tracking-wide"
+              class="text-[9px] font-semibold text-slate-600 uppercase tracking-wide"
             >
               条件{{ condIndex + 1 }}
             </span>
             <span
               v-if="(condition.subConditions?.length ?? 0) > 1"
-              class="py-0.5 px-1.5 text-[10px] font-medium bg-violet-200 text-violet-600 rounded"
+              class="py-0.5 px-1 text-[9px] font-medium bg-violet-200 text-violet-600 rounded"
             >
               {{ condition.logic === "and" ? "且" : "或" }}
             </span>
           </div>
           <div
-            class="flex flex-wrap items-center gap-1 text-[11px] text-slate-500 leading-snug"
+            class="flex flex-wrap items-center gap-0.5 text-[10px] text-slate-500 leading-tight"
           >
             <template
               v-for="(part, idx) in getConditionSummaryParts(condition)"
@@ -41,17 +41,17 @@
 
         <!-- else 预览 -->
         <div
-          class="p-2 bg-orange-50 border border-orange-200 rounded-md transition-all duration-200 hover:bg-orange-100"
+          class="px-1.5 py-1 bg-orange-50 border border-orange-200 rounded transition-all duration-200 hover:bg-orange-100"
           ref="elsePreviewRef"
         >
-          <div class="flex items-center justify-between gap-2 mb-1">
+          <div class="flex items-center justify-between gap-1.5 mb-0.5">
             <span
-              class="text-[10px] font-semibold text-slate-600 uppercase tracking-wide"
+              class="text-[9px] font-semibold text-slate-600 uppercase tracking-wide"
             >
               否则
             </span>
           </div>
-          <div class="text-[11px] text-slate-500 leading-snug wrap-break-word">
+          <div class="text-[10px] text-slate-500 leading-tight wrap-break-word">
             所有条件都不满足时执行
           </div>
         </div>
@@ -82,13 +82,13 @@
 
 <script setup lang="ts">
 import { computed, ref, nextTick, watch } from "vue";
-import { Position } from "@vue-flow/core";
+import { Position, useVueFlow } from "@vue-flow/core";
 import StandardNode from "./StandardNode.vue";
 import { PortHandle } from "../ports";
-import type { NodeStyleConfig } from "workflow-flow-nodes";
-import type { Condition, IfConfig } from "@/v1/workflow/nodes";
-import { OPERATOR_LABELS } from "@/v1/workflow/nodes";
+import type { NodeStyleConfig, Condition, IfConfig } from "workflow-flow-nodes";
+import { OPERATOR_LABELS } from "workflow-flow-nodes";
 import VariableBadge from "@/v1/components/common/VariableBadge.vue";
+import IconIf from "@/icons/IconIf.vue";
 
 interface Props {
   id: string;
@@ -117,10 +117,32 @@ interface OutputPort {
 
 const props = defineProps<Props>();
 
-// 获取条件列表
+// 获取 VueFlow 实例用于更新端口位置
+const { updateNodeInternals } = useVueFlow();
+
+// 获取条件列表（确保至少有1个条件，与 ConditionEditor 保持一致）
 const conditions = computed(() => {
   const config = props.data.config as IfConfig | undefined;
-  return config?.conditions || [];
+  const configConditions = config?.conditions || [];
+
+  // 如果条件少于1个，返回至少1个空条件（与 ConditionEditor 的默认行为一致）
+  if (configConditions.length < 1) {
+    return [
+      {
+        logic: "and" as const,
+        subConditions: [
+          {
+            field: "",
+            dataType: "string" as const,
+            operator: "is equal to" as const,
+            value: "",
+          },
+        ],
+      },
+    ];
+  }
+
+  return configConditions;
 });
 
 // 存储每个条件预览框的引用
@@ -159,6 +181,30 @@ const outputPorts = computed<OutputPort[]>(() => {
   return ports;
 });
 
+// 监听条件变化，更新端口位置
+watch(
+  () => conditions.value.length,
+  async () => {
+    // 等待 DOM 更新完成后刷新端口位置
+    await nextTick();
+    updateNodeInternals([props.id]);
+  },
+  { immediate: true }
+);
+
+// 监听端口变化，确保位置更新
+watch(
+  outputPorts,
+  async () => {
+    await nextTick();
+    // 延迟一帧确保 DOM 完全渲染
+    requestAnimationFrame(() => {
+      updateNodeInternals([props.id]);
+    });
+  },
+  { deep: true }
+);
+
 // 计算端口样式（对齐到对应的条件预览框）
 function getPortStyle(index: number): Record<string, string> {
   const conditionsCount = conditions.value.length;
@@ -186,11 +232,11 @@ function getPortStyle(index: number): Record<string, string> {
   }
 
   // 初始渲染时的估算位置（避免位置错误）
-  // 每个条件预览框大约 60px 高，间距 8px（gap-2）
-  const CONDITION_ITEM_HEIGHT = 60;
-  const GAP = 8;
+  // 每个条件预览框大约 40px 高，间距 6px（gap-1.5）
+  const CONDITION_ITEM_HEIGHT = 40;
+  const GAP = 6;
   const HEADER_HEIGHT = 40;
-  const PADDING_TOP = 12; // py-1.5
+  const PADDING_TOP = 8; // py-1
 
   if (index === conditionsCount) {
     // else 端口位置 = header + padding + (条件数量 * (高度 + 间距)) + else框高度的一半
@@ -220,8 +266,8 @@ const standardNodeData = computed(() => {
   const style: NodeStyleConfig = {
     // 使用紫色渐变作为标题栏颜色
     headerColor: ["#8b5cf6", "#7c3aed"],
-    // 使用条件判断图标
-    icon: "❓",
+    // 使用条件判断SVG图标
+    icon: IconIf as any,
     showIcon: true,
   };
 
@@ -229,7 +275,7 @@ const standardNodeData = computed(() => {
     ...props.data,
     label: props.data.label || "条件判断",
     noInputs: false, // If 节点有输入端口
-    noOutputs: true, // 使用自定义输出端口，隐藏默认输出端口
+    noOutputs: false,
     style,
   };
 });
@@ -289,9 +335,21 @@ function getConditionSummaryParts(condition: Condition): SummaryPart[] {
     const sub = subConditions[0];
     if (!sub) return [{ text: "未配置子条件", isVariable: false }];
 
-    const field = String(sub.field || "输入值");
+    // 检查是否为空条件（未配置）
+    const hasField = sub.field && String(sub.field).trim() !== "";
+    const hasValue =
+      sub.value !== null &&
+      sub.value !== undefined &&
+      String(sub.value).trim() !== "";
+
+    // 如果字段和值都为空，显示未配置提示
+    if (!hasField && !hasValue) {
+      return [{ text: "未配置条件", isVariable: false }];
+    }
+
+    const field = String(sub.field || "字段");
     const operator = OPERATOR_LABELS[sub.operator] || sub.operator;
-    const value = String(sub.value ?? "''");
+    const value = String(sub.value ?? "值");
 
     // 不需要值的操作符
     if (
@@ -343,13 +401,29 @@ function getConditionSummaryParts(condition: Condition): SummaryPart[] {
   subConditions.forEach((sub, index) => {
     if (!sub) return;
 
+    // 检查是否为空条件
+    const hasField = sub.field && String(sub.field).trim() !== "";
+    const hasValue =
+      sub.value !== null &&
+      sub.value !== undefined &&
+      String(sub.value).trim() !== "";
+
+    // 跳过完全空的子条件（但保留显示）
+    if (!hasField && !hasValue) {
+      if (index > 0) {
+        allParts.push({ text: logicText, isVariable: false });
+      }
+      allParts.push({ text: "未配置", isVariable: false });
+      return;
+    }
+
     if (index > 0) {
       allParts.push({ text: logicText, isVariable: false });
     }
 
-    const field = String(sub.field || "输入值");
+    const field = String(sub.field || "字段");
     const operator = OPERATOR_LABELS[sub.operator] || sub.operator;
-    const value = String(sub.value ?? "''");
+    const value = String(sub.value ?? "值");
 
     if (
       [

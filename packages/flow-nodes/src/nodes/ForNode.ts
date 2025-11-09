@@ -54,6 +54,12 @@ export class ForNode extends BaseFlowNode {
         description: "输入集合",
         required: false,
       },
+      {
+        name: "config",
+        type: "object",
+        description: "循环配置",
+        required: false,
+      },
     ];
   }
 
@@ -85,10 +91,11 @@ export class ForNode extends BaseFlowNode {
   ): Promise<NodeExecutionResult> {
     try {
       // 获取配置
-      const config: ForConfig =
-        (this as any).config ||
-        (context as any).config ||
-        this.getDefaultConfig();
+      const config = this.getInput<ForConfig>(
+        inputs,
+        "config",
+        this.getDefaultConfig()
+      );
 
       // 解析循环项
       const items = this.resolveItems(config, inputs.items, context);

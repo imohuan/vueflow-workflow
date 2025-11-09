@@ -264,6 +264,23 @@ const NODE_TYPE_SPECIFIC_DATA: Record<string, Record<string, any>> = {
     width: 200, // 默认宽度
     height: 120, // 默认高度
   },
+  if: {
+    config: {
+      conditions: [
+        {
+          logic: "and",
+          subConditions: [
+            {
+              field: "",
+              dataType: "string",
+              operator: "is equal to",
+              value: "",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // start 和 end 节点没有特有字段，使用通用配置
 };
 

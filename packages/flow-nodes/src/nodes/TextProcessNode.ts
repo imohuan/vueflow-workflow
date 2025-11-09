@@ -74,7 +74,7 @@ export class TextProcessNode extends BaseFlowNode {
     context: NodeExecutionContext
   ): Promise<NodeExecutionResult> {
     try {
-      const text = this.getInput<string>(inputs, "text", "");
+      const text = this.getInput<string>(inputs, "text", "").toString();
       const mode = this.getInput<string>(inputs, "mode", "uppercase");
       const prefix = this.getInput<string>(inputs, "prefix", "");
 

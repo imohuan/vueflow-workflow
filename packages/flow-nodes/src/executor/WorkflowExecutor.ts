@@ -402,26 +402,6 @@ export class WorkflowExecutor {
         Object.assign(inputs, resolvedParams);
       }
 
-      // 合并节点配置参数（node.data.params）到输入中，并进行变量替换
-      if (node.data?.params) {
-        // 构建变量上下文
-        const { map: contextMap } = buildVariableContextFromExecutionContext(
-          nodeId,
-          context,
-          context.getWorkflow().nodes,
-          context.getWorkflow().edges
-        );
-
-        // 对参数进行变量替换
-        const resolvedParams = resolveConfigWithVariables(
-          node.data.params,
-          contextMap
-        );
-
-        // 合并解析后的参数到输入中
-        Object.assign(inputs, resolvedParams);
-      }
-
       // 缓存判断逻辑
       let shouldUseCache = false;
       let configHash: string | undefined;

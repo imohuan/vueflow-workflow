@@ -23,9 +23,29 @@
 
           <!-- 选中节点时显示配置表单 -->
           <div v-else class="p-4">
+            <!-- 调试信息 -->
+            <!-- <div class="mb-2 p-2 bg-yellow-50 text-xs">
+              节点类型: {{ selectedNode.type }} | data.type: {{ selectedNode.data.type }}
+            </div> -->
+            
+            <!-- If 节点特殊配置 -->
+            <div v-if="selectedNode.type === 'if'" class="mb-6">
+              <h4
+                class="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700"
+              >
+                <IconCode class="h-4 w-4" />
+                条件配置
+              </h4>
+
+              <ConditionEditor
+                :model-value="ifConfig"
+                @update:model-value="handleIfConfigChange"
+              />
+            </div>
+
             <!-- 节点类型特定配置 -->
             <div
-              v-if="nodeTypeConfig && nodeTypeConfig.length > 0"
+              v-else-if="nodeTypeConfig && nodeTypeConfig.length > 0"
               class="mb-6"
             >
               <h4
@@ -220,6 +240,8 @@ import IconCode from "@/icons/IconCode.vue";
 import IconReset from "@/icons/IconReset.vue";
 import IconTrash from "@/icons/IconTrash.vue";
 import type { VariableDragEvents } from "@/v2/features/vueflow/events/eventTypes";
+import ConditionEditor from "@/v2/components/ConditionEditor.vue";
+import type { IfConfig } from "workflow-flow-nodes";
 
 const uiStore = useUiStore();
 const message = useMessage();
@@ -312,6 +334,16 @@ const nodeTypeConfig = computed<ConfigFieldType[]>(() => {
 });
 
 /**
+ * If 节点配置
+ */
+const ifConfig = computed<IfConfig>(() => {
+  if (!selectedNode.value || selectedNode.value.type !== "if") {
+    return { conditions: [] };
+  }
+  return selectedNode.value.data.config || { conditions: [] };
+});
+
+/**
  * 监听选中节点变化，更新配置表单
  */
 watch(
@@ -358,14 +390,14 @@ function handleParamChange(key: string, value: any) {
 }
 
 /**
- * 处理位置变更
+ * 处理 If 节点配置变更
  */
-function handlePositionChange(axis: "x" | "y", value: number | null) {
-  if (selectedNode.value && value !== null) {
+function handleIfConfigChange(config: IfConfig) {
+  if (selectedNode.value) {
     updateNode(selectedNode.value.id, {
-      position: {
-        ...selectedNode.value.position,
-        [axis]: value,
+      data: {
+        ...selectedNode.value.data,
+        config,
       },
     });
   }
