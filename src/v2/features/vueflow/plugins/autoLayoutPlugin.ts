@@ -226,7 +226,7 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
     const fitViewPadding = options.fitViewPadding ?? 0.2;
     const fitViewDuration = options.fitViewDuration ?? 400;
 
-    // 识别 for 节点及其容器
+    // ========== 第一步：识别 for 节点及其容器 ==========
     const forNodeContainerMap = new Map<string, string>();
     const containerForNodeMap = new Map<string, string>();
 
@@ -238,6 +238,87 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
       }
     });
 
+    console.log(
+      `[AutoLayout Plugin] 识别到 ${containerForNodeMap.size} 个 for 循环容器`
+    );
+
+    // ========== 第二步：先布局容器内的子节点 ==========
+    const containerChildPositions = new Map<
+      string,
+      Map<string, { x: number; y: number }>
+    >();
+
+    containerForNodeMap.forEach((_forNodeId, containerId) => {
+      const childPositions = layoutContainerChildren(
+        containerId,
+        nodes.value,
+        edges.value,
+        {
+          direction,
+          nodesep: nodesep * 0.8, // 容器内间距稍小
+          ranksep: ranksep * 0.7,
+        }
+      );
+      containerChildPositions.set(containerId, childPositions);
+    });
+
+    // 应用容器内子节点的位置
+    if (containerChildPositions.size > 0) {
+      core.updateNodes((currentNodes: Node[]) => {
+        return currentNodes.map((node) => {
+          // 处理容器内的子节点：使用计算好的相对位置
+          if (node.parentNode && containerChildPositions.has(node.parentNode)) {
+            const childPositions = containerChildPositions.get(
+              node.parentNode
+            )!;
+            const childPos = childPositions.get(node.id);
+
+            if (childPos) {
+              return {
+                ...node,
+                position: {
+                  x: childPos.x,
+                  y: childPos.y,
+                },
+              };
+            }
+          }
+          return node;
+        });
+      });
+
+      // 等待 DOM 更新
+      await nextTick();
+
+      console.log(
+        `[AutoLayout Plugin] 容器内节点布局完成，共 ${Array.from(
+          containerChildPositions.values()
+        ).reduce((sum, map) => sum + map.size, 0)} 个节点`
+      );
+    }
+
+    // ========== 第三步：更新容器的 bounds ==========
+    // 获取 forLoopPlugin 暴露的 updateContainerBounds 函数
+    const forLoopPlugin = pluginContext?.shared?.["for-loop"];
+    if (
+      forLoopPlugin &&
+      typeof forLoopPlugin.updateContainerBounds === "function"
+    ) {
+      containerForNodeMap.forEach((_forNodeId, containerId) => {
+        forLoopPlugin.updateContainerBounds(containerId);
+      });
+
+      // 等待容器尺寸更新 - 需要多次等待确保响应式更新完成
+      await nextTick();
+      // 额外等待确保 DOM 和响应式状态完全同步
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      console.log(
+        `[AutoLayout Plugin] 容器 bounds 更新完成，共 ${containerForNodeMap.size} 个容器`
+      );
+    }
+
+    // ========== 第四步：布局顶层节点（包括 For 节点和更新后的容器） ==========
     // 只对顶层节点进行布局（不包含容器内的子节点和 for 节点的容器）
     const topLevelNodes = nodes.value.filter((node) => {
       // 排除有父节点的子节点
@@ -263,7 +344,7 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
       marginy: 0,
     });
 
-    // 添加节点到图中
+    // 添加节点到图中（此时容器已经有了正确的尺寸）
     topLevelNodes.forEach((node) => {
       const width = getNodeApproxWidth(node);
       const height = getNodeApproxHeight(node);
@@ -323,27 +404,22 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
     const baseX = Number.isFinite(minX) ? minX : 0;
     const baseY = Number.isFinite(minY) ? minY : 0;
 
-    // 布局容器内的子节点
-    const containerChildPositions = new Map<
+    // ========== 第五步：应用顶层节点和容器的新位置 ==========
+    // 先获取最新的容器尺寸（已经被 updateContainerBounds 更新过）
+    const updatedContainerSizes = new Map<
       string,
-      Map<string, { x: number; y: number }>
+      { width: number; height: number }
     >();
-
     containerForNodeMap.forEach((_forNodeId, containerId) => {
-      const childPositions = layoutContainerChildren(
-        containerId,
-        nodes.value,
-        edges.value,
-        {
-          direction,
-          nodesep: nodesep * 0.8, // 容器内间距稍小
-          ranksep: ranksep * 0.7,
-        }
-      );
-      containerChildPositions.set(containerId, childPositions);
+      const container = nodes.value.find((n) => n.id === containerId);
+      if (container) {
+        updatedContainerSizes.set(containerId, {
+          width: getNodeApproxWidth(container),
+          height: getNodeApproxHeight(container),
+        });
+      }
     });
 
-    // 应用新的位置（加上 padding）
     core.updateNodes((currentNodes: Node[]) => {
       return currentNodes.map((node) => {
         // 处理顶层节点的位置
@@ -364,38 +440,39 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
         // 处理 for 节点的容器：居中放在 for 节点正下方
         if (containerForNodeMap.has(node.id)) {
           const forNodeId = containerForNodeMap.get(node.id)!;
-          const forNode = currentNodes.find((n) => n.id === forNodeId);
+          // 从 positionedNodes 中查找 for 节点的新位置（布局后的位置）
+          const forNodePositioned = positionedNodes.find(
+            (pn) => pn.node.id === forNodeId
+          );
 
-          if (forNode) {
-            const forNodeWidth = getNodeApproxWidth(forNode);
-            const forNodeHeight = getNodeApproxHeight(forNode);
-            const containerWidth = getNodeApproxWidth(node);
+          if (forNodePositioned) {
+            // 计算 for 节点的实际位置（应用 padding 和 baseX/baseY）
+            const forNodeX =
+              forNodePositioned.x -
+              forNodePositioned.width / 2 -
+              baseX +
+              padding;
+            const forNodeY =
+              forNodePositioned.y -
+              forNodePositioned.height / 2 -
+              baseY +
+              padding;
 
-            // 计算居中的 x 位置
-            const centeredX =
-              forNode.position.x + (forNodeWidth - containerWidth) / 2;
+            // 使用更新后的容器宽度（来自 updatedContainerSizes）
+            const containerSize = updatedContainerSizes.get(node.id);
+            const containerWidth = containerSize
+              ? containerSize.width
+              : getNodeApproxWidth(node);
+
+            // 计算居中的 x 位置：for 节点中心 - 容器宽度/2
+            const forNodeCenterX = forNodeX + forNodePositioned.width / 2;
+            const centeredX = forNodeCenterX - containerWidth / 2;
 
             return {
               ...node,
               position: {
                 x: centeredX,
-                y: forNode.position.y + forNodeHeight + forNodeSpacing,
-              },
-            };
-          }
-        }
-
-        // 处理容器内的子节点：使用计算好的相对位置
-        if (node.parentNode && containerChildPositions.has(node.parentNode)) {
-          const childPositions = containerChildPositions.get(node.parentNode)!;
-          const childPos = childPositions.get(node.id);
-
-          if (childPos) {
-            return {
-              ...node,
-              position: {
-                x: childPos.x,
-                y: childPos.y,
+                y: forNodeY + forNodePositioned.height + forNodeSpacing,
               },
             };
           }
@@ -405,12 +482,14 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
       });
     });
 
-    const totalContainerChildren = Array.from(
-      containerChildPositions.values()
-    ).reduce((sum, map) => sum + map.size, 0);
-
+    console.log(`[AutoLayout Plugin] ✅ 自动布局完成！`);
+    console.log(`  - 顶层节点: ${positionedNodes.length} 个`);
+    console.log(`  - For 循环容器: ${containerForNodeMap.size} 个`);
     console.log(
-      `[AutoLayout Plugin] 自动布局完成，共布局 ${positionedNodes.length} 个顶层节点，${containerForNodeMap.size} 个容器，${totalContainerChildren} 个容器内节点`
+      `  - 容器内节点: ${Array.from(containerChildPositions.values()).reduce(
+        (sum, map) => sum + map.size,
+        0
+      )} 个`
     );
 
     // 等待 DOM 更新

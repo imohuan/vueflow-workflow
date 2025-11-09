@@ -43,6 +43,13 @@ export interface EdgeEditSharedState {
   markUpdateSuccessful: () => void;
 }
 
+export interface ForLoopSharedState {
+  /** 容器高亮状态 */
+  containerHighlight: Ref<Record<string, HighlightType>>;
+  /** 更新容器边界 */
+  updateContainerBounds: (containerId: string) => void;
+}
+
 /**
  * 插件共享状态
  * 用于插件暴露状态供其他插件或组件访问
@@ -52,6 +59,8 @@ export interface PluginSharedState {
   "ctrl-connect"?: CtrlConnectSharedState;
   /** 边编辑插件共享状态 */
   "edge-edit"?: EdgeEditSharedState;
+  /** forLoop 插件共享状态 */
+  "for-loop"?: ForLoopSharedState;
   /** 其他插件的共享状态 */
   [pluginId: string]: any;
 }

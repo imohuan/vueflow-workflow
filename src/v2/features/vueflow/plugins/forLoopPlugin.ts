@@ -826,6 +826,10 @@ export function createForLoopPlugin(): VueFlowPlugin {
       // 注册共享状态
       ctx.shared["for-loop"] = {
         containerHighlight: containerHighlightRef,
+        // 暴露 updateContainerBounds 函数供其他插件使用
+        updateContainerBounds: (containerId: string) => {
+          updateContainerBounds(containerId, ctx);
+        },
       };
 
       // 监听键盘事件（Ctrl 键）
