@@ -476,6 +476,9 @@ export function createForLoopPlugin(): VueFlowPlugin {
       return;
     }
 
+    if (node.type === "forLoopContainer") return;
+    console.log("[111]", node, node.parentNode);
+
     // 使用 VueFlow API 获取交集节点
     const intersections = context.vueflow.getIntersectingNodes(node) || [];
 

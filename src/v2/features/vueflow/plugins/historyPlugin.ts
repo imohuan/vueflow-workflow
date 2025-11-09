@@ -299,16 +299,13 @@ export function createHistoryPlugin(): VueFlowPlugin {
         saveHistoryDebounced
       );
 
-      // 监听节点位置变化（深度监听，但只在拖拽结束时保存）
+      // 监听节点位置变化（使用简化的字符串序列化，避免 deep watch）
       const stopWatchNodePositions = watch(
         () =>
-          context.core.nodes.value.map((n) => ({
-            id: n.id,
-            x: n.position.x,
-            y: n.position.y,
-          })),
-        saveHistoryDebounced,
-        { deep: true }
+          context.core.nodes.value
+            .map((n) => `${n.id}:${n.position.x}:${n.position.y}`)
+            .join(','),
+        saveHistoryDebounced
       );
 
       console.log("[History Plugin] 历史记录插件已启用");

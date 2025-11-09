@@ -334,6 +334,10 @@ export const useWorkflowStore = defineStore("workflow", () => {
   const workflows = ref<WorkflowEntity[]>(initialState.workflows);
   const folders = ref<WorkflowFolder[]>(initialState.folders);
   const currentWorkflowId = ref<string | null>(loadCurrentWorkflowId());
+  
+  // 防抖计时器
+  let persistTimer: number | null = null;
+  const PERSIST_DEBOUNCE_MS = 500; // 防抖延迟 500ms
 
   const currentWorkflow = computed<WorkflowEntity | null>(() => {
     if (!currentWorkflowId.value) return null;
@@ -362,12 +366,19 @@ export const useWorkflowStore = defineStore("workflow", () => {
     });
   }
 
+  // 使用防抖来减少 localStorage 写入频率
   watch(
     [workflows, folders],
     () => {
-      persistState();
+      if (persistTimer !== null) {
+        clearTimeout(persistTimer);
+      }
+      persistTimer = window.setTimeout(() => {
+        persistState();
+        persistTimer = null;
+      }, PERSIST_DEBOUNCE_MS);
     },
-    { deep: true }
+    { deep: true, flush: 'post' }
   );
 
   watch(currentWorkflowId, (newId) => {

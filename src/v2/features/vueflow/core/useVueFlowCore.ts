@@ -65,6 +65,17 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
    * 设置 Store 监听器
    */
   function setupStoreWatchers() {
+    // 防抖计时器
+    let syncToStoreTimer: number | null = null;
+    const SYNC_DEBOUNCE_MS = 150; // 防抖延迟
+
+    // 防抖函数：同步到 Store
+    const debouncedSyncToStore = (updater: () => void) => {
+      if (syncToStoreTimer !== null) {
+        clearTimeout(syncToStoreTimer);
+      }
+      syncToStoreTimer = window.setTimeout(updater, SYNC_DEBOUNCE_MS);
+    };
     // 监听当前工作流 ID 变化，切换工作流时立即同步
     watch(
       () => canvasStore.currentWorkflowId,
@@ -84,32 +95,28 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
       }
     );
 
-    // 监听 Store 变化 -> 同步到 VueFlow
+    // 监听 Store 变化 -> 同步到 VueFlow（浅层监听，仅在引用变化时触发）
     watch(
       () => canvasStore.nodes,
       (newNodes) => {
         nodes.value = newNodes as unknown as Node[];
-      },
-      { deep: true }
+      }
     );
 
     watch(
       () => canvasStore.edges,
       (newEdges) => {
         edges.value = newEdges as unknown as Edge[];
-      },
-      { deep: true }
+      }
     );
 
-    // 监听 VueFlow 变化 -> 同步回 Store
+    // 监听 VueFlow 变化 -> 同步回 Store（使用防抖，避免频繁更新）
+    // 监听数组长度变化，避免 deep watch
     watch(
-      nodes,
-      (newNodes) => {
-        if (JSON.stringify(newNodes) !== JSON.stringify(canvasStore.nodes)) {
-          // 使用更新方法而不是直接赋值（因为 nodes 现在是计算属性）
-          canvasStore.updateNodes(newNodes as any);
-
-          // 触发事件
+      () => nodes.value.length,
+      () => {
+        debouncedSyncToStore(() => {
+          canvasStore.updateNodes(nodes.value as any);
           if (events) {
             events.emit("canvas:viewport-changed", {
               x: 0,
@@ -117,20 +124,30 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
               zoom: 1,
             });
           }
-        }
-      },
-      { deep: true }
+        });
+      }
+    );
+
+    // 监听节点位置/数据变化（使用简化的序列化）
+    watch(
+      () =>
+        nodes.value
+          .map((n) => `${n.id}:${n.position.x}:${n.position.y}`)
+          .join(","),
+      () => {
+        debouncedSyncToStore(() => {
+          canvasStore.updateNodes(nodes.value as any);
+        });
+      }
     );
 
     watch(
-      edges,
-      (newEdges) => {
-        if (JSON.stringify(newEdges) !== JSON.stringify(canvasStore.edges)) {
-          // 使用更新方法而不是直接赋值（因为 edges 现在是计算属性）
-          canvasStore.updateEdges(newEdges as any);
-        }
-      },
-      { deep: true }
+      () => edges.value.length,
+      () => {
+        debouncedSyncToStore(() => {
+          canvasStore.updateEdges(edges.value as any);
+        });
+      }
     );
   }
 

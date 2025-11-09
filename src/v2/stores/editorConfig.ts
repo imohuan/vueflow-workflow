@@ -159,6 +159,10 @@ function saveConfigToStorage(config: EditorConfig): void {
 export const useEditorConfigStore = defineStore("editorConfig", () => {
   // 配置状态
   const config = ref<EditorConfig>(loadConfigFromStorage());
+  
+  // 防抖计时器
+  let saveTimer: number | null = null;
+  const SAVE_DEBOUNCE_MS = 500; // 防抖延迟 500ms
 
   /**
    * 更新配置
@@ -195,13 +199,19 @@ export const useEditorConfigStore = defineStore("editorConfig", () => {
     }
   }
 
-  // 监听配置变化，自动保存到 localStorage
+  // 监听配置变化，自动保存到 localStorage（使用防抖，减少写入频率）
   watch(
     config,
     (newConfig) => {
-      saveConfigToStorage(newConfig);
+      if (saveTimer !== null) {
+        clearTimeout(saveTimer);
+      }
+      saveTimer = window.setTimeout(() => {
+        saveConfigToStorage(newConfig);
+        saveTimer = null;
+      }, SAVE_DEBOUNCE_MS);
     },
-    { deep: true }
+    { deep: true, flush: 'post' }
   );
 
   return {

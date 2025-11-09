@@ -58,15 +58,15 @@ export function createMultiSelectPlugin(): VueFlowPlugin {
       });
 
       // 监听选中节点变化，自动启用 nodesSelectionActive（显示蓝色背景）
+      // 只监听长度变化，避免 deep watch
       stopNodesWatch = watch(
-        () => getSelectedNodes?.value ?? [],
-        (selectedNodes) => {
+        () => (getSelectedNodes?.value ?? []).length,
+        (selectedCount) => {
           if (nodesSelectionActive) {
             // 当有多个节点选中时，启用 nodesSelectionActive（用于显示蓝色背景）
-            nodesSelectionActive.value = selectedNodes.length > 1;
+            nodesSelectionActive.value = selectedCount > 1;
           }
-        },
-        { deep: true }
+        }
       );
 
       console.log("[MultiSelect Plugin] 多选插件已启用");

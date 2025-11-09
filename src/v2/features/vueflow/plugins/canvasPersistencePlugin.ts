@@ -121,13 +121,12 @@ export function createCanvasPersistencePlugin(): VueFlowPlugin {
       // 启动时加载已保存的视图状态
       loadFromLocalStorage(canvasStore);
 
-      // 监听执行结果变化，使用防抖保存
+      // 监听执行结果变化，使用防抖保存（只监听长度，避免 deep watch）
       const stopResultsWatcher = watch(
-        () => canvasStore.lastNodeResults,
+        () => canvasStore.lastNodeResults.length,
         () => {
           debouncedSave(canvasStore);
-        },
-        { deep: true }
+        }
       );
 
       stopWatchers.push(stopResultsWatcher);
