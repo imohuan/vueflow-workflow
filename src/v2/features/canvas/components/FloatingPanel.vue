@@ -38,7 +38,7 @@ import { useUiStore } from "../../../stores/ui";
 import TestMenuPanel from "./panels/TestMenuPanel.vue";
 import WorkflowTreePanel from "./panels/WorkflowTreePanel.vue";
 import NodeLibraryPanel from "./panels/NodeLibraryPanel.vue";
-import NodeConfigPanel from "./panels/NodeConfigPanel.vue";
+import NodeConfigPanel from "./node-editor/NodeConfigPanel.vue";
 import NodeResultPreviewPanel from "./panels/NodeResultPreviewPanel.vue";
 import VariableEditorPanel from "./panels/VariableEditorPanel.vue";
 import HistoryPanel from "./panels/HistoryPanel.vue";

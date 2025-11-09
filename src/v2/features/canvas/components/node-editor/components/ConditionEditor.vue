@@ -71,7 +71,7 @@
               :key="subIndex"
               class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-1.5 hover:border-purple-300 transition-colors"
             >
-              <!-- 字段路径输入 -->
+              <!-- 源目标值输入 -->
               <div class="flex-1 min-w-0">
                 <VariableTextInput
                   preview-mode="dropdown"
@@ -79,7 +79,7 @@
                   @update:model-value="
                     (val) => updateSubConditionField(condIndex, subIndex, val)
                   "
-                  placeholder="字段路径"
+                  placeholder="源目标值"
                   class="compact-editor"
                 />
               </div>

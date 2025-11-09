@@ -200,7 +200,7 @@ import {
   SplitLayout,
   ToggleButtonGroup,
 } from "../../../../components/ui";
-import NodeConfigPanel from "../panels/NodeConfigPanel.vue";
+import NodeConfigPanel from "../node-editor/NodeConfigPanel.vue";
 import VariablePanel from "../../../../components/variables/VariablePanel.vue";
 import IconEmptyNode from "@/icons/IconEmptyNode.vue";
 import IconPlay from "@/icons/IconPlay.vue";

@@ -188,12 +188,7 @@ export const OPERATORS_BY_TYPE: Record<string, OperatorType[]> = {
     "length greater than or equal to",
     "length less than or equal to",
   ],
-  object: [
-    "exists",
-    "does not exist",
-    "is empty",
-    "is not empty",
-  ],
+  object: ["exists", "does not exist", "is empty", "is not empty"],
 };
 
 /**
@@ -304,7 +299,11 @@ export class IfNode extends BaseFlowNode {
   ): Promise<NodeExecutionResult> {
     try {
       // 通过 this.getInput 获取配置（与 TextProcessNode 的做法一致）
-      const config = this.getInput<IfConfig>(inputs, "config", this.getDefaultConfig());
+      const config = this.getInput<IfConfig>(
+        inputs,
+        "config",
+        this.getDefaultConfig()
+      );
 
       // 更新当前配置（用于动态输出端口）
       this.updateConfig(config);
@@ -313,26 +312,72 @@ export class IfNode extends BaseFlowNode {
         : [];
 
       // 评估每个条件
+      console.log("[IfNode] 开始评估条件，条件数量:", conditions.length);
+      console.log(
+        "[IfNode] 原始条件配置:",
+        JSON.stringify(conditions, null, 2)
+      );
+
       const evaluations = conditions.map((condition, index) => {
-        const subResults = condition.subConditions.map((subCond) => {
-          // 通过变量解析获取字段值（不需要 fallbackSource）
+        console.log(`\n[IfNode] 评估条件 ${index + 1}:`, {
+          logic: condition.logic,
+          subConditionsCount: condition.subConditions.length,
+        });
+
+        const subResults = condition.subConditions.map((subCond, subIndex) => {
+          // 左右两侧都直接使用值进行比较（已通过变量系统解析）
+          console.log(`  [IfNode] 子条件 ${subIndex + 1} - 原始值:`, {
+            field: subCond.field,
+            value: subCond.value,
+            operator: subCond.operator,
+            dataType: subCond.dataType,
+          });
+
           const actualValue = this.resolveOperandValue(
             subCond.field,
-            subCond.dataType,
-            {
-              preferPath: true,
-            }
+            subCond.dataType
           );
           const targetValue = this.resolveOperandValue(
             subCond.value,
             subCond.dataType
           );
+
+          console.log(`  [IfNode] 子条件 ${subIndex + 1} - 解析后的值:`, {
+            actualValue,
+            targetValue,
+            actualType: typeof actualValue,
+            targetType: typeof targetValue,
+          });
+
+          // 检查是否为未配置的条件（左右值都为空）
+          const isEmptyCondition = this.isEmptyCondition(
+            subCond.field,
+            subCond.value,
+            subCond.operator
+          );
+
+          if (isEmptyCondition) {
+            console.log(
+              `  [IfNode] 子条件 ${
+                subIndex + 1
+              } - 未配置（左右值都为空），返回 false`
+            );
+            return {
+              ...subCond,
+              actualValue,
+              targetValue,
+              result: false,
+            };
+          }
+
           const result = this.compareValues(
             actualValue,
             targetValue,
             subCond.operator,
             subCond.dataType
           );
+
+          console.log(`  [IfNode] 子条件 ${subIndex + 1} - 比较结果:`, result);
 
           return {
             ...subCond,
@@ -348,6 +393,12 @@ export class IfNode extends BaseFlowNode {
             ? subResults.some((r) => r.result)
             : subResults.every((r) => r.result);
 
+        console.log(`[IfNode] 条件 ${index + 1} 最终结果:`, {
+          logic: condition.logic,
+          subResults: subResults.map((r) => r.result),
+          conditionResult,
+        });
+
         return {
           index,
           outputId: this.getConditionOutputId(index),
@@ -360,6 +411,17 @@ export class IfNode extends BaseFlowNode {
       // 找出第一个满足的条件
       const firstPassedIndex = evaluations.findIndex((e) => e.result);
       const anyPassed = firstPassedIndex !== -1;
+
+      console.log("\n[IfNode] 条件评估汇总:", {
+        totalConditions: evaluations.length,
+        firstPassedIndex,
+        anyPassed,
+        allResults: evaluations.map((e, i) => ({
+          index: i,
+          outputId: e.outputId,
+          result: e.result,
+        })),
+      });
 
       // 生成输出数据
       const outputs: Record<string, any> = {};
@@ -389,6 +451,14 @@ export class IfNode extends BaseFlowNode {
 
       const passedEvaluation =
         firstPassedIndex !== -1 ? evaluations[firstPassedIndex] : null;
+
+      console.log("[IfNode] 最终输出端口:", {
+        selectedBranch: passedEvaluation ? passedEvaluation.outputId : "else",
+        outputKeys: Object.keys(outputs),
+        outputsWithData: Object.entries(outputs)
+          .filter(([_, v]) => v !== undefined)
+          .map(([k]) => k),
+      });
 
       return this.createOutput(
         outputs,
@@ -499,72 +569,59 @@ export class IfNode extends BaseFlowNode {
   }
 
   /**
-   * 根据字段路径获取值
+   * 检查条件是否为空（未配置）
+   * 对于需要两个操作数的操作符，如果左右值都为空，则认为未配置
    */
-  private resolveFieldValue(source: any, fieldPath: string): any {
-    if (!fieldPath) {
-      return source;
+  private isEmptyCondition(
+    field: ConditionOperand,
+    value: ConditionOperand,
+    operator: OperatorType
+  ): boolean {
+    // 不需要值的操作符，只检查 field
+    const noValueOps: OperatorType[] = [
+      "exists",
+      "does not exist",
+      "is empty",
+      "is not empty",
+      "is true",
+      "is false",
+    ];
+
+    if (noValueOps.includes(operator)) {
+      // 只检查 field 是否为空
+      return this.isOperandEmpty(field);
     }
 
-    if (source === null || source === undefined) {
-      return undefined;
+    // 需要值的操作符，检查左右值是否都为空
+    return this.isOperandEmpty(field) && this.isOperandEmpty(value);
+  }
+
+  /**
+   * 检查操作数是否为空
+   */
+  private isOperandEmpty(operand: ConditionOperand): boolean {
+    if (operand === null || operand === undefined) {
+      return true;
     }
 
-    const segments = fieldPath
-      .split(".")
-      .map((segment) => segment.trim())
-      .filter(Boolean);
-
-    let current: any = source;
-    for (const segment of segments) {
-      if (current === null || current === undefined) {
-        return undefined;
-      }
-
-      if (Array.isArray(current)) {
-        const index = Number(segment);
-        current = Number.isInteger(index) ? current[index] : undefined;
-      } else {
-        current = current[segment as keyof typeof current];
-      }
+    if (typeof operand === "string") {
+      return operand.trim() === "";
     }
 
-    return current;
+    // 数字 0、布尔值 false 等不认为是空
+    return false;
   }
 
   /**
    * 解析操作数值
+   * 直接使用值进行类型转换，不再进行字段路径解析
    */
   private resolveOperandValue(
     operand: ConditionOperand,
-    dataType: DataType,
-    options: {
-      fallbackSource?: any;
-      preferPath?: boolean;
-    } = {}
+    dataType: DataType
   ): any {
     if (operand === null || operand === undefined) {
       return operand;
-    }
-
-    if (typeof operand === "string") {
-      const trimmed = operand.trim();
-
-      if (
-        options.preferPath &&
-        options.fallbackSource !== undefined &&
-        this.isPathLikeString(trimmed)
-      ) {
-        const resolved = this.resolveFieldValue(
-          options.fallbackSource,
-          trimmed
-        );
-        if (resolved !== undefined) {
-          return resolved;
-        }
-      }
-
-      return this.coerceValueByType(trimmed, dataType);
     }
 
     return this.coerceValueByType(operand, dataType);
@@ -643,22 +700,6 @@ export class IfNode extends BaseFlowNode {
     }
   }
 
-  private isPathLikeString(value: string): boolean {
-    if (!value) {
-      return false;
-    }
-
-    if (/\s/.test(value)) {
-      return false;
-    }
-
-    if (value === "input") {
-      return true;
-    }
-
-    return value.includes(".") || /\[\d+\]/.test(value);
-  }
-
   /**
    * 比较两个值
    */
@@ -668,10 +709,22 @@ export class IfNode extends BaseFlowNode {
     operator: OperatorType,
     dataType: DataType
   ): boolean {
+    console.log("    [IfNode.compareValues] 比较参数:", {
+      actual,
+      target,
+      operator,
+      dataType,
+      actualType: typeof actual,
+      targetType: typeof target,
+    });
+
+    let result: boolean;
     switch (operator) {
       // 通用
       case "is equal to":
-        return this.compareEquality(actual, target, dataType);
+        result = this.compareEquality(actual, target, dataType);
+        console.log("    [IfNode.compareValues] is equal to 结果:", result);
+        return result;
       case "is not equal to":
         return !this.compareEquality(actual, target, dataType);
       case "exists":

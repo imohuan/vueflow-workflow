@@ -365,6 +365,70 @@ export class WorkflowExecutor {
   }
 
   /**
+   * 检查节点是否应该因为没有有效输入而被跳过
+   * 主要用于 IF 节点等条件分支场景
+   * 只有当上游节点是条件分支节点（如 IF 节点）时才生效
+   */
+  private shouldSkipNodeDueToInvalidInputs(
+    nodeId: string,
+    context: ExecutionContext
+  ): boolean {
+    const workflow = context.getWorkflow();
+    const incomingEdges = workflow.edges.filter(
+      (edge) => edge.target === nodeId
+    );
+
+    // 如果节点没有传入边，不跳过（例如开始节点）
+    if (incomingEdges.length === 0) {
+      return false;
+    }
+
+    // 检查是否有来自条件分支节点的输入
+    let hasConditionalBranchInput = false;
+    let hasValidInputFromConditionalBranch = false;
+
+    for (const edge of incomingEdges) {
+      // 查找源节点
+      const sourceNode = workflow.nodes.find((n) => n.id === edge.source);
+      if (!sourceNode) {
+        continue;
+      }
+
+      // 获取源节点类型
+      const sourceNodeType = sourceNode.data?.nodeType || sourceNode.type;
+
+      // 检查源节点是否是条件分支节点（IF 节点等）
+      const isConditionalBranch = sourceNodeType === "if";
+
+      if (!isConditionalBranch) {
+        // 如果源节点不是条件分支节点，不检查输入有效性
+        continue;
+      }
+
+      hasConditionalBranchInput = true;
+
+      const sourceOutput = context.getNodeOutput(edge.source);
+      if (!sourceOutput) {
+        // 源节点还没有执行，不跳过
+        continue;
+      }
+
+      // 获取源节点指定输出端口的值
+      const sourceHandle = edge.sourceHandle || "default";
+      const outputValue = sourceOutput[sourceHandle];
+
+      // 如果输出值不是 undefined 或 null，说明有有效输入
+      if (outputValue !== undefined && outputValue !== null) {
+        hasValidInputFromConditionalBranch = true;
+        break;
+      }
+    }
+
+    // 只有当存在来自条件分支节点的输入，且所有这些输入都无效时，才跳过节点
+    return hasConditionalBranchInput && !hasValidInputFromConditionalBranch;
+  }
+
+  /**
    * 拓扑排序
    * 使用 Kahn 算法
    */
@@ -438,11 +502,31 @@ export class WorkflowExecutor {
       // 获取节点类型
       const nodeType = node.data?.nodeType || node.type;
 
+      // 检查节点是否应该被跳过（基于输入有效性）
+      if (this.shouldSkipNodeDueToInvalidInputs(nodeId, context)) {
+        console.log(
+          `[WorkflowExecutor] 跳过节点 ${nodeId}: 所有输入端口都没有有效数据`
+        );
+        context.setNodeState(nodeId, "skipped");
+        options.onNodeSkipped?.(nodeId, "no-valid-input");
+        return;
+      }
+
       // 获取节点输入（从前驱节点的输出）
       const inputs = context.getNodeInputs(nodeId);
 
+      console.log(`[WorkflowExecutor] 节点 ${nodeId} (${nodeType}) 初始输入:`, {
+        inputs: Object.keys(inputs),
+        hasParams: !!node.data?.params,
+      });
+
       // 合并节点配置参数（node.data.params）到输入中，并进行变量替换
       if (node.data?.params) {
+        console.log(
+          `[WorkflowExecutor] 节点 ${nodeId} 的 params:`,
+          node.data.params
+        );
+
         // 构建变量上下文
         const { map: contextMap } = buildVariableContextFromExecutionContext(
           nodeId,
@@ -457,8 +541,18 @@ export class WorkflowExecutor {
           contextMap
         );
 
+        console.log(
+          `[WorkflowExecutor] 节点 ${nodeId} 解析后的 params:`,
+          resolvedParams
+        );
+
         // 合并解析后的参数到输入中
         Object.assign(inputs, resolvedParams);
+
+        console.log(
+          `[WorkflowExecutor] 节点 ${nodeId} 合并后的 inputs:`,
+          Object.keys(inputs)
+        );
       }
 
       // 缓存判断逻辑
