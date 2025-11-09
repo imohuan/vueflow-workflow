@@ -264,6 +264,7 @@ async function handleExecute(selectedNodeIds?: string[]) {
         position: node.position
           ? { x: node.position.x, y: node.position.y }
           : undefined,
+        parentNode: node.parentNode || node.parentId,
         data: node.data,
       })),
       edges: currentWorkflow.edges.map((edge: any) => ({

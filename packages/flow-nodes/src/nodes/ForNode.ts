@@ -34,6 +34,15 @@ export interface ForConfig {
     /** 最大允许错误次数 */
     maxErrors?: number;
   };
+  /** 分页配置 */
+  pagination?: {
+    /** 是否启用分页 */
+    enabled: boolean;
+    /** 每页大小 */
+    pageSize: number;
+    /** 当前页码（从 1 开始） */
+    currentPage?: number;
+  };
 }
 
 /**
@@ -52,12 +61,6 @@ export class ForNode extends BaseFlowNode {
         name: "items",
         type: "array",
         description: "输入集合",
-        required: false,
-      },
-      {
-        name: "config",
-        type: "object",
-        description: "循环配置",
         required: false,
       },
     ];
@@ -90,26 +93,27 @@ export class ForNode extends BaseFlowNode {
     context: NodeExecutionContext
   ): Promise<NodeExecutionResult> {
     try {
-      // 获取配置
-      const config = this.getInput<ForConfig>(
-        inputs,
-        "config",
-        this.getDefaultConfig()
-      );
-
-      // 解析循环项
-      const items = this.resolveItems(config, inputs.items, context);
+      // 获取输入集合
+      const items = this.getInput<any[]>(inputs, "items", []);
 
       if (!Array.isArray(items)) {
         throw new Error("循环源数据必须是数组");
       }
 
-      // 生成迭代数据
+      // 获取配置（从节点的 context.nodeData.config 或使用默认配置）
+      const nodeData = (context as any).nodeData || {};
+      const config: ForConfig = {
+        ...this.getDefaultConfig(),
+        ...(nodeData.config || {}),
+      };
+
+      // 生成迭代数据：每次迭代的变量
       const iterations = items.map((value, index) => ({
         [config.itemName]: value,
         [config.indexName]: index,
       }));
 
+      // 构建详细信息（供执行器使用）
       const details = {
         mode: config.mode,
         count: items.length,
@@ -118,22 +122,23 @@ export class ForNode extends BaseFlowNode {
         indexName: config.indexName,
         containerId: config.containerId || null,
         errorHandling: config.errorHandling,
-        iterations,
+        iterations, // 迭代变量列表
       };
 
       // 生成输出
+      // loop: 提供给循环体容器的迭代信息
+      // next: 循环结束后的输出信息
       const outputs: Record<string, any> = {
-        loop: iterations,
-        next: {
-          count: details.count,
-          items: details.items,
-          itemName: details.itemName,
-          indexName: details.indexName,
-          containerId: details.containerId,
+        loop: {
+          iterations,
+          containerId: config.containerId,
+          itemName: config.itemName,
+          indexName: config.indexName,
         },
+        next: null, // 初始为 null，执行器会填充实际的循环结果
       };
 
-      return this.createOutput(outputs, details, `循环 ${details.count} 次`);
+      return this.createOutput(outputs, details, `准备循环 ${items.length} 次`);
     } catch (error) {
       return this.createError(error as Error);
     }
@@ -158,139 +163,5 @@ export class ForNode extends BaseFlowNode {
         continueOnError: false,
       },
     };
-  }
-
-  /**
-   * 根据配置解析循环项
-   */
-  private resolveItems(
-    config: ForConfig,
-    inputItems: any,
-    context: NodeExecutionContext
-  ): any[] {
-    switch (config.mode) {
-      case "variable": {
-        // 如果配置了变量引用，优先使用变量
-        if (config.variable) {
-          const variableValue = this.resolveVariableValue(
-            config.variable,
-            context
-          );
-          return Array.isArray(variableValue) ? variableValue : [];
-        }
-        // 否则使用输入端口的数据
-        return Array.isArray(inputItems) ? inputItems : [];
-      }
-      case "range": {
-        const { start = 0, end = 0, step = 1 } = config.range || {};
-
-        // 解析 start 和 end（支持变量）
-        const resolvedStart = this.resolveNumberValue(start, context);
-        const resolvedEnd = this.resolveNumberValue(end, context);
-
-        if (step === 0) {
-          throw new Error("步长不能为 0");
-        }
-
-        const result: number[] = [];
-        if (step > 0) {
-          for (let i = resolvedStart; i < resolvedEnd; i += step) {
-            result.push(i);
-          }
-        } else {
-          for (let i = resolvedStart; i > resolvedEnd; i += step) {
-            result.push(i);
-          }
-        }
-        return result;
-      }
-      default:
-        return [];
-    }
-  }
-
-  /**
-   * 解析变量值（从上下文中）
-   */
-  private resolveVariableValue(
-    variable: any,
-    context: NodeExecutionContext
-  ): any {
-    if (!variable) {
-      return undefined;
-    }
-
-    // 如果 variable 不是字符串（可能已经被解析过了），直接返回
-    if (typeof variable !== "string") {
-      return variable;
-    }
-
-    // 如果没有上下文，返回原值
-    if (!context) {
-      return variable;
-    }
-
-    // 检查是否为变量引用格式 {{ xxx }}
-    const match = variable.match(/^\{\{\s*(.+?)\s*\}\}$/);
-    if (!match || !match[1]) {
-      // 不是变量格式，直接返回原值
-      return variable;
-    }
-
-    const path = match[1].trim();
-    const resolved = this.resolveByPath(context, path);
-
-    // 返回解析后的值
-    return resolved;
-  }
-
-  /**
-   * 解析数字值（支持变量）
-   */
-  private resolveNumberValue(
-    value: any,
-    context: NodeExecutionContext
-  ): number {
-    if (typeof value === "number") {
-      return value;
-    }
-
-    // 尝试解析变量（会处理字符串引用和已解析的值）
-    const resolved = this.resolveVariableValue(value, context);
-
-    // 转换为数字
-    const num = Number(resolved);
-
-    // 解析失败返回 0
-    return Number.isNaN(num) ? 0 : num;
-  }
-
-  /**
-   * 根据路径获取值
-   */
-  private resolveByPath(target: any, path?: string): any {
-    if (!path) return target;
-    if (target === null || target === undefined) return undefined;
-
-    const segments = path
-      .split(".")
-      .map((segment) => segment.trim())
-      .filter(Boolean);
-
-    let current: any = target;
-    for (const segment of segments) {
-      if (current === null || current === undefined) {
-        return undefined;
-      }
-
-      if (Array.isArray(current)) {
-        const index = Number(segment);
-        current = Number.isInteger(index) ? current[index] : undefined;
-      } else {
-        current = current[segment as keyof typeof current];
-      }
-    }
-
-    return current;
   }
 }

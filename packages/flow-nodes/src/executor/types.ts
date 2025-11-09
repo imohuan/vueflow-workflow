@@ -24,6 +24,9 @@ export interface WorkflowNode {
 
   /** 节点配置哈希（用于缓存失效检测） */
   configHash?: string;
+
+  /** 父节点 ID（用于容器节点） */
+  parentNode?: string;
 }
 
 /**
