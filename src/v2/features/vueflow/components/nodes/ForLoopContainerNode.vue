@@ -1,7 +1,7 @@
 <template>
   <div
     :class="[
-      'for-loop-container relative bg-white rounded-lg transition-all duration-200',
+      'for-loop-container relative bg-white rounded-lg transition-all duration-200 h-full',
       highlightClass,
     ]"
     :style="containerStyle"
@@ -37,24 +37,32 @@
 
     <!-- 左侧标准端口（循环体出口） -->
     <PortHandle
-      id="loop-right"
-      :type="'target'"
-      :position="Position.Left"
+      id="loop-left"
+      :type="'source'"
+      :position="Position.Right"
       :node-id="id"
       :variant="'ellipse'"
+      :is-connectable="true"
       :style="{
+        left: '-5px',
+        right: 'auto!important',
+        zIndex: 100,
         top: `${CONTAINER_HEADER_HEIGHT + 20}px`,
       }"
     />
 
     <!-- 右侧标准端口（循环体入口） -->
     <PortHandle
-      id="loop-left"
-      :type="'source'"
-      :position="Position.Right"
+      id="loop-right"
+      :type="'target'"
+      :position="Position.Left"
       :node-id="id"
       :variant="'ellipse'"
+      :is-connectable="true"
       :style="{
+        left: 'auto!important',
+        right: '-5px',
+        zIndex: 100,
         top: `${CONTAINER_HEADER_HEIGHT + 20}px`,
       }"
     />
@@ -86,17 +94,15 @@ import { computed, inject } from "vue";
 import { Position } from "@vue-flow/core";
 import { PortHandle } from "../ports";
 import { PLUGIN_MANAGER_KEY, type PluginManager } from "../../plugins";
+import { CONTAINER_CONFIG } from "../../../../config/nodeConfig";
 
-// 容器常量
-const CONTAINER_HEADER_HEIGHT = 32;
-const CONTAINER_PADDING = {
-  top: 16,
-  right: 16,
-  bottom: 16,
-  left: 16,
-};
-const CONTAINER_MIN_WIDTH = 300;
-const CONTAINER_MIN_HEIGHT = 200;
+// 从配置中获取容器常量
+const {
+  headerHeight: CONTAINER_HEADER_HEIGHT,
+  padding: CONTAINER_PADDING,
+  minWidth: CONTAINER_MIN_WIDTH,
+  minHeight: CONTAINER_MIN_HEIGHT,
+} = CONTAINER_CONFIG;
 
 interface Props {
   id: string;

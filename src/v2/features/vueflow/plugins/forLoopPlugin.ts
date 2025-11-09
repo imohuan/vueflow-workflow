@@ -4,19 +4,20 @@
  */
 
 import type { VueFlowPlugin, PluginContext } from "./types";
-import type { Node } from "@vue-flow/core";
+import type { Node, Edge } from "@vue-flow/core";
 import { ref, type Ref } from "vue";
+import { CONTAINER_CONFIG } from "../../../config/nodeConfig";
 
-// 容器常量
-const CONTAINER_HEADER_HEIGHT = 32;
-const CONTAINER_PADDING = {
-  top: 16,
-  right: 16,
-  bottom: 16,
-  left: 16,
-};
-const CONTAINER_MIN_WIDTH = 300;
-const CONTAINER_MIN_HEIGHT = 200;
+// 从配置中获取容器常量
+const {
+  headerHeight: CONTAINER_HEADER_HEIGHT,
+  padding: CONTAINER_PADDING,
+  minWidth: CONTAINER_MIN_WIDTH,
+  minHeight: CONTAINER_MIN_HEIGHT,
+} = CONTAINER_CONFIG;
+
+// 边层级类名常量
+const EDGE_LAYER_CLASS_CONTAINER = "edge-layer-container";
 
 // 高亮类型
 type HighlightType = "normal" | "warning" | null;
@@ -25,14 +26,13 @@ type HighlightType = "normal" | "warning" | null;
 interface ForLoopPluginState {
   /** 当前拖拽目标容器 ID */
   dragTargetContainerId: string | null;
-  /** 容器高亮状态 */
-  containerHighlight: Record<string, HighlightType>;
-  /** Ctrl 脱离上下文 */
+  /** Ctrl 键是否按下 */
+  isCtrlPressed: boolean;
+  /** Ctrl 拖拽脱离上下文（记录正在脱离的节点和容器） */
   ctrlDetachContext: {
-    nodeId: string | null;
-    containerId: string | null;
-    isIntersecting: boolean;
-  };
+    nodeId: string;
+    containerId: string;
+  } | null;
 }
 
 /**
@@ -45,113 +45,207 @@ export function createForLoopPlugin(): VueFlowPlugin {
   // 插件状态
   const state: ForLoopPluginState = {
     dragTargetContainerId: null,
-    containerHighlight: {},
-    ctrlDetachContext: {
-      nodeId: null,
-      containerId: null,
-      isIntersecting: false,
-    },
+    isCtrlPressed: false,
+    ctrlDetachContext: null,
   };
 
   // 容器高亮状态（响应式）
   const containerHighlightRef: Ref<Record<string, HighlightType>> = ref({});
 
   /**
-   * 设置容器高亮
+   * 提取边的类名数组
    */
-  function setContainerHighlight(containerId: string, type: HighlightType) {
-    state.containerHighlight[containerId] = type;
-    containerHighlightRef.value = { ...state.containerHighlight };
+  function extractClassNames(value: Edge["class"]): string[] {
+    if (!value) return [];
+    if (typeof value === "string") {
+      return value.split(/\s+/).filter(Boolean);
+    }
+    if (Array.isArray(value)) {
+      return value
+        .flatMap((item) =>
+          typeof item === "string" ? item.split(/\s+/).filter(Boolean) : []
+        )
+        .filter(Boolean);
+    }
+    if (typeof value === "object") {
+      return Object.entries(value)
+        .filter(([, enabled]) => Boolean(enabled))
+        .map(([name]) => name)
+        .filter(Boolean);
+    }
+    return [];
   }
 
   /**
-   * 清除容器高亮
+   * 设置容器高亮
+   * @param containerId 容器 ID
+   * @param type 高亮类型：normal=绿色（可移入），warning=红色（有连接，无法移入）
    */
-  function clearContainerHighlight(containerId: string) {
-    delete state.containerHighlight[containerId];
-    containerHighlightRef.value = { ...state.containerHighlight };
+  function setContainerHighlight(containerId: string, type: HighlightType) {
+    containerHighlightRef.value = { [containerId]: type };
+    console.log(`[ForLoopPlugin] 设置容器高亮: ${containerId}, 类型: ${type}`);
   }
 
   /**
    * 清除所有容器高亮
    */
   function clearAllHighlights() {
-    state.containerHighlight = {};
     containerHighlightRef.value = {};
   }
 
   /**
-   * 检测节点与容器的交集
+   * 检测节点是否与容器有交集（简化版）
    */
-  function checkIntersection(
-    node: Node,
-    container: Node
-  ): { hasIntersection: boolean; intersectionRatio: number } {
-    const nodeRect = {
-      x: node.position.x,
-      y: node.position.y,
-      width: (node.width as number) || 200,
-      height: (node.height as number) || 100,
-    };
+  function hasIntersection(node: Node, container: Node): boolean {
+    const nodeX = node.position.x;
+    const nodeY = node.position.y;
+    const nodeWidth = (node.width as number) || 200;
+    const nodeHeight = (node.height as number) || 100;
 
-    const containerRect = {
-      x: container.position.x,
-      y: container.position.y,
-      width: (container.width as number) || CONTAINER_MIN_WIDTH,
-      height: (container.height as number) || CONTAINER_MIN_HEIGHT,
-    };
+    const containerX = container.position.x;
+    const containerY = container.position.y;
+    const containerWidth = (container.width as number) || CONTAINER_MIN_WIDTH;
+    const containerHeight =
+      (container.height as number) || CONTAINER_MIN_HEIGHT;
 
-    const intersectX = Math.max(nodeRect.x, containerRect.x);
-    const intersectY = Math.max(nodeRect.y, containerRect.y);
-    const intersectWidth =
-      Math.min(
-        nodeRect.x + nodeRect.width,
-        containerRect.x + containerRect.width
-      ) - intersectX;
-    const intersectHeight =
-      Math.min(
-        nodeRect.y + nodeRect.height,
-        containerRect.y + containerRect.height
-      ) - intersectY;
-
-    const hasIntersection = intersectWidth > 0 && intersectHeight > 0;
-    const intersectionArea = hasIntersection
-      ? intersectWidth * intersectHeight
-      : 0;
-    const nodeArea = nodeRect.width * nodeRect.height;
-    const intersectionRatio = nodeArea > 0 ? intersectionArea / nodeArea : 0;
-
-    return { hasIntersection, intersectionRatio };
+    // 简单的矩形碰撞检测
+    return !(
+      nodeX + nodeWidth < containerX ||
+      nodeX > containerX + containerWidth ||
+      nodeY + nodeHeight < containerY ||
+      nodeY > containerY + containerHeight
+    );
   }
 
   /**
-   * 检查节点是否有外部连接
+   * 检查节点是否有任何连接
    */
-  function hasExternalConnections(
+  function hasAnyConnections(nodeId: string, ctx: PluginContext): boolean {
+    const edges = ctx.core.edges.value;
+    return edges.some(
+      (edge) => edge.source === nodeId || edge.target === nodeId
+    );
+  }
+
+  /**
+   * 应用边层级类
+   * 用于确保容器内的连接线显示在容器节点之上
+   */
+  function applyEdgeLayerClass(edge: Edge, ctx: PluginContext) {
+    if (!edge) return;
+
+    const nodes = ctx.core.nodes.value;
+    const classNames = extractClassNames(edge.class).filter(
+      (cls) => cls !== EDGE_LAYER_CLASS_CONTAINER
+    );
+
+    const sourceNode = nodes.find((n) => n.id === edge.source);
+    const targetNode = nodes.find((n) => n.id === edge.target);
+
+    if (!sourceNode || !targetNode) return;
+
+    const sourceParent = sourceNode?.parentNode ?? null;
+    const targetParent = targetNode?.parentNode ?? null;
+
+    // 判断是否为容器内的边
+    const isContainerEdge = Boolean(
+      (sourceParent && sourceParent === targetParent) ||
+        (sourceNode?.type === "forLoopContainer" &&
+          targetParent === sourceNode.id) ||
+        (targetNode?.type === "forLoopContainer" &&
+          sourceParent === targetNode.id)
+    );
+
+    if (isContainerEdge) {
+      classNames.push(EDGE_LAYER_CLASS_CONTAINER);
+      // 通过 DOM 操作给 SVG 父元素添加类名
+      if (typeof window !== "undefined") {
+        requestAnimationFrame(() => {
+          const edgeElement = document.querySelector<SVGGElement>(
+            `[data-id="${edge.id}"]`
+          );
+          const parentSvg = edgeElement?.parentElement;
+          if (!parentSvg) return;
+
+          if (isContainerEdge) {
+            parentSvg.classList.add(EDGE_LAYER_CLASS_CONTAINER);
+          } else {
+            parentSvg.classList.remove(EDGE_LAYER_CLASS_CONTAINER);
+          }
+        });
+      }
+    }
+
+    // 更新边的类名
+    edge.class = classNames.join(" ");
+  }
+
+  /**
+   * 刷新所有边的层级类
+   */
+  function refreshEdgeLayerClasses(ctx: PluginContext) {
+    const edges = ctx.core.edges.value;
+    edges.forEach((edge) => applyEdgeLayerClass(edge, ctx));
+    console.log(`[ForLoopPlugin] 已刷新 ${edges.length} 条边的层级类`);
+  }
+
+  /**
+   * 将节点从容器中移出
+   * 转换为绝对坐标，删除所有内部连接
+   */
+  function detachNodeFromContainer(
     nodeId: string,
     containerId: string,
     ctx: PluginContext
-  ): boolean {
-    const edges = ctx.core.edges.value;
+  ) {
     const nodes = ctx.core.nodes.value;
+    const node = nodes.find((n) => n.id === nodeId);
+    const container = nodes.find((n) => n.id === containerId);
 
-    // 获取容器内的所有节点 ID
-    const containerNodeIds = new Set(
-      nodes.filter((n) => n.parentNode === containerId).map((n) => n.id)
-    );
+    if (!node || !container) {
+      console.warn("[ForLoopPlugin] 节点或容器不存在");
+      return;
+    }
 
-    // 检查是否有连接到容器外的边
-    const externalEdges = edges.filter((edge) => {
-      if (edge.source === nodeId) {
-        return !containerNodeIds.has(edge.target);
+    // 计算绝对坐标（相对坐标转绝对坐标）
+    const absoluteX = container.position.x + node.position.x;
+    const absoluteY = container.position.y + node.position.y;
+
+    // 收集需要删除的边（与该节点相关的所有边）
+    const edgesToDelete: string[] = [];
+    ctx.core.edges.value.forEach((edge) => {
+      if (edge.source === nodeId || edge.target === nodeId) {
+        edgesToDelete.push(edge.id);
       }
-      if (edge.target === nodeId) {
-        return !containerNodeIds.has(edge.source);
-      }
-      return false;
     });
 
-    return externalEdges.length > 0;
+    // 删除所有相关连接
+    edgesToDelete.forEach((edgeId) => {
+      ctx.core.deleteEdge(edgeId);
+    });
+
+    // 更新节点：移除父节点，设置绝对位置
+    ctx.core.updateNodes((nodes) =>
+      nodes.map((n) =>
+        n.id === nodeId
+          ? {
+              ...n,
+              parentNode: undefined,
+              position: { x: absoluteX, y: absoluteY },
+            }
+          : n
+      )
+    );
+
+    console.log(
+      `[ForLoopPlugin] ✅ 节点 ${nodeId} 已脱离容器 ${containerId}，删除了 ${edgesToDelete.length} 条连接`
+    );
+
+    // 更新容器尺寸
+    updateContainerBounds(containerId, ctx);
+
+    // 刷新边层级
+    refreshEdgeLayerClasses(ctx);
   }
 
   /**
@@ -171,11 +265,11 @@ export function createForLoopPlugin(): VueFlowPlugin {
       return;
     }
 
-    // 计算相对位置
+    // 计算相对位置（绝对坐标转相对坐标）
     const relativeX = node.position.x - container.position.x;
     const relativeY = node.position.y - container.position.y;
 
-    // 更新节点
+    // 更新节点：设置父节点和相对位置
     ctx.core.updateNodes((nodes) =>
       nodes.map((n) =>
         n.id === nodeId
@@ -183,81 +277,29 @@ export function createForLoopPlugin(): VueFlowPlugin {
               ...n,
               parentNode: containerId,
               position: { x: relativeX, y: relativeY },
-              extent: "parent" as const,
+              // extent: "parent" as const,
             }
           : n
       )
     );
 
-    // 更新容器尺寸
+    console.log(`[ForLoopPlugin] ✅ 节点 ${nodeId} 已移入容器 ${containerId}`);
+
+    // 移入后立即更新容器尺寸
     updateContainerBounds(containerId, ctx);
 
-    console.log(`[ForLoopPlugin] 节点 ${nodeId} 已移入容器 ${containerId}`);
+    // 刷新边层级
+    refreshEdgeLayerClasses(ctx);
   }
 
   /**
-   * 将节点从容器中脱离
-   */
-  function detachNodeFromContainer(
-    nodeId: string,
-    containerId: string,
-    ctx: PluginContext
-  ) {
-    const nodes = ctx.core.nodes.value;
-    const node = nodes.find((n) => n.id === nodeId);
-    const container = nodes.find((n) => n.id === containerId);
-
-    if (!node || !container) {
-      console.warn("[ForLoopPlugin] 节点或容器不存在");
-      return;
-    }
-
-    // 计算绝对位置
-    const absoluteX = container.position.x + node.position.x;
-    const absoluteY = container.position.y + node.position.y;
-
-    // 更新节点
-    ctx.core.updateNodes((nodes) =>
-      nodes.map((n) =>
-        n.id === nodeId
-          ? {
-              ...n,
-              parentNode: undefined,
-              position: { x: absoluteX, y: absoluteY },
-              extent: undefined,
-            }
-          : n
-      )
-    );
-
-    // 断开节点与容器内其他节点的连接
-    const edges = ctx.core.edges.value;
-    const containerNodeIds = new Set(
-      nodes
-        .filter((n) => n.parentNode === containerId && n.id !== nodeId)
-        .map((n) => n.id)
-    );
-
-    ctx.core.updateEdges((edges) =>
-      edges.filter((edge) => {
-        if (edge.source === nodeId) {
-          return !containerNodeIds.has(edge.target);
-        }
-        if (edge.target === nodeId) {
-          return !containerNodeIds.has(edge.source);
-        }
-        return true;
-      })
-    );
-
-    // 更新容器尺寸
-    updateContainerBounds(containerId, ctx);
-
-    console.log(`[ForLoopPlugin] 节点 ${nodeId} 已脱离容器 ${containerId}`);
-  }
-
-  /**
-   * 更新容器尺寸
+   * 更新容器尺寸（根据子节点自动扩容）
+   *
+   * 逻辑说明：
+   * 1. 获取所有子节点的边界框（基于子节点的相对坐标）
+   * 2. 计算容器应该在画布上的新位置，确保所有子节点都在容器内且满足padding
+   * 3. 更新容器的位置和尺寸
+   * 4. 更新所有子节点的相对坐标（因为容器位置改变了）
    */
   function updateContainerBounds(containerId: string, ctx: PluginContext) {
     const nodes = ctx.core.nodes.value;
@@ -268,9 +310,9 @@ export function createForLoopPlugin(): VueFlowPlugin {
     }
 
     // 获取容器内的所有子节点
-    const children = nodes.filter((n) => n.parentNode === containerId);
+    const childNodes = nodes.filter((n) => n.parentNode === containerId);
 
-    if (children.length === 0) {
+    if (childNodes.length === 0) {
       // 如果没有子节点，设置为默认尺寸
       ctx.core.updateNodes((nodes) =>
         nodes.map((n) =>
@@ -291,136 +333,182 @@ export function createForLoopPlugin(): VueFlowPlugin {
       return;
     }
 
-    // 计算所有子节点的边界框
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
+    // 步骤1：计算所有子节点在画布上的绝对边界框
+    let minAbsX = Infinity;
+    let minAbsY = Infinity;
+    let maxAbsX = -Infinity;
+    let maxAbsY = -Infinity;
 
-    children.forEach((child) => {
+    childNodes.forEach((child) => {
       const childWidth = (child.width as number) || 200;
       const childHeight = (child.height as number) || 100;
 
-      minX = Math.min(minX, child.position.x);
-      minY = Math.min(minY, child.position.y);
-      maxX = Math.max(maxX, child.position.x + childWidth);
-      maxY = Math.max(maxY, child.position.y + childHeight);
+      // 子节点在画布上的绝对位置 = 容器位置 + 子节点相对位置
+      const absX = container.position.x + child.position.x;
+      const absY = container.position.y + child.position.y;
+
+      minAbsX = Math.min(minAbsX, absX);
+      minAbsY = Math.min(minAbsY, absY);
+      maxAbsX = Math.max(maxAbsX, absX + childWidth);
+      maxAbsY = Math.max(maxAbsY, absY + childHeight);
     });
 
-    // 添加容器内边距
-    const width = Math.max(
-      maxX - minX + CONTAINER_PADDING.left + CONTAINER_PADDING.right,
+    // 步骤2：计算容器在画布上的新位置（左上角）
+    // 容器左上角 = 子节点边界框的左上角 - padding
+    const newContainerX = minAbsX - CONTAINER_PADDING.left;
+    const newContainerY =
+      minAbsY - CONTAINER_HEADER_HEIGHT - CONTAINER_PADDING.top;
+
+    // 步骤3：计算容器的新尺寸
+    const contentWidth = maxAbsX - minAbsX;
+    const contentHeight = maxAbsY - minAbsY;
+    const requiredWidth = Math.max(
+      contentWidth + CONTAINER_PADDING.left + CONTAINER_PADDING.right,
       CONTAINER_MIN_WIDTH
     );
-    const height = Math.max(
-      maxY -
-        minY +
+    const requiredHeight = Math.max(
+      contentHeight +
         CONTAINER_HEADER_HEIGHT +
         CONTAINER_PADDING.top +
         CONTAINER_PADDING.bottom,
       CONTAINER_MIN_HEIGHT
     );
 
-    // 更新容器尺寸
+    // 步骤4：批量更新容器和所有子节点
     ctx.core.updateNodes((nodes) =>
-      nodes.map((n) =>
-        n.id === containerId
-          ? {
-              ...n,
-              width,
-              height,
-              style: {
-                ...n.style,
-                width: `${width}px`,
-                height: `${height}px`,
-              },
-            }
-          : n
-      )
+      nodes.map((n) => {
+        // 更新容器
+        if (n.id === containerId) {
+          return {
+            ...n,
+            position: { x: newContainerX, y: newContainerY },
+            width: requiredWidth,
+            height: requiredHeight,
+            style: {
+              ...n.style,
+              width: `${requiredWidth}px`,
+              height: `${requiredHeight}px`,
+            },
+          };
+        }
+
+        // 更新子节点的相对位置
+        // 新的相对位置 = 子节点的绝对位置 - 容器的新位置
+        if (n.parentNode === containerId) {
+          const childAbsX = container.position.x + n.position.x;
+          const childAbsY = container.position.y + n.position.y;
+
+          return {
+            ...n,
+            position: {
+              x: childAbsX - newContainerX,
+              y: childAbsY - newContainerY,
+            },
+          };
+        }
+
+        return n;
+      })
+    );
+
+    console.log(
+      `[ForLoopPlugin] 容器已更新 - 位置: (${newContainerX}, ${newContainerY}), 尺寸: ${requiredWidth}x${requiredHeight}`
     );
   }
+
+  // 删除 ensureNodeInsideContainer 函数，不限制节点向左上移动
 
   /**
    * 处理节点拖拽
    */
-  function handleNodeDrag(event: { node: Node; intersections?: Node[] }) {
+  function handleNodeDrag(event: { node: Node }) {
     if (!context) return;
 
-    const { node, intersections = [] } = event;
+    const { node } = event;
 
-    // 检查是否按下 Ctrl 键
-    const isCtrlPressed = (window.event as KeyboardEvent)?.ctrlKey || false;
+    // 检查是否需要启动 Ctrl 脱离模式（支持拖拽过程中按下 Ctrl）
+    if (node.parentNode && state.isCtrlPressed && !state.ctrlDetachContext) {
+      const container = context.core.nodes.value.find(
+        (n) => n.id === node.parentNode
+      );
 
-    // 如果节点已有父容器且未按 Ctrl，直接返回
-    if (node.parentNode && !isCtrlPressed) {
-      return;
+      if (container && container.type === "forLoopContainer") {
+        state.ctrlDetachContext = {
+          nodeId: node.id,
+          containerId: node.parentNode,
+        };
+        console.log(
+          `[ForLoopPlugin] 启动 Ctrl 脱离模式: 节点 ${node.id} 从容器 ${node.parentNode}`
+        );
+      }
     }
 
-    // 如果按 Ctrl 且节点在容器内，进入脱离模式
-    if (isCtrlPressed && node.parentNode) {
-      const containerId = node.parentNode;
+    // 场景1: Ctrl 脱离模式 - 容器内节点按 Ctrl 拖拽
+    if (state.ctrlDetachContext && state.ctrlDetachContext.nodeId === node.id) {
+      const containerId = state.ctrlDetachContext.containerId;
       const container = context.core.nodes.value.find(
         (n) => n.id === containerId
       );
 
-      if (container && container.type === "forLoopContainer") {
-        const { hasIntersection } = checkIntersection(node, container);
+      if (container) {
+        // 计算节点的绝对位置
+        const nodeAbsX = container.position.x + node.position.x;
+        const nodeAbsY = container.position.y + node.position.y;
 
-        state.ctrlDetachContext = {
-          nodeId: node.id,
-          containerId,
-          isIntersecting: hasIntersection,
+        // 创建临时节点对象用于交集检测
+        const tempNode = {
+          ...node,
+          position: { x: nodeAbsX, y: nodeAbsY },
         };
 
-        // 更新容器高亮状态
-        setContainerHighlight(
-          containerId,
-          hasIntersection ? "normal" : "warning"
-        );
+        // 检测是否与容器有交集
+        const hasIntersect = hasIntersection(tempNode, container);
+
+        // 有交集 = 绿色（保持在容器内），无交集 = 红色（即将脱离）
+        setContainerHighlight(containerId, hasIntersect ? "normal" : "warning");
       }
 
       return;
     }
 
-    // 如果未按 Ctrl 且节点在容器外，检测是否可移入容器
-    if (!isCtrlPressed && !node.parentNode) {
-      // 查找与节点相交的 For 循环容器
-      const targetContainers = intersections.filter(
-        (n) => n.type === "forLoopContainer"
-      );
+    // 场景2: 普通拖拽 - 外部节点拖入容器
+    if (node.parentNode) {
+      return;
+    }
 
-      if (targetContainers.length > 0) {
-        const targetContainer = targetContainers[0];
-        if (targetContainer) {
-          const { hasIntersection, intersectionRatio } = checkIntersection(
-            node,
-            targetContainer
-          );
+    // 使用 VueFlow API 获取交集节点
+    const intersections = context.vueflow.getIntersectingNodes(node) || [];
 
-          if (hasIntersection && intersectionRatio > 0.3) {
-            // 检查节点是否有外部连接
-            const hasExternal = hasExternalConnections(
-              node.id,
-              targetContainer.id,
-              context
-            );
+    // 查找交集的容器节点
+    const targetContainer = intersections.find(
+      (n) => n.type === "forLoopContainer"
+    );
 
-            state.dragTargetContainerId = targetContainer.id;
-            setContainerHighlight(
-              targetContainer.id,
-              hasExternal ? "warning" : "normal"
-            );
+    if (targetContainer) {
+      // 双重验证：使用自定义交集检测
+      const isIntersecting = hasIntersection(node, targetContainer);
 
-            return;
-          }
-        }
+      if (isIntersecting) {
+        // 检查节点是否有连接
+        const hasConnections = hasAnyConnections(node.id, context);
+
+        // 设置当前目标容器
+        state.dragTargetContainerId = targetContainer.id;
+
+        // 根据是否有连接显示不同颜色的高亮
+        // 有连接 = 红色警告（无法移入），无连接 = 绿色正常（可以移入）
+        setContainerHighlight(
+          targetContainer.id,
+          hasConnections ? "warning" : "normal"
+        );
+        return;
       }
+    }
 
-      // 清除之前的高亮
-      if (state.dragTargetContainerId) {
-        clearContainerHighlight(state.dragTargetContainerId);
-        state.dragTargetContainerId = null;
-      }
+    // 没有交集，清除高亮
+    if (state.dragTargetContainerId) {
+      clearAllHighlights();
+      state.dragTargetContainerId = null;
     }
   }
 
@@ -432,54 +520,87 @@ export function createForLoopPlugin(): VueFlowPlugin {
 
     const { node } = event;
 
-    // 处理 Ctrl 脱离模式
-    if (state.ctrlDetachContext.nodeId === node.id) {
-      const { containerId, isIntersecting } = state.ctrlDetachContext;
+    // 场景1: Ctrl 脱离模式 - 检查是否需要脱离容器
+    if (state.ctrlDetachContext && state.ctrlDetachContext.nodeId === node.id) {
+      const containerId = state.ctrlDetachContext.containerId;
+      const container = context.core.nodes.value.find(
+        (n) => n.id === containerId
+      );
 
-      if (containerId && !isIntersecting) {
-        // 脱离容器
-        detachNodeFromContainer(node.id, containerId, context);
+      if (container) {
+        // 计算节点的绝对位置
+        const nodeAbsX = container.position.x + node.position.x;
+        const nodeAbsY = container.position.y + node.position.y;
+
+        // 创建临时节点对象用于交集检测
+        const tempNode = {
+          ...node,
+          position: { x: nodeAbsX, y: nodeAbsY },
+        };
+
+        // 检测是否与容器有交集
+        const hasIntersect = hasIntersection(tempNode, container);
+
+        if (!hasIntersect) {
+          // 没有交集，执行脱离
+          console.log(
+            `[ForLoopPlugin] 节点 ${node.id} 脱离容器 ${containerId}`
+          );
+          detachNodeFromContainer(node.id, containerId, context);
+        } else {
+          // 有交集，保持在容器内，更新容器尺寸
+          console.log(
+            `[ForLoopPlugin] 节点 ${node.id} 保持在容器 ${containerId} 内`
+          );
+          updateContainerBounds(containerId, context);
+        }
       }
 
       // 清除脱离上下文
-      if (containerId) {
-        clearContainerHighlight(containerId);
-      }
-      state.ctrlDetachContext = {
-        nodeId: null,
-        containerId: null,
-        isIntersecting: false,
-      };
-
+      state.ctrlDetachContext = null;
+      clearAllHighlights();
       return;
     }
 
-    // 处理移入容器
-    if (state.dragTargetContainerId) {
-      const hasExternal = hasExternalConnections(
-        node.id,
-        state.dragTargetContainerId,
-        context
+    // 场景2: 普通拖拽 - 外部节点移入容器
+    if (state.dragTargetContainerId && !node.parentNode) {
+      // 检查节点是否有连接
+      const hasConnections = hasAnyConnections(node.id, context);
+
+      if (!hasConnections) {
+        console.log(
+          `[ForLoopPlugin] 节点 ${node.id} 移入容器 ${state.dragTargetContainerId}`
+        );
+        moveNodeIntoContainer(node.id, state.dragTargetContainerId, context);
+      } else {
+        console.log(`[ForLoopPlugin] 节点 ${node.id} 有连接，无法移入容器`);
+      }
+    }
+
+    // 如果节点在容器内，执行容器扩容
+    if (node.parentNode) {
+      const parentContainer = context.core.nodes.value.find(
+        (n) => n.id === node.parentNode
       );
 
-      if (!hasExternal) {
-        // 移入容器
-        moveNodeIntoContainer(node.id, state.dragTargetContainerId, context);
+      if (parentContainer && parentContainer.type === "forLoopContainer") {
+        // 根据子节点更新容器尺寸
+        updateContainerBounds(node.parentNode, context);
       }
-
-      // 清除高亮
-      clearContainerHighlight(state.dragTargetContainerId);
-      state.dragTargetContainerId = null;
     }
 
-    // 如果节点在容器内，更新容器尺寸
-    if (node.parentNode) {
-      updateContainerBounds(node.parentNode, context);
-    }
+    // 清除所有状态
+    clearAllHighlights();
+    state.dragTargetContainerId = null;
   }
 
   /**
    * 处理连接验证
+   * 规则：
+   * 1. 容器内的子节点只能连接同一容器内的其他子节点
+   * 2. 容器内的子节点可以连接到父容器的两侧端口（loop-left, loop-right）
+   * 3. 父容器可以连接到子节点（通过 loop-left 源端口）
+   * 4. 子节点可以连接到父容器（通过 loop-right 目标端口）
    */
   function handleConnectionValidation(connection: {
     source: string;
@@ -495,22 +616,76 @@ export function createForLoopPlugin(): VueFlowPlugin {
 
     if (!sourceNode || !targetNode) return true;
 
-    // 如果源节点在容器内
-    if (sourceNode.parentNode) {
-      // 如果目标节点不在同一容器内，拒绝连接
-      if (targetNode.parentNode !== sourceNode.parentNode) {
-        console.warn("[ForLoopPlugin] 容器内节点不能连接到容器外节点");
-        return false;
+    const sourceHandle = connection.sourceHandle;
+    const targetHandle = connection.targetHandle;
+
+    // 情况1: 源节点是容器，目标节点必须是其子节点（通过 loop-left 端口）
+    if (sourceNode.type === "forLoopContainer") {
+      if (sourceHandle === "loop-left") {
+        // loop-left 只能连接到该容器的子节点
+        if (targetNode.parentNode !== sourceNode.id) {
+          console.warn(
+            "[ForLoopPlugin] 容器的 loop-left 端口只能连接到容器内的子节点"
+          );
+          return false;
+        }
+        return true;
       }
     }
 
-    // 如果目标节点在容器内
-    if (targetNode.parentNode) {
-      // 如果源节点不在同一容器内，拒绝连接
-      if (sourceNode.parentNode !== targetNode.parentNode) {
-        console.warn("[ForLoopPlugin] 容器外节点不能连接到容器内节点");
-        return false;
+    // 情况2: 目标节点是容器，源节点必须是其子节点（通过 loop-right 端口）
+    if (targetNode.type === "forLoopContainer") {
+      if (targetHandle === "loop-right") {
+        // loop-right 只能接收来自该容器子节点的连接
+        if (sourceNode.parentNode !== targetNode.id) {
+          console.warn(
+            "[ForLoopPlugin] 容器的 loop-right 端口只能接收来自容器内子节点的连接"
+          );
+          return false;
+        }
+        return true;
       }
+    }
+
+    // 情况3: 源节点在容器内
+    if (sourceNode.parentNode) {
+      // 3a. 目标节点是源节点的父容器（子节点连接到父容器的 loop-right）
+      if (
+        targetNode.id === sourceNode.parentNode &&
+        targetNode.type === "forLoopContainer" &&
+        targetHandle === "loop-right"
+      ) {
+        return true;
+      }
+
+      // 3b. 目标节点也在容器内，必须在同一容器
+      if (targetNode.parentNode) {
+        if (targetNode.parentNode !== sourceNode.parentNode) {
+          console.warn("[ForLoopPlugin] 容器内节点只能连接同一容器内的节点");
+          return false;
+        }
+        return true;
+      }
+
+      // 3c. 目标节点在容器外（不是父容器），拒绝
+      console.warn("[ForLoopPlugin] 容器内节点不能连接到容器外的节点");
+      return false;
+    }
+
+    // 情况4: 目标节点在容器内
+    if (targetNode.parentNode) {
+      // 4a. 源节点是目标节点的父容器（父容器通过 loop-left 连接到子节点）
+      if (
+        sourceNode.id === targetNode.parentNode &&
+        sourceNode.type === "forLoopContainer" &&
+        sourceHandle === "loop-left"
+      ) {
+        return true;
+      }
+
+      // 4b. 源节点在容器外（不是父容器），拒绝
+      console.warn("[ForLoopPlugin] 容器外节点不能连接到容器内的节点");
+      return false;
     }
 
     return true;
@@ -560,7 +735,6 @@ export function createForLoopPlugin(): VueFlowPlugin {
           });
 
           // 清除容器相关状态
-          clearContainerHighlight(containerId);
           if (state.dragTargetContainerId === containerId) {
             state.dragTargetContainerId = null;
           }
@@ -594,7 +768,6 @@ export function createForLoopPlugin(): VueFlowPlugin {
       });
 
       // 清除容器相关状态
-      clearContainerHighlight(nodeId);
       if (state.dragTargetContainerId === nodeId) {
         state.dragTargetContainerId = null;
       }
@@ -652,6 +825,31 @@ export function createForLoopPlugin(): VueFlowPlugin {
         containerHighlight: containerHighlightRef,
       };
 
+      // 监听键盘事件（Ctrl 键）
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === "Control" || event.ctrlKey) {
+          state.isCtrlPressed = true;
+        }
+      };
+
+      const handleKeyUp = (event: KeyboardEvent) => {
+        if (event.key === "Control" || !event.ctrlKey) {
+          state.isCtrlPressed = false;
+          // 如果释放 Ctrl 键，取消脱离模式
+          if (state.ctrlDetachContext) {
+            clearAllHighlights();
+            state.ctrlDetachContext = null;
+          }
+        }
+      };
+
+      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("keyup", handleKeyUp);
+      cleanupFns.push(() => {
+        window.removeEventListener("keydown", handleKeyDown);
+        window.removeEventListener("keyup", handleKeyUp);
+      });
+
       // 监听节点拖拽事件
       if (ctx.vueflow.onNodeDrag) {
         const cleanup1 = ctx.vueflow.onNodeDrag(handleNodeDrag as any);
@@ -676,11 +874,16 @@ export function createForLoopPlugin(): VueFlowPlugin {
             // 阻止无效连接
             return false;
           }
+          // 连接创建后刷新边层级
+          setTimeout(() => refreshEdgeLayerClasses(ctx), 100);
         });
         if (cleanup3 && typeof cleanup3 === "object" && "off" in cleanup3) {
           cleanupFns.push(() => cleanup3.off());
         }
       }
+
+      // 初始化时刷新一次边层级
+      setTimeout(() => refreshEdgeLayerClasses(ctx), 200);
 
       console.log("[ForLoopPlugin] For 循环插件已启用");
     },

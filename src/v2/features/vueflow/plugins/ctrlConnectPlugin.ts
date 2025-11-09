@@ -8,6 +8,7 @@ import { ref, computed, watch, type Ref, type ComputedRef } from "vue";
 import { useEventListener, useMagicKeys } from "@vueuse/core";
 import type { VueFlowPlugin, PluginContext } from "./types";
 import type { Node, Edge, HandleElement, GraphNode } from "@vue-flow/core";
+import { validateContainerConnection } from "../composables/useConnectionValidation";
 
 /**
  * 连接候选状态
@@ -121,7 +122,8 @@ export function createCtrlConnectPlugin(
   function isDecorativeHandle(handleId: string | null | undefined): boolean {
     if (!handleId) return false;
     // loop 和 loop-in 是 For 节点和容器节点之间的装饰性连接端口
-    return handleId === "loop" || handleId === "loop-in";
+    // return handleId === "loop" || handleId === "loop-in";
+    return handleId.includes("loop");
   }
 
   /**
@@ -130,9 +132,13 @@ export function createCtrlConnectPlugin(
   function getHandleCandidates(
     graphNode: GraphNode | null,
     fallbackNode: Node | null,
-    handleType: "source" | "target"
+    handleType: "source" | "target",
+    sourceNodeId: string,
+    sourceHandleId: string | null,
+    sourceHandleType: "source" | "target",
+    allNodes: Node[]
   ): { handle: HandleElement; position: { x: number; y: number } }[] {
-    if (!graphNode) {
+    if (!graphNode || !fallbackNode) {
       return [];
     }
 
@@ -144,7 +150,28 @@ export function createCtrlConnectPlugin(
     const basePosition = getGraphNodePosition(graphNode, fallbackNode);
 
     return handles
-      .filter((handle) => !isDecorativeHandle(handle.id)) // 过滤装饰性端口
+      .filter((handle) => {
+        // 过滤装饰性端口
+        if (isDecorativeHandle(handle.id)) return false;
+        // 构建连接对象进行容器规则验证
+        const connection =
+          sourceHandleType === "source"
+            ? {
+                source: sourceNodeId,
+                sourceHandle: sourceHandleId,
+                target: fallbackNode.id,
+                targetHandle: handle.id ?? null,
+              }
+            : {
+                source: fallbackNode.id,
+                sourceHandle: handle.id ?? null,
+                target: sourceNodeId,
+                targetHandle: sourceHandleId,
+              };
+
+        // 验证容器连接规则
+        return validateContainerConnection(connection, allNodes);
+      })
       .map((handle) => {
         const centerX = basePosition.x + handle.x + (handle.width ?? 0) / 2;
         const centerY = basePosition.y + handle.y + (handle.height ?? 0) / 2;
@@ -246,11 +273,15 @@ export function createCtrlConnectPlugin(
     const storeNode = nodes.find((n: Node) => n.id === nodeId) ?? null;
     const graphNode = context.vueflow.findNode?.(nodeId) ?? null;
 
-    // 获取所有可用的端口候选
+    // 获取所有可用的端口候选（已过滤装饰性端口和不符合容器规则的端口）
     const candidates = getHandleCandidates(
       graphNode,
       storeNode,
-      desiredHandleType
+      desiredHandleType,
+      connectionState.value.nodeId,
+      connectionState.value.handleId,
+      connectionState.value.handleType,
+      nodes
     );
 
     if (!candidates.length) {
@@ -333,6 +364,7 @@ export function createCtrlConnectPlugin(
     }
 
     // 验证连接是否有效
+    // 注意：容器连接规则已经在 getHandleCandidates 中过滤，这里的候选都是符合容器规则的
     let isValid = false;
     if (isReconnectToOriginal) {
       // 重连回原端口：根据配置决定是否有效
@@ -479,6 +511,19 @@ export function createCtrlConnectPlugin(
     }
 
     // 验证连接
+    // 防御性检查：验证容器连接规则（理论上候选阶段已过滤，这里作为最后防线）
+    const nodes = context.vueflow.nodes.value;
+    const containerValid = validateContainerConnection(connection, nodes);
+    if (!containerValid) {
+      if (debug) {
+        console.warn(
+          "[CtrlConnect Plugin] 容器连接规则验证失败（防御性检查）:",
+          connection
+        );
+      }
+      return false;
+    }
+
     if (validateConnection && !validateConnection(connection)) {
       if (debug) {
         console.log("[CtrlConnect Plugin] 连接验证失败");

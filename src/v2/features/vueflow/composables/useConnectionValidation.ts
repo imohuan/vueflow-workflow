@@ -4,7 +4,73 @@
  */
 
 import type { Ref } from "vue";
-import type { Connection, Edge } from "@vue-flow/core";
+import type { Connection, Edge, Node } from "@vue-flow/core";
+import { get } from "lodash-es";
+
+/**
+ * 验证容器连接规则（独立工具函数，可在多处复用）
+ * 禁止容器内部节点连接外部节点（除了父容器的端口）
+ *
+ * @param connection 连接对象
+ * @param nodes 节点数组
+ * @returns 连接是否符合容器规则
+ */
+export function validateContainerConnection(
+  connection: {
+    source: string;
+    sourceHandle?: string | null;
+    target: string;
+    targetHandle?: string | null;
+  },
+  nodes: Node[]
+): boolean {
+  // 禁止连接到 loop-in 端口
+  if (connection.targetHandle === "loop-in") {
+    return false;
+  }
+
+  // 禁止连接到同一个节点
+  if (connection.source === connection.target) {
+    return false;
+  }
+
+  const sourceNode = nodes.find((n) => n.id === connection.source);
+  const targetNode = nodes.find((n) => n.id === connection.target);
+
+  const sourceParentId = get(sourceNode, "parentNode", "");
+  const targetParentId = get(targetNode, "parentNode", "");
+
+  // 如果有任一节点在容器内
+  if (sourceParentId || targetParentId) {
+    // 允许同一容器内的节点互相连接
+    if (sourceParentId && targetParentId && sourceParentId === targetParentId) {
+      return true;
+    }
+
+    // 允许容器内节点连接到父容器（forLoopContainer）的端口
+    if (
+      sourceParentId &&
+      targetNode?.type === "forLoopContainer" &&
+      targetNode?.id === sourceParentId
+    ) {
+      return true;
+    }
+
+    // 允许父容器连接到其内部节点
+    if (
+      targetParentId &&
+      sourceNode?.type === "forLoopContainer" &&
+      sourceNode?.id === targetParentId
+    ) {
+      return true;
+    }
+
+    // 其他情况都不允许（容器内节点不能连接外部节点）
+    return false;
+  }
+
+  return true;
+}
 
 /**
  * 创建连接验证函数

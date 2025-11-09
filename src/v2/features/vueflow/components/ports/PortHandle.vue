@@ -25,6 +25,8 @@ import {
 } from "@vue-flow/core";
 import { PORT_STYLE } from "./portStyles";
 import { PLUGIN_MANAGER_KEY, type PluginManager } from "../../plugins";
+import { useCanvasStore } from "../../../../stores/canvas";
+import { validateContainerConnection } from "../../composables/useConnectionValidation";
 
 interface Props {
   /** 端口 ID */
@@ -40,7 +42,7 @@ interface Props {
   /** 节点 ID（用于连接验证） */
   nodeId: string;
   /** 自定义样式 */
-  style?: Record<string, string>;
+  style?: Record<string, string | number>;
   /** 额外的 CSS 类 */
   class?: string | string[];
 }
@@ -51,6 +53,8 @@ const props = withDefaults(defineProps<Props>(), {
   style: () => ({}),
   class: "",
 });
+
+const canvasStore = useCanvasStore();
 
 // 获取插件管理器
 const pluginManager = inject<PluginManager>(PLUGIN_MANAGER_KEY);
@@ -129,10 +133,14 @@ const isValidConnectionLocal = computed((): boolean => {
 });
 
 const isValidConnection = (connection: Connection) => {
-  // 禁止
-  if (connection.targetHandle === "loop-in") {
+  // 使用共享的容器连接验证逻辑
+  const nodes = canvasStore.nodes as any[]; // 类型转换，WorkflowNode 兼容 Node
+  const containerValid = validateContainerConnection(connection, nodes);
+  
+  if (!containerValid) {
     return false;
   }
+
   return isValidConnectionLocal.value;
 };
 

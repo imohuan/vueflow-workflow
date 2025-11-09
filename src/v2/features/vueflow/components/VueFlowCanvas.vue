@@ -413,6 +413,7 @@ function handleDrop(event: DragEvent) {
         target: containerId,
         targetHandle: "loop-in",
         type: "custom",
+        updatable: false, // 禁止编辑装饰性边
       };
 
       coreEdges.value.push(connectionEdge);
@@ -762,5 +763,10 @@ onUnmounted(() => {
 .vueflow-canvas-wrapper .vue-flow__edge.selected path,
 .vueflow-canvas-wrapper .vue-flow__edge:hover path {
   stroke: v-bind("editorConfig.edgeActiveColor") !important;
+}
+
+/* 容器内连接线的 z-index 层级管理 */
+:deep(.edge-layer-container) {
+  z-index: 10 !important;
 }
 </style>

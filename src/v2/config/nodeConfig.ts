@@ -68,6 +68,25 @@ export const NODE_STATUS_COLORS = {
 } as const;
 
 /**
+ * 容器节点配置（For 循环容器）
+ */
+export const CONTAINER_CONFIG = {
+  /** 容器标题栏高度 */
+  headerHeight: 32,
+  /** 容器内边距 */
+  padding: {
+    top: 16,
+    right: 100,
+    bottom: 16,
+    left: 100,
+  },
+  /** 容器最小宽度 */
+  minWidth: 400,
+  /** 容器最小高度 */
+  minHeight: 200,
+} as const;
+
+/**
  * 节点端口配置
  */
 export const NODE_PORT = {

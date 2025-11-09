@@ -102,6 +102,13 @@ export const useCanvasStore = defineStore("newCanvas", () => {
   // ===== 节点操作（直接操作 workflow store）=====
 
   /**
+   * 根据 ID 获取节点
+   */
+  function getNodeById(nodeId: string) {
+    return nodes.value.find((n: any) => n.id === nodeId);
+  }
+
+  /**
    * 添加节点到当前工作流
    */
   function addNode(node: any) {
@@ -246,6 +253,7 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     clearResults,
 
     // ===== 节点操作 =====
+    getNodeById,
     addNode,
     removeNode,
     updateNode,
