@@ -18,7 +18,7 @@
 import { computed } from "vue";
 import type { Node } from "@vue-flow/core";
 import { useVueFlow } from "@vue-flow/core";
-import ConditionEditor from "../components/ConditionEditor.vue";
+import ConditionEditor from "../components/ConditionEditor2.vue";
 import IconCode from "@/icons/IconCode.vue";
 import type { IfConfig } from "workflow-flow-nodes";
 
