@@ -253,9 +253,12 @@ export class WorkflowExecutor {
     const result = new Set<string>();
 
     if (strategy === "full") {
-      // 全量执行：所有节点
-      workflow.nodes.forEach((node) => result.add(node.id));
-      return result;
+      // 全量执行：从开始节点出发，只执行可达的节点
+      const reachableNodes = this.findReachableNodesFromStart(
+        workflow.nodes,
+        workflow.edges
+      );
+      return reachableNodes;
     }
 
     // 选择性执行或单节点执行：需要分析依赖
@@ -275,6 +278,62 @@ export class WorkflowExecutor {
     }
 
     return result;
+  }
+
+  /**
+   * 从开始节点查找所有可达的节点
+   * 使用广度优先搜索（BFS）
+   */
+  private findReachableNodesFromStart(
+    nodes: WorkflowNode[],
+    edges: WorkflowEdge[]
+  ): Set<string> {
+    // 查找开始节点
+    const startNodes = nodes.filter(
+      (node) => node.data?.nodeType === "start" || node.type === "start"
+    );
+
+    // 如果没有开始节点，返回空集合（不执行任何节点）
+    if (startNodes.length === 0) {
+      console.warn(
+        "[WorkflowExecutor] 工作流中没有找到开始节点，将不执行任何节点"
+      );
+      return new Set<string>();
+    }
+
+    // 如果有多个开始节点，发出警告
+    if (startNodes.length > 1) {
+      console.warn(
+        `[WorkflowExecutor] 工作流中发现多个开始节点（${startNodes.length}个），将从所有开始节点出发`
+      );
+    }
+
+    // 使用 BFS 查找所有可达节点
+    const reachable = new Set<string>();
+    const queue: string[] = startNodes.map((node) => node.id);
+
+    // 将开始节点加入可达集合
+    startNodes.forEach((node) => reachable.add(node.id));
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+
+      // 找到从当前节点出发的所有边
+      const outgoingEdges = edges.filter((edge) => edge.source === currentId);
+
+      for (const edge of outgoingEdges) {
+        // 如果目标节点还没有被访问过，加入队列和可达集合
+        if (!reachable.has(edge.target)) {
+          reachable.add(edge.target);
+          queue.push(edge.target);
+        }
+      }
+    }
+
+    console.log(
+      `[WorkflowExecutor] 从开始节点出发，找到 ${reachable.size} 个可达节点`
+    );
+    return reachable;
   }
 
   /**
