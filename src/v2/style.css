@@ -7,6 +7,10 @@
 @import "@vue-flow/controls/dist/style.css";
 @import "@vue-flow/minimap/dist/style.css";
 
+button {
+  @apply outline-0;
+}
+
 @layer components {
   .variable-token {
     /* stylelint-disable-next-line at-rule-no-unknown */

@@ -31,7 +31,7 @@
           :param-key="item.key"
           :value="item.value"
           :key-error="getKeyError(index)"
-          @update:key="(value: string) => updateDataItemKey(index, value)"
+          @update:param-key="(value: string) => updateDataItemKey(index, value)"
           @update:value="(value: string) => updateDataItemValue(index, value)"
           @delete="removeDataItem(index)"
         />
@@ -141,7 +141,7 @@ interface CodeNodeDataItem {
   value: string;
 }
 
-interface CodeNodeConfig {
+interface CodeNodeParams {
   code?: string;
   dataItems?: CodeNodeDataItem[];
   typeDeclarations?: string;
@@ -198,15 +198,26 @@ export async function main(params) {
 const KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
 
 // 从节点配置中获取当前值
-const currentConfig = computed<CodeNodeConfig>(() => {
-  return props.selectedNode.data.params?.config || {};
+const currentParams = computed<CodeNodeParams>(() => {
+  const rawParams = (props.selectedNode.data.params || {}) as Record<
+    string,
+    unknown
+  >;
+  const { config: legacyConfig, ...rest } = rawParams as {
+    config?: CodeNodeParams;
+  } & CodeNodeParams;
+
+  return {
+    ...(legacyConfig || {}),
+    ...(rest as CodeNodeParams),
+  };
 });
 
 // 数据项
-const dataItems = ref<CodeNodeDataItem[]>(currentConfig.value.dataItems || []);
+const dataItems = ref<CodeNodeDataItem[]>(currentParams.value.dataItems || []);
 
 // 代码值
-const codeValue = ref(currentConfig.value.code || DEFAULT_CODE);
+const codeValue = ref(currentParams.value.code || DEFAULT_CODE);
 
 // 自动生成的类型声明
 const generatedTypeDeclarations = computed(() => {
@@ -215,12 +226,25 @@ const generatedTypeDeclarations = computed(() => {
 
 // 监听节点变化
 watch(
-  () => props.selectedNode.data.params?.config,
-  (newConfig) => {
-    if (newConfig) {
-      dataItems.value = newConfig.dataItems || [];
-      codeValue.value = newConfig.code || DEFAULT_CODE;
+  () => props.selectedNode.data.params,
+  (newParams) => {
+    if (!newParams) {
+      dataItems.value = [];
+      codeValue.value = DEFAULT_CODE;
+      return;
     }
+
+    const rawParams = newParams as Record<string, unknown>;
+    const { config: legacyConfig, ...rest } = rawParams as {
+      config?: CodeNodeParams;
+    } & CodeNodeParams;
+    const mergedParams: CodeNodeParams = {
+      ...(legacyConfig || {}),
+      ...(rest as CodeNodeParams),
+    };
+
+    dataItems.value = mergedParams.dataItems || [];
+    codeValue.value = mergedParams.code || DEFAULT_CODE;
   },
   { deep: true }
 );
@@ -277,7 +301,7 @@ function updateDataItemValue(index: number, value: string) {
  * 更新数据项
  */
 function updateDataItems() {
-  updateConfig({
+  updateParams({
     dataItems: dataItems.value,
   });
 }
@@ -287,7 +311,7 @@ function updateDataItems() {
  */
 function updateCode(value: string) {
   codeValue.value = value;
-  updateConfig({
+  updateParams({
     code: value,
   });
 }
@@ -346,27 +370,26 @@ function handleOpenEditorPanel() {
 /**
  * 更新配置
  */
-function updateConfig(partial: Partial<CodeNodeConfig>) {
-  const currentParams = props.selectedNode.data.params || {};
-  const newConfig = {
-    ...currentConfig.value,
+function updateParams(partial: Partial<CodeNodeParams>) {
+  const existingParams = props.selectedNode.data.params || {};
+  const sanitizedParams = {
+    ...(existingParams as Record<string, unknown>),
+  };
+  delete sanitizedParams.config;
+
+  const mergedParams = {
+    ...(sanitizedParams as CodeNodeParams),
     ...partial,
   };
 
   updateNode(props.selectedNode.id, {
     data: {
       ...props.selectedNode.data,
-      params: {
-        ...currentParams,
-        config: newConfig,
-      },
+      params: mergedParams,
     },
   });
 
-  emit("update:params", {
-    ...currentParams,
-    config: newConfig,
-  });
+  emit("update:params", mergedParams);
 }
 
 /**

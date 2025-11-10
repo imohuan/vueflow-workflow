@@ -92,7 +92,13 @@ function handleParamChange(key: string, value: any) {
 function handleParamsUpdate(params: Record<string, any>) {
   // 批量更新参数
   Object.entries(params).forEach(([key, value]) => {
-    emit("param-change", key, value);
+    // 避免将 Proxy/响应式对象直接写入配置，统一转换为普通对象
+    const plainValue =
+      value && typeof value === "object"
+        ? JSON.parse(JSON.stringify(value))
+        : value;
+    emit("param-change", key, plainValue);
+    console.log("[NodeConfigTab handleParamsUpdate]", key, plainValue);
   });
 }
 

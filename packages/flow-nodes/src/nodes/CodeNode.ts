@@ -18,8 +18,6 @@ export interface CodeNodeConfig {
   code: string;
   /** 数据映射 */
   dataItems: CodeNodeDataItem[];
-  /** 类型声明 */
-  typeDeclarations?: string;
 }
 
 const DEFAULT_CODE = `export async function main(params) {
@@ -44,9 +42,15 @@ export class CodeNode extends BaseFlowNode {
   protected defineInputs(): PortConfig[] {
     return [
       {
-        name: "trigger",
-        type: "any",
-        description: "触发执行",
+        name: "dataItems",
+        type: "array",
+        description: "参数对象（如提供则覆盖由 dataItems 构建的参数）",
+        required: false,
+      },
+      {
+        name: "code",
+        type: "string",
+        description: "动态代码（如提供则覆盖配置中的 code）",
         required: false,
       },
     ];
@@ -69,29 +73,49 @@ export class CodeNode extends BaseFlowNode {
     };
   }
 
+  /**
+   * 获取默认配置
+   */
+  private getDefaultConfig(): CodeNodeConfig {
+    return {
+      code: DEFAULT_CODE,
+      dataItems: [],
+    };
+  }
+
   async execute(
     inputs: Record<string, any>,
     context: NodeExecutionContext
   ): Promise<NodeExecutionResult> {
     try {
-      // 获取配置
-      const nodeData = context.nodeData || {};
-      const config: CodeNodeConfig = {
-        ...this.getDefaultConfig(),
-        ...(nodeData.config || {}),
-      };
+      // 使用默认配置（不从 context 读取）
+      const defaults: CodeNodeConfig = this.getDefaultConfig();
 
-      // 构建参数
-      const params = this.buildParams(config.dataItems);
+      // 允许输入覆盖配置（统一通过 this.getInput 获取）
+      const rawCode = this.getInput<string>(inputs, "code", "");
+      const incomingCode =
+        typeof rawCode === "string" && rawCode.trim() ? rawCode : undefined;
 
-      // 合并代码和类型声明
-      const mergedSource = this.composeSource(
-        config.typeDeclarations || "",
-        config.code
+      const rawParams = this.getInput<Record<string, unknown> | null>(
+        inputs,
+        "dataItems",
+        null
       );
+      const rawParamsIsArray = Array.isArray(rawParams);
+      const incomingParams =
+        rawParams && typeof rawParams === "object" && !rawParamsIsArray
+          ? rawParams
+          : undefined;
+
+      const effectiveCode = incomingCode ?? defaults.code;
+
+      // 构建参数（优先使用输入的 params，否则根据 dataItems 构建）
+      const params =
+        incomingParams ??
+        this.buildParams(rawParamsIsArray ? rawParams : defaults.dataItems);
 
       // 准备运行时代码
-      const runtimeSource = this.prepareRuntime(mergedSource);
+      const runtimeSource = this.prepareRuntime(effectiveCode);
 
       // 执行代码
       try {
@@ -117,25 +141,6 @@ export class CodeNode extends BaseFlowNode {
     } catch (error) {
       return this.createError(error as Error);
     }
-  }
-
-  /**
-   * 获取默认配置
-   */
-  private getDefaultConfig(): CodeNodeConfig {
-    return {
-      code: DEFAULT_CODE,
-      dataItems: [],
-      typeDeclarations: `/**
- * 可以在此处声明类型以辅助编辑器智能提示
- * 例如：
- *
- * interface ExampleParams {
- *   user: { id: string; name: string };
- * }
- */
-`,
-    };
   }
 
   /**
@@ -171,16 +176,7 @@ export class CodeNode extends BaseFlowNode {
     return params;
   }
 
-  /**
-   * 合并类型声明和用户代码
-   */
-  private composeSource(typeDeclarations: string, userCode: string): string {
-    const declarationsBlock = typeDeclarations?.trim()
-      ? `${typeDeclarations.trim()}\n`
-      : "";
-
-    return `${declarationsBlock}${userCode}`;
-  }
+  // 已移除 composeSource：不再需要对代码进行额外拼接
 
   /**
    * 准备运行时代码

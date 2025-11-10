@@ -1,12 +1,12 @@
 <template>
   <div class="flex items-start gap-2 bg-white">
     <!-- 左侧 Key 输入框 -->
-    <div class="w-[100px] shrink-0">
+    <div class="w-[100px] shrink-0 param-item-key">
       <label class="mb-1 block text-xs font-medium text-slate-600">
         {{ keyTitle }}
       </label>
       <n-input
-        :model-value="paramKey"
+        :value="paramKey"
         :placeholder="keyPlaceholder"
         size="small"
         :status="keyError ? 'error' : undefined"
@@ -72,13 +72,13 @@ withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  (e: "update:key", value: string): void;
+  (e: "update:param-key", value: string): void;
   (e: "update:value", value: string): void;
   (e: "delete"): void;
 }>();
 
 function handleKeyUpdate(value: string) {
-  emit("update:key", value);
+  emit("update:param-key", value);
 }
 
 function handleValueUpdate(value: string) {
@@ -89,3 +89,9 @@ function handleDelete() {
   emit("delete");
 }
 </script>
+
+<style>
+.param-item-key .n-input__input-el {
+  height: 34px;
+}
+</style>
