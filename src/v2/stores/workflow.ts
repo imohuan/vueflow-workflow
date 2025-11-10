@@ -5,6 +5,7 @@ import type { Workflow } from "workflow-flow-nodes";
 
 const STORAGE_KEY = "ai-browser-tools:workflows";
 const CURRENT_WORKFLOW_KEY = "ai-browser-tools:current-workflow-id";
+const GLOBAL_VARIABLES_KEY = "ai-browser-tools:global-variables";
 const STORAGE_VERSION = 2;
 
 export interface WorkflowFolder {
@@ -21,6 +22,22 @@ export interface WorkflowEntity extends Workflow {
   order: number;
   createdAt: number;
   updatedAt: number;
+}
+
+// 全局变量类型
+export type GlobalVariableType =
+  | "string"
+  | "number"
+  | "boolean"
+  | "object"
+  | "array";
+
+// 全局变量定义
+export interface GlobalVariable {
+  key: string;
+  type: GlobalVariableType;
+  value: any;
+  description?: string;
 }
 
 interface WorkflowStorageState {
@@ -81,6 +98,25 @@ function saveCurrentWorkflowId(workflowId: string | null) {
     }
   } catch (error) {
     console.error("保存当前工作流 ID 失败:", error);
+  }
+}
+
+function loadGlobalVariables(): GlobalVariable[] {
+  try {
+    const raw = localStorage.getItem(GLOBAL_VARIABLES_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as GlobalVariable[];
+  } catch (error) {
+    console.error("加载全局变量失败:", error);
+    return [];
+  }
+}
+
+function saveGlobalVariables(variables: GlobalVariable[]) {
+  try {
+    localStorage.setItem(GLOBAL_VARIABLES_KEY, JSON.stringify(variables));
+  } catch (error) {
+    console.error("保存全局变量失败:", error);
   }
 }
 
@@ -334,7 +370,8 @@ export const useWorkflowStore = defineStore("workflow", () => {
   const workflows = ref<WorkflowEntity[]>(initialState.workflows);
   const folders = ref<WorkflowFolder[]>(initialState.folders);
   const currentWorkflowId = ref<string | null>(loadCurrentWorkflowId());
-  
+  const globalVariables = ref<GlobalVariable[]>(loadGlobalVariables());
+
   // 防抖计时器
   let persistTimer: number | null = null;
   const PERSIST_DEBOUNCE_MS = 500; // 防抖延迟 500ms
@@ -378,12 +415,20 @@ export const useWorkflowStore = defineStore("workflow", () => {
         persistTimer = null;
       }, PERSIST_DEBOUNCE_MS);
     },
-    { deep: true, flush: 'post' }
+    { deep: true, flush: "post" }
   );
 
   watch(currentWorkflowId, (newId) => {
     saveCurrentWorkflowId(newId);
   });
+
+  watch(
+    globalVariables,
+    () => {
+      saveGlobalVariables(globalVariables.value);
+    },
+    { deep: true }
+  );
 
   function findFolderById(folderId: string | null): WorkflowFolder | undefined {
     if (!folderId) return undefined;
@@ -848,6 +893,56 @@ export const useWorkflowStore = defineStore("workflow", () => {
     folder.updatedAt = Date.now();
   }
 
+  // ===== 全局变量操作 =====
+
+  /**
+   * 添加全局变量
+   */
+  function addGlobalVariable(variable: GlobalVariable) {
+    globalVariables.value.push(variable);
+  }
+
+  /**
+   * 更新全局变量
+   */
+  function updateGlobalVariable(key: string, updates: Partial<GlobalVariable>) {
+    const variable = globalVariables.value.find((v) => v.key === key);
+    if (variable) {
+      Object.assign(variable, updates);
+    }
+  }
+
+  /**
+   * 删除全局变量
+   */
+  function deleteGlobalVariable(key: string) {
+    const index = globalVariables.value.findIndex((v) => v.key === key);
+    if (index > -1) {
+      globalVariables.value.splice(index, 1);
+    }
+  }
+
+  /**
+   * 获取全局变量
+   */
+  function getGlobalVariable(key: string): GlobalVariable | undefined {
+    return globalVariables.value.find((v) => v.key === key);
+  }
+
+  /**
+   * 设置全局变量列表
+   */
+  function setGlobalVariables(variables: GlobalVariable[]) {
+    globalVariables.value = variables;
+  }
+
+  function getGlobalVariableJson(): Record<string, any> {
+    return globalVariables.value.reduce((acc, variable) => {
+      acc[variable.key] = variable.value;
+      return acc;
+    }, {} as Record<string, any>);
+  }
+
   return {
     workflows,
     folders,
@@ -873,5 +968,13 @@ export const useWorkflowStore = defineStore("workflow", () => {
     ensureFolderPath,
     handleTreeDrop,
     buildFolderPath: buildFolderPathCached,
+    // 全局变量
+    globalVariables,
+    addGlobalVariable,
+    updateGlobalVariable,
+    deleteGlobalVariable,
+    getGlobalVariable,
+    setGlobalVariables,
+    getGlobalVariableJson,
   };
 });

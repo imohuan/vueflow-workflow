@@ -356,13 +356,15 @@ function createReference(path: string): string {
  * @param nodes - 工作流节点列表
  * @param edges - 工作流边列表
  * @param extractor - 可选的输出提取器（默认使用 DefaultNodeOutputExtractor）
+ * @param globalVariables - 全局变量对象（可选）
  * @returns 变量上下文结果
  */
 export function buildVariableContext(
   targetNodeId: string,
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
-  extractor?: NodeOutputExtractor
+  extractor?: NodeOutputExtractor,
+  globalVariables?: Record<string, any>
 ): VariableContextResult {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const upstreamIds = collectUpstreamNodeIds(targetNodeId, edges);
@@ -371,6 +373,32 @@ export function buildVariableContext(
 
   // 使用提供的提取器或默认提取器
   const outputExtractor = extractor || new DefaultNodeOutputExtractor();
+
+  // 如果有全局变量，添加到上下文中
+  if (globalVariables && Object.keys(globalVariables).length > 0) {
+    const reference = "全局变量";
+
+    // 构建全局变量树节点
+    const globalVarNode: VariableTreeNode = {
+      id: "global-variables",
+      label: "全局变量",
+      valueType: "object",
+      reference,
+      value: {},
+      children: [],
+    };
+
+    // 使用 buildValueTree 构建每个全局变量的子树
+    Object.entries(globalVariables).forEach(([key, value]) => {
+      // 添加到 contextMap
+      contextMap.set(`${reference}.${key}`, value);
+      // 使用 buildValueTree 构建子树
+      const children = buildValueTree(key, value, reference, contextMap);
+      globalVarNode.children?.push(...children);
+    });
+
+    tree.push(globalVarNode);
+  }
 
   upstreamIds.forEach((nodeId) => {
     const node = nodeMap.get(nodeId);
@@ -455,16 +483,24 @@ export function buildVariableContext(
  * @param context - 执行上下文
  * @param nodes - 工作流节点列表
  * @param edges - 工作流边列表
+ * @param globalVariables - 全局变量对象（可选）
  * @returns 变量上下文结果
  */
 export function buildVariableContextFromExecutionContext(
   targetNodeId: string,
   context: ExecutionContext,
   nodes: WorkflowNode[],
-  edges: WorkflowEdge[]
+  edges: WorkflowEdge[],
+  globalVariables?: Record<string, any>
 ): VariableContextResult {
   const extractor = new ExecutionContextOutputExtractor(context);
-  return buildVariableContext(targetNodeId, nodes, edges, extractor);
+  return buildVariableContext(
+    targetNodeId,
+    nodes,
+    edges,
+    extractor,
+    globalVariables
+  );
 }
 
 /**

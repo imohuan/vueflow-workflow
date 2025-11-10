@@ -1,4 +1,4 @@
-<template>
+     <template>
   <n-layout has-sider class="h-full">
     <VerticalTabNav />
 
@@ -286,7 +286,8 @@ async function handleExecute(selectedNodeIds?: string[]) {
     await executionManager.execute(workflow, {
       useCache: true,
       timeout: 60000,
-    });
+      globalVariables: workflowStore.getGlobalVariableJson(),
+    } as any);
   } catch (error) {
     // 这里只处理异常情况（非正常的执行错误通过事件处理）
     const errorMessage = error instanceof Error ? error.message : "未知错误";

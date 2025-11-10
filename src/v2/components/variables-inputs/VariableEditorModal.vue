@@ -150,16 +150,10 @@ import ModalShell from "../ui/ModalShell.vue";
 import VariablePanel from "../variables/VariablePanel.vue";
 import VariablePreview from "./VariablePreview.vue";
 import { useUiStore } from "../../stores/ui";
-import { useCanvasStore } from "../../stores/canvas";
-import {
-  getAvailableVariableTree,
-  extractAvailableVariables,
-  type VariableTreeNode,
-} from "../../features/canvas/utils/variableResolver";
+import { useVariableContext } from "../../composables/useVariableContext";
 import { resolveConfigWithVariables } from "workflow-flow-nodes";
 
 const uiStore = useUiStore();
-const canvasStore = useCanvasStore();
 const {
   selectedNodeId,
   variableEditorModalVisible,
@@ -170,19 +164,8 @@ const internalValue = ref("");
 const currentPreviewIndex = ref(0);
 const pageInput = ref("0");
 
-// 获取可用变量
-const availableVariables = computed<VariableTreeNode[]>(() => {
-  if (!selectedNodeId.value) return [];
-
-  try {
-    const nodes = (canvasStore.nodes || []) as any[];
-    const edges = (canvasStore.edges || []) as any[];
-    return getAvailableVariableTree(selectedNodeId.value, nodes, edges);
-  } catch (error) {
-    console.error("[VariableEditorModal] 获取可用变量失败:", error);
-    return [];
-  }
-});
+// 使用统一的变量上下文，避免重复计算
+const { variableTree: availableVariables, contextMap } = useVariableContext();
 
 // 检查是否包含变量
 const hasVariable = computed(() => {
@@ -200,20 +183,12 @@ const previewItems = computed(() => {
     return [value];
   }
 
-  if (!selectedNodeId.value) {
+  if (!selectedNodeId.value || !contextMap.value || contextMap.value.size === 0) {
     return [value];
   }
 
   try {
-    const nodes = (canvasStore.nodes || []) as any[];
-    const edges = (canvasStore.edges || []) as any[];
-    const { map: contextMap } = extractAvailableVariables(
-      selectedNodeId.value,
-      nodes,
-      edges
-    );
-
-    const resolved = resolveConfigWithVariables({ preview: value }, contextMap);
+    const resolved = resolveConfigWithVariables({ preview: value }, contextMap.value);
 
     const result = resolved.preview;
 

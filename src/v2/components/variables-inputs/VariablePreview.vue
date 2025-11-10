@@ -26,10 +26,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { storeToRefs } from "pinia";
-import { useUiStore } from "../../stores/ui";
-import { useCanvasStore } from "../../stores/canvas";
-import { extractAvailableVariables } from "../../features/canvas/utils/variableResolver";
+import { useVariableContext } from "../../composables/useVariableContext";
 import { resolveConfigWithVariables } from "workflow-flow-nodes";
 
 interface Props {
@@ -45,9 +42,8 @@ const props = withDefaults(defineProps<Props>(), {
   inline: false,
 });
 
-const uiStore = useUiStore();
-const canvasStore = useCanvasStore();
-const { selectedNodeId } = storeToRefs(uiStore);
+// 使用统一的变量上下文，避免重复计算
+const { contextMap } = useVariableContext();
 
 // 实时预览解析后的内容
 const resolvedValue = computed(() => {
@@ -58,20 +54,12 @@ const resolvedValue = computed(() => {
   const hasVariable = /\{\{\s*\$?[^{}]+?\s*\}\}/.test(value);
   if (!hasVariable) return "";
 
-  if (!selectedNodeId.value) return "";
+  // 如果没有 contextMap，说明没有选中节点
+  if (!contextMap.value || contextMap.value.size === 0) return "";
 
   try {
-    // 获取变量上下文
-    const nodes = (canvasStore.nodes || []) as any[];
-    const edges = (canvasStore.edges || []) as any[];
-    const { map: contextMap } = extractAvailableVariables(
-      selectedNodeId.value,
-      nodes,
-      edges
-    );
-
     // 解析变量
-    const resolved = resolveConfigWithVariables({ preview: value }, contextMap);
+    const resolved = resolveConfigWithVariables({ preview: value }, contextMap.value);
 
     const result = resolved.preview;
 
@@ -102,21 +90,14 @@ const resolvedValueHtml = computed(() => {
   const hasVariable = /\{\{\s*\$?[^{}]+?\s*\}\}/.test(value);
   if (!hasVariable) return "";
 
-  if (!selectedNodeId.value) return "";
+  // 如果没有 contextMap，说明没有选中节点
+  if (!contextMap.value || contextMap.value.size === 0) return "";
 
   try {
-    const nodes = (canvasStore.nodes || []) as any[];
-    const edges = (canvasStore.edges || []) as any[];
-    const { map: contextMap } = extractAvailableVariables(
-      selectedNodeId.value,
-      nodes,
-      edges
-    );
-
     // 统一使用 highlightResolvedVariables，如果指定了 currentItemIndex 则传入
     return highlightResolvedVariables(
       value,
-      contextMap,
+      contextMap.value,
       props.currentItemIndex
     );
   } catch (error) {

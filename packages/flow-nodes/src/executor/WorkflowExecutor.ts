@@ -99,16 +99,16 @@ export class WorkflowExecutor {
 
       // 识别容器节点（有子节点的节点）
       const containerNodeIds = this.identifyContainerNodes(workflow.nodes);
-      
+
       // 排除容器节点进行拓扑排序（容器节点由循环逻辑特殊处理）
       const nonContainerNodes = workflow.nodes.filter(
         (node) => !containerNodeIds.has(node.id)
       );
-      
+
       // 排除与容器节点相关的边
       const nonContainerEdges = workflow.edges.filter(
-        (edge) => 
-          !containerNodeIds.has(edge.source) && 
+        (edge) =>
+          !containerNodeIds.has(edge.source) &&
           !containerNodeIds.has(edge.target)
       );
 
@@ -117,7 +117,10 @@ export class WorkflowExecutor {
       );
 
       // 拓扑排序（只对非容器节点）
-      const sortedNodes = this.topologicalSort(nonContainerNodes, nonContainerEdges);
+      const sortedNodes = this.topologicalSort(
+        nonContainerNodes,
+        nonContainerEdges
+      );
 
       // 过滤出需要执行的节点（保持拓扑顺序）
       const executionOrder = sortedNodes.filter((node) =>
@@ -546,12 +549,13 @@ export class WorkflowExecutor {
           node.data.params
         );
 
-        // 构建变量上下文
+        // 构建变量上下文（包含全局变量）
         const { map: contextMap } = buildVariableContextFromExecutionContext(
           nodeId,
           context,
           context.getWorkflow().nodes,
-          context.getWorkflow().edges
+          context.getWorkflow().edges,
+          options.globalVariables
         );
 
         // 对参数进行变量替换
@@ -651,12 +655,7 @@ export class WorkflowExecutor {
       options.onNodeComplete?.(nodeId, outputs);
 
       // 检查是否是循环节点，如果是则执行循环逻辑
-      await this.handleForLoopIfNeeded(
-        node,
-        outputs,
-        context,
-        options
-      );
+      await this.handleForLoopIfNeeded(node, outputs, context, options);
     } catch (error) {
       // 执行失败
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -798,22 +797,22 @@ export class WorkflowExecutor {
    */
   private identifyContainerNodes(nodes: WorkflowNode[]): Set<string> {
     const containerIds = new Set<string>();
-    
+
     for (const node of nodes) {
       const parentId = node.parentNode || node.data?.parentNode;
-      if (parentId && typeof parentId === 'string') {
+      if (parentId && typeof parentId === "string") {
         containerIds.add(parentId);
         console.log(
           `[WorkflowExecutor] 节点 ${node.id} 的父节点是 ${parentId}（容器节点）`
         );
       }
     }
-    
+
     console.log(
       `[WorkflowExecutor] 识别到 ${containerIds.size} 个容器节点:`,
       Array.from(containerIds)
     );
-    
+
     return containerIds;
   }
 
@@ -896,7 +895,9 @@ export class WorkflowExecutor {
       const iterationVars = iterationsToExecute[i] || {};
 
       console.log(
-        `[WorkflowExecutor] 执行第 ${actualIndex + 1}/${iterations.length} 次迭代`,
+        `[WorkflowExecutor] 执行第 ${actualIndex + 1}/${
+          iterations.length
+        } 次迭代`,
         iterationVars
       );
 
@@ -940,8 +941,12 @@ export class WorkflowExecutor {
     // 构建输出结果
     const totalCount = iterations.length;
     const executedCount = iterationsToExecute.length;
-    const successCount = iterationResults.filter((r) => r.status === "success").length;
-    const errorCount = iterationResults.filter((r) => r.status === "error").length;
+    const successCount = iterationResults.filter(
+      (r) => r.status === "success"
+    ).length;
+    const errorCount = iterationResults.filter(
+      (r) => r.status === "error"
+    ).length;
 
     // 更新 For 节点的输出
     const updatedOutputs = {
@@ -991,15 +996,14 @@ export class WorkflowExecutor {
 
     // 查找容器内的所有节点（排除容器节点本身）
     const containerNodes = workflow.nodes.filter(
-      (node) => 
-        node.id !== containerId && 
-        (node.data?.parentNode === containerId || node.parentNode === containerId)
+      (node) =>
+        node.id !== containerId &&
+        (node.data?.parentNode === containerId ||
+          node.parentNode === containerId)
     );
 
     if (containerNodes.length === 0) {
-      console.warn(
-        `[WorkflowExecutor] 容器 ${containerId} 内没有找到任何节点`
-      );
+      console.warn(`[WorkflowExecutor] 容器 ${containerId} 内没有找到任何节点`);
       return null;
     }
 
@@ -1025,9 +1029,7 @@ export class WorkflowExecutor {
         edge.target !== containerId
     );
 
-    console.log(
-      `[WorkflowExecutor] 容器内有 ${containerEdges.length} 条边`
-    );
+    console.log(`[WorkflowExecutor] 容器内有 ${containerEdges.length} 条边`);
 
     const sortedNodes = this.topologicalSort(containerNodes, containerEdges);
 

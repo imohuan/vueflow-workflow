@@ -100,6 +100,9 @@ export interface ExecutionOptions {
   /** 是否清空缓存后执行（默认：false） */
   clearCache?: boolean;
 
+  /** 全局变量（可在所有节点中访问） */
+  globalVariables?: Record<string, any>;
+
   /** 执行生命周期回调 */
   onExecutionStart?: (payload: ExecutionLifecycleEvent) => void;
   onExecutionComplete?: (result: ExecutionResult) => void;

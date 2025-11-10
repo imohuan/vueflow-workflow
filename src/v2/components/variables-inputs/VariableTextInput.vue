@@ -199,8 +199,7 @@ import Dropdown from "../common/Dropdown.vue";
 import VariablePreview from "./VariablePreview.vue";
 import { storeToRefs } from "pinia";
 import { useUiStore } from "../../stores/ui";
-import { useCanvasStore } from "../../stores/canvas";
-import { extractAvailableVariables } from "../../features/canvas/utils/variableResolver";
+import { useVariableContext } from "../../composables/useVariableContext";
 import { resolveConfigWithVariables } from "workflow-flow-nodes";
 
 defineOptions({
@@ -252,8 +251,8 @@ const CURSOR_PLACEHOLDER_HTML =
   '<span data-cursor-anchor="true" style="display:inline-block;width:1px;">&#8203;</span>';
 
 const uiStore = useUiStore();
-const canvasStore = useCanvasStore();
 const { selectedNodeId } = storeToRefs(uiStore);
+const { contextMap } = useVariableContext();
 
 const showPlaceholder = computed(
   () => !internalValue.value && props.placeholder
@@ -298,20 +297,12 @@ const previewItems = computed(() => {
     return [value];
   }
 
-  if (!selectedNodeId.value) {
+  if (!selectedNodeId.value || !contextMap.value || contextMap.value.size === 0) {
     return [value];
   }
 
   try {
-    const nodes = (canvasStore.nodes || []) as any[];
-    const edges = (canvasStore.edges || []) as any[];
-    const { map: contextMap } = extractAvailableVariables(
-      selectedNodeId.value,
-      nodes,
-      edges
-    );
-
-    const resolved = resolveConfigWithVariables({ preview: value }, contextMap);
+    const resolved = resolveConfigWithVariables({ preview: value }, contextMap.value);
 
     const result = resolved.preview;
 

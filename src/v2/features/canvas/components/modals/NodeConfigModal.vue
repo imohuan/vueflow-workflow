@@ -193,7 +193,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
-import type { Node, Edge } from "@vue-flow/core";
+import type { Node } from "@vue-flow/core";
 import { useMessage } from "naive-ui";
 import {
   ModalShell,
@@ -208,8 +208,10 @@ import IconLoading from "@/icons/IconLoading.vue";
 import IconErrorCircle from "@/icons/IconErrorCircle.vue";
 import IconNodeEditor from "@/icons/IconNodeEditor.vue";
 import CodeEditor from "@/v2/components/code/CodeEditor.vue";
-import { useUiStore } from "../../../../stores/ui";
-import { useCanvasStore } from "../../../../stores/canvas";
+import { useUiStore } from "@/v2/stores/ui";
+import { useCanvasStore } from "@/v2/stores/canvas";
+import { useVariableContext } from "@/v2/composables/useVariableContext";
+import type { VariableTreeNode } from "@/v2/features/canvas/utils/variableResolver";
 import { useVueFlowEvents } from "../../../vueflow";
 import { eventBusUtils } from "../../../vueflow/events";
 import type {
@@ -217,10 +219,6 @@ import type {
   ExecutionNodeErrorEvent,
   ExecutionCacheHitEvent,
 } from "../../../vueflow/executor";
-import {
-  getAvailableVariableTree,
-  type VariableTreeNode,
-} from "../../utils/variableResolver";
 import { jsonToVariableTree } from "../../../../components/json/jsonToVariableTree";
 
 const uiStore = useUiStore();
@@ -228,6 +226,7 @@ const canvasStore = useCanvasStore();
 const message = useMessage();
 const { findNode } = useVueFlow();
 const { selectedNodeId } = storeToRefs(uiStore);
+const { variableTree: availableVariables } = useVariableContext();
 
 // 事件系统
 const events = useVueFlowEvents();
@@ -238,22 +237,6 @@ const selectedNode = computed<Node | undefined>(() => {
   return findNode(selectedNodeId.value);
 });
 
-/** 可用变量列表 */
-const availableVariables = computed<VariableTreeNode[]>(() => {
-  if (!selectedNodeId.value) {
-    return [];
-  }
-  try {
-    const nodes = (canvasStore.nodes || []) as Node[];
-    const edges = (canvasStore.edges || []) as Edge[];
-    const result = getAvailableVariableTree(selectedNodeId.value, nodes, edges);
-    console.log("[NodeConfigModal] 获取可用变量结果:", result);
-    return result;
-  } catch (error) {
-    console.error("[NodeConfigModal] 获取可用变量失败:", error);
-    return [];
-  }
-});
 
 const leftWidth = ref(320);
 const rightWidth = ref(320);
