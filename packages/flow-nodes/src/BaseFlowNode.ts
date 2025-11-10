@@ -64,8 +64,15 @@ export interface NodeExecutionContext {
   nodeId: string;
   /** 工作流全局上下文 */
   workflow?: Record<string, any>;
+  /** 节点数据/配置 */
+  nodeData: Record<string, any>;
   /** 中止信号 */
   signal?: AbortSignal;
+  /** For 循环节点专用：执行容器内节点的方法 */
+  executeContainer?: (
+    containerId: string,
+    iterationVars: Record<string, any>
+  ) => Promise<any>;
   /** 其他自定义数据 */
   [key: string]: any;
 }

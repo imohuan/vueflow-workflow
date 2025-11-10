@@ -101,11 +101,21 @@ export class ForNode extends BaseFlowNode {
       }
 
       // 获取配置（从节点的 context.nodeData.config 或使用默认配置）
-      const nodeData = (context as any).nodeData || {};
+      const nodeData = context.nodeData || {};
       const config: ForConfig = {
         ...this.getDefaultConfig(),
         ...(nodeData.config || {}),
       };
+
+      // 检查是否有容器 ID
+      if (!config.containerId) {
+        throw new Error("For 节点未配置循环体容器");
+      }
+
+      // 检查是否有执行容器的方法（由 WorkflowExecutor 注入）
+      if (!context.executeContainer) {
+        throw new Error("执行上下文缺少 executeContainer 方法");
+      }
 
       // 生成迭代数据：每次迭代的变量
       const iterations = items.map((value, index) => ({
@@ -113,32 +123,134 @@ export class ForNode extends BaseFlowNode {
         [config.indexName]: index,
       }));
 
-      // 构建详细信息（供执行器使用）
-      const details = {
-        mode: config.mode,
-        count: items.length,
-        items,
-        itemName: config.itemName,
-        indexName: config.indexName,
-        containerId: config.containerId || null,
-        errorHandling: config.errorHandling,
-        iterations, // 迭代变量列表
-      };
+      // 如果没有迭代数据，直接返回
+      if (iterations.length === 0) {
+        const outputs: Record<string, any> = {
+          next: {
+            totalCount: 0,
+            executedCount: 0,
+            successCount: 0,
+            errorCount: 0,
+            results: [],
+            summary: "无迭代数据",
+          },
+        };
+        return this.createOutput(outputs, { count: 0 }, "无迭代数据");
+      }
 
-      // 生成输出
-      // loop: 提供给循环体容器的迭代信息
-      // next: 循环结束后的输出信息
+      // 获取分页配置
+      const pagination = config.pagination;
+      const isPaginated = pagination?.enabled ?? false;
+      const pageSize = pagination?.pageSize ?? 10;
+      const currentPage = pagination?.currentPage ?? 1;
+
+      // 计算要执行的迭代范围
+      let iterationsToExecute = iterations;
+      let startIndex = 0;
+      let endIndex = iterations.length;
+
+      if (isPaginated && pageSize > 0) {
+        startIndex = (currentPage - 1) * pageSize;
+        endIndex = Math.min(startIndex + pageSize, iterations.length);
+        iterationsToExecute = iterations.slice(startIndex, endIndex);
+
+        console.log(
+          `[ForNode] 启用分页：第 ${currentPage} 页，每页 ${pageSize} 条，执行 ${iterationsToExecute.length} 次迭代（总共 ${iterations.length} 次）`
+        );
+      } else {
+        console.log(`[ForNode] 开始执行循环，共 ${iterations.length} 次迭代`);
+      }
+
+      // 执行循环
+      const iterationResults: any[] = [];
+
+      for (let i = 0; i < iterationsToExecute.length; i++) {
+        const actualIndex = startIndex + i;
+        const iterationVars = iterationsToExecute[i] || {};
+
+        console.log(
+          `[ForNode] 执行第 ${actualIndex + 1}/${iterations.length} 次迭代`,
+          iterationVars
+        );
+
+        try {
+          // 执行容器内的节点
+          const containerOutput = await context.executeContainer(
+            config.containerId,
+            iterationVars
+          );
+
+          iterationResults.push({
+            index: actualIndex,
+            variables: iterationVars,
+            result: containerOutput,
+            status: "success",
+          });
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          console.error(
+            `[ForNode] 第 ${actualIndex + 1} 次迭代失败:`,
+            errorMsg
+          );
+
+          iterationResults.push({
+            index: actualIndex,
+            variables: iterationVars,
+            error: errorMsg,
+            status: "error",
+          });
+
+          // 检查是否继续执行
+          const errorHandling = config.errorHandling;
+          if (!errorHandling?.continueOnError) {
+            throw error;
+          }
+        }
+      }
+
+      // 构建输出结果
+      const totalCount = iterations.length;
+      const executedCount = iterationsToExecute.length;
+      const successCount = iterationResults.filter(
+        (r) => r.status === "success"
+      ).length;
+      const errorCount = iterationResults.filter(
+        (r) => r.status === "error"
+      ).length;
+
       const outputs: Record<string, any> = {
-        loop: {
-          iterations,
-          containerId: config.containerId,
-          itemName: config.itemName,
-          indexName: config.indexName,
+        next: {
+          // 执行统计
+          totalCount,
+          executedCount,
+          successCount,
+          errorCount,
+          // 结果数据
+          results: iterationResults,
+          // 分页信息
+          pagination: isPaginated
+            ? {
+                enabled: true,
+                currentPage,
+                pageSize,
+                totalPages: Math.ceil(totalCount / pageSize),
+                startIndex,
+                endIndex: endIndex - 1,
+              }
+            : undefined,
+          // 摘要信息
+          summary: isPaginated
+            ? `第 ${currentPage} 页：执行 ${executedCount} 次，成功 ${successCount} 次，失败 ${errorCount} 次`
+            : `循环执行 ${executedCount} 次，成功 ${successCount} 次，失败 ${errorCount} 次`,
         },
-        next: null, // 初始为 null，执行器会填充实际的循环结果
       };
 
-      return this.createOutput(outputs, details, `准备循环 ${items.length} 次`);
+      return this.createOutput(
+        outputs,
+        { totalCount, executedCount, successCount, errorCount },
+        outputs.next.summary
+      );
     } catch (error) {
       return this.createError(error as Error);
     }

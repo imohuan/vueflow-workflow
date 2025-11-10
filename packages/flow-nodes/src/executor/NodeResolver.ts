@@ -3,7 +3,7 @@
  * 负责根据节点类型获取节点执行函数和元数据
  */
 
-import type { BaseFlowNode, PortConfig } from "../BaseFlowNode";
+import type { BaseFlowNode, PortConfig, NodeExecutionContext } from "../BaseFlowNode";
 import type { NodeMetadata, NodeExecuteFunction } from "./types";
 
 /**
@@ -100,21 +100,13 @@ export class DefaultNodeResolver implements INodeResolver {
     // 返回一个包装函数，调用节点的 execute 方法
     return async (
       inputs: Record<string, any>,
-      config: Record<string, any>
+      context: Record<string, any>
     ): Promise<Record<string, any>> => {
       const instance = new NodeClass();
 
-      // 合并配置到节点
-      if (config && typeof config === "object") {
-        Object.assign(instance, config);
-      }
-
-      // 执行节点
-      const result = await instance.execute(inputs, {
-        nodeId: "", // 这里会由 WorkflowExecutor 传入
-        workflowId: "",
-        timestamp: Date.now(),
-      });
+      // 执行节点，直接传入完整的 context（包含 nodeId, nodeData, executeContainer 等）
+      // context 应包含 NodeExecutionContext 的所有必需属性
+      const result = await instance.execute(inputs, context as NodeExecutionContext);
 
       // 返回输出数据
       return result.outputs || {};

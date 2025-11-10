@@ -100,27 +100,36 @@ export class WorkflowExecutor {
       // 识别容器节点（有子节点的节点）
       const containerNodeIds = this.identifyContainerNodes(workflow.nodes);
 
-      // 排除容器节点进行拓扑排序（容器节点由循环逻辑特殊处理）
-      const nonContainerNodes = workflow.nodes.filter(
-        (node) => !containerNodeIds.has(node.id)
+      // 识别容器内的子节点（有 parentNode 的节点）
+      const childNodeIds = new Set<string>();
+      for (const node of workflow.nodes) {
+        const parentId = node.parentNode || node.data?.parentNode;
+        if (parentId && typeof parentId === "string") {
+          childNodeIds.add(node.id);
+        }
+      }
+
+      // 排除容器节点和容器内的子节点进行拓扑排序
+      // 主流程只执行顶层节点，容器内的子节点由循环逻辑特殊处理
+      const topLevelNodes = workflow.nodes.filter(
+        (node) => !containerNodeIds.has(node.id) && !childNodeIds.has(node.id)
       );
 
-      // 排除与容器节点相关的边
-      const nonContainerEdges = workflow.edges.filter(
-        (edge) =>
-          !containerNodeIds.has(edge.source) &&
-          !containerNodeIds.has(edge.target)
-      );
+      // 排除与容器节点和子节点相关的边
+      const topLevelEdges = workflow.edges.filter((edge) => {
+        const isSourceTopLevel =
+          !containerNodeIds.has(edge.source) && !childNodeIds.has(edge.source);
+        const isTargetTopLevel =
+          !containerNodeIds.has(edge.target) && !childNodeIds.has(edge.target);
+        return isSourceTopLevel && isTargetTopLevel;
+      });
 
       console.log(
-        `[WorkflowExecutor] 排除 ${containerNodeIds.size} 个容器节点后，对 ${nonContainerNodes.length} 个节点进行拓扑排序`
+        `[WorkflowExecutor] 排除 ${containerNodeIds.size} 个容器节点和 ${childNodeIds.size} 个子节点后，对 ${topLevelNodes.length} 个顶层节点进行拓扑排序`
       );
 
-      // 拓扑排序（只对非容器节点）
-      const sortedNodes = this.topologicalSort(
-        nonContainerNodes,
-        nonContainerEdges
-      );
+      // 拓扑排序（只对顶层节点）
+      const sortedNodes = this.topologicalSort(topLevelNodes, topLevelEdges);
 
       // 过滤出需要执行的节点（保持拓扑顺序）
       const executionOrder = sortedNodes.filter((node) =>
@@ -622,9 +631,31 @@ export class WorkflowExecutor {
       // 获取节点执行函数
       const executeFunc = this.nodeResolver.resolve(nodeType);
 
+      // 构建节点执行上下文
+      const nodeContext: Record<string, any> = {
+        nodeId,
+        nodeData: node.data,
+        workflowId: context.getWorkflowId(),
+      };
+
+      // 为 For 节点注入特殊的 executeContainer 方法
+      if (nodeType === "for") {
+        nodeContext.executeContainer = async (
+          containerId: string,
+          iterationVars: Record<string, any>
+        ) => {
+          return await this.executeContainerNodes(
+            containerId,
+            iterationVars,
+            context,
+            options
+          );
+        };
+      }
+
       // 执行节点
       const outputs = await this.executeWithTimeout(
-        () => executeFunc(inputs, node.data || {}),
+        () => executeFunc(inputs, nodeContext),
         options.timeout
       );
 
@@ -653,9 +684,6 @@ export class WorkflowExecutor {
       }
 
       options.onNodeComplete?.(nodeId, outputs);
-
-      // 检查是否是循环节点，如果是则执行循环逻辑
-      await this.handleForLoopIfNeeded(node, outputs, context, options);
     } catch (error) {
       // 执行失败
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -814,173 +842,6 @@ export class WorkflowExecutor {
     );
 
     return containerIds;
-  }
-
-  /**
-   * 检查并处理循环节点
-   */
-  private async handleForLoopIfNeeded(
-    node: WorkflowNode,
-    outputs: Record<string, any>,
-    context: ExecutionContext,
-    options: ExecutionOptions
-  ): Promise<void> {
-    // 检查节点类型是否为 'for'
-    const nodeType = node.data?.nodeType || node.type;
-    if (nodeType !== "for") {
-      return;
-    }
-
-    // 获取循环输出信息
-    const loopOutput = outputs.loop || outputs.outputs?.loop;
-    if (!loopOutput) {
-      console.warn(`[WorkflowExecutor] For 节点 ${node.id} 没有返回循环信息`);
-      return;
-    }
-
-    const { iterations, containerId, itemName, indexName } = loopOutput;
-
-    // 检查是否有容器 ID
-    if (!containerId) {
-      console.warn(`[WorkflowExecutor] For 节点 ${node.id} 没有配置容器 ID`);
-      return;
-    }
-
-    // 检查迭代数据
-    if (!Array.isArray(iterations) || iterations.length === 0) {
-      console.log(`[WorkflowExecutor] For 节点 ${node.id} 没有迭代数据`);
-      // 更新输出
-      const updatedOutputs = {
-        ...outputs,
-        next: {
-          count: 0,
-          results: [],
-          summary: "无迭代数据",
-        },
-      };
-      context.setNodeOutput(node.id, updatedOutputs);
-      return;
-    }
-
-    // 获取分页配置
-    const pagination = node.data?.config?.pagination;
-    const isPaginated = pagination?.enabled ?? false;
-    const pageSize = pagination?.pageSize ?? 10;
-    const currentPage = pagination?.currentPage ?? 1;
-
-    // 计算要执行的迭代范围
-    let iterationsToExecute = iterations;
-    let startIndex = 0;
-    let endIndex = iterations.length;
-
-    if (isPaginated && pageSize > 0) {
-      startIndex = (currentPage - 1) * pageSize;
-      endIndex = Math.min(startIndex + pageSize, iterations.length);
-      iterationsToExecute = iterations.slice(startIndex, endIndex);
-
-      console.log(
-        `[WorkflowExecutor] For 节点 ${node.id} 启用分页：第 ${currentPage} 页，每页 ${pageSize} 条，执行 ${iterationsToExecute.length} 次迭代（总共 ${iterations.length} 次）`
-      );
-    } else {
-      console.log(
-        `[WorkflowExecutor] 开始执行 For 节点 ${node.id} 的循环，共 ${iterations.length} 次迭代`
-      );
-    }
-
-    const iterationResults: any[] = [];
-    const workflow = context.getWorkflow();
-
-    for (let i = 0; i < iterationsToExecute.length; i++) {
-      const actualIndex = startIndex + i;
-      const iterationVars = iterationsToExecute[i] || {};
-
-      console.log(
-        `[WorkflowExecutor] 执行第 ${actualIndex + 1}/${
-          iterations.length
-        } 次迭代`,
-        iterationVars
-      );
-
-      try {
-        // 执行容器内的节点，并传入迭代变量
-        const containerOutput = await this.executeContainerNodes(
-          containerId,
-          iterationVars,
-          context,
-          options
-        );
-
-        iterationResults.push({
-          index: actualIndex,
-          variables: iterationVars,
-          result: containerOutput,
-          status: "success",
-        });
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error(
-          `[WorkflowExecutor] 第 ${actualIndex + 1} 次迭代失败:`,
-          errorMsg
-        );
-
-        iterationResults.push({
-          index: actualIndex,
-          variables: iterationVars,
-          error: errorMsg,
-          status: "error",
-        });
-
-        // 检查是否继续执行
-        const errorHandling = node.data?.config?.errorHandling;
-        if (!errorHandling?.continueOnError) {
-          throw error;
-        }
-      }
-    }
-
-    // 构建输出结果
-    const totalCount = iterations.length;
-    const executedCount = iterationsToExecute.length;
-    const successCount = iterationResults.filter(
-      (r) => r.status === "success"
-    ).length;
-    const errorCount = iterationResults.filter(
-      (r) => r.status === "error"
-    ).length;
-
-    // 更新 For 节点的输出
-    const updatedOutputs = {
-      ...outputs,
-      next: {
-        // 执行统计
-        totalCount,
-        executedCount,
-        successCount,
-        errorCount,
-        // 结果数据
-        results: iterationResults,
-        // 分页信息
-        pagination: isPaginated
-          ? {
-              enabled: true,
-              currentPage,
-              pageSize,
-              totalPages: Math.ceil(totalCount / pageSize),
-              startIndex,
-              endIndex: endIndex - 1,
-            }
-          : undefined,
-        // 摘要信息
-        summary: isPaginated
-          ? `第 ${currentPage} 页：执行 ${executedCount} 次，成功 ${successCount} 次，失败 ${errorCount} 次`
-          : `循环执行 ${executedCount} 次，成功 ${successCount} 次，失败 ${errorCount} 次`,
-      },
-    };
-
-    context.setNodeOutput(node.id, updatedOutputs);
-    console.log(
-      `[WorkflowExecutor] For 节点 ${node.id} 循环执行完成：${updatedOutputs.next.summary}`
-    );
   }
 
   /**

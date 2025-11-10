@@ -322,8 +322,10 @@ export interface NodeMetadata {
 
 /**
  * 节点执行函数类型
+ * @param inputs - 节点输入数据
+ * @param context - 节点执行上下文（包含 nodeId, nodeData, workflowId, executeContainer 等）
  */
 export type NodeExecuteFunction = (
   inputs: Record<string, any>,
-  config: Record<string, any>
+  context: Record<string, any>
 ) => Promise<Record<string, any>>;
