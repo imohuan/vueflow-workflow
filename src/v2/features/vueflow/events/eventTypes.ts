@@ -29,6 +29,12 @@ export interface NodeEvents {
   "node:delete-request": { nodeId: string };
   /** 节点被删除 */
   "node:deleted": { nodeId: string };
+  /** 节点标签已更新 */
+  "node:label-updated": { nodeId: string; label: string };
+  /** 节点复制请求 */
+  "node:duplicate-request": { nodeId: string };
+  /** 节点从容器移出请求 */
+  "node:detach-from-container": { nodeId: string; containerId: string };
   /** 节点执行请求 */
   "node:execute": { nodeId: string };
   /** 节点被选中 */

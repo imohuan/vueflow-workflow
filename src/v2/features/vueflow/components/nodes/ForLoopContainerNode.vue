@@ -173,7 +173,7 @@ const highlightClass = computed(() => {
     // 默认虚线边框
     return "border-2 border-dashed border-slate-300";
   }
-
+  // "grammar-error" | "highlight" | "spelling-error";
   if (state === "normal") {
     // 正常高亮（蓝色）
     return "border-2 border-solid border-indigo-500 shadow-lg shadow-indigo-200 ring-2 ring-indigo-200";

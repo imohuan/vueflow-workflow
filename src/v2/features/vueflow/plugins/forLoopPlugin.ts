@@ -3,7 +3,7 @@
  * 处理 For 循环节点和容器节点的交互逻辑
  */
 
-import type { VueFlowPlugin, PluginContext } from "./types";
+import type { VueFlowPlugin, PluginContext, ContainerHighlightType } from "./types";
 import type { Node, Edge } from "@vue-flow/core";
 import { ref, type Ref } from "vue";
 import { CONTAINER_CONFIG } from "../../../config/nodeConfig";
@@ -18,9 +18,6 @@ const {
 
 // 边层级类名常量
 const EDGE_LAYER_CLASS_CONTAINER = "edge-layer-container";
-
-// 高亮类型
-type HighlightType = "normal" | "warning" | null;
 
 // 插件状态
 interface ForLoopPluginState {
@@ -50,7 +47,7 @@ export function createForLoopPlugin(): VueFlowPlugin {
   };
 
   // 容器高亮状态（响应式）
-  const containerHighlightRef: Ref<Record<string, HighlightType>> = ref({});
+  const containerHighlightRef: Ref<Record<string, ContainerHighlightType>> = ref({});
 
   /**
    * 提取边的类名数组
@@ -81,7 +78,7 @@ export function createForLoopPlugin(): VueFlowPlugin {
    * @param containerId 容器 ID
    * @param type 高亮类型：normal=绿色（可移入），warning=红色（有连接，无法移入）
    */
-  function setContainerHighlight(containerId: string, type: HighlightType) {
+  function setContainerHighlight(containerId: string, type: ContainerHighlightType) {
     containerHighlightRef.value = { [containerId]: type };
     console.log(`[ForLoopPlugin] 设置容器高亮: ${containerId}, 类型: ${type}`);
   }

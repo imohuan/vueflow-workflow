@@ -4,8 +4,9 @@
  */
 
 import type { Edge, GraphNode, Node } from "@vue-flow/core";
-import type { VueFlowPlugin, PluginContext } from "./types";
-import { computed, nextTick } from "vue";
+import type { PluginContext, VueFlowPlugin } from "./types";
+import { nextTick, computed } from "vue";
+import { generateUniqueLabel } from "../utils/labelUtils";
 import { onKeyStroke, useActiveElement } from "@vueuse/core";
 
 /**
@@ -112,12 +113,23 @@ export function createCopyPastePlugin(): VueFlowPlugin {
         .substr(2, 9)}`;
       nodeIdMap.set(node.id, newId);
 
+      // 生成唯一标签
+      const baseLabel = node.data?.label || "节点";
+      const uniqueLabel = generateUniqueLabel(
+        baseLabel,
+        context.core.nodes.value
+      );
+
       const newNode: Node = {
         ...node,
         id: newId,
         position: {
           x: node.position.x + baseOffset,
           y: node.position.y + baseOffset,
+        },
+        data: {
+          ...node.data,
+          label: uniqueLabel,
         },
       } as Node;
 

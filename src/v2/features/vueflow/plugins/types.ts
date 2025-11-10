@@ -43,9 +43,14 @@ export interface EdgeEditSharedState {
   markUpdateSuccessful: () => void;
 }
 
+/**
+ * 容器高亮类型
+ */
+export type ContainerHighlightType = "normal" | "warning" | null;
+
 export interface ForLoopSharedState {
   /** 容器高亮状态 */
-  containerHighlight: Ref<Record<string, HighlightType>>;
+  containerHighlight: Ref<Record<string, ContainerHighlightType>>;
   /** 更新容器边界 */
   updateContainerBounds: (containerId: string) => void;
 }

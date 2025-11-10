@@ -118,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, provide } from "vue";
+import { computed, onMounted, onUnmounted, provide, nextTick } from "vue";
 import { storeToRefs } from "pinia";
 import {
   VueFlow,
@@ -142,7 +142,8 @@ import {
 } from "../core/vueflowConfig";
 import { useEditorConfigStore } from "../../../stores/editorConfig";
 import { NODE_SIZE } from "../../../config";
-import { eventBusUtils } from "../events";
+import { eventBusUtils } from "../events/eventBus";
+import { generateUniqueLabel } from "../utils/labelUtils";
 import CustomNode from "./nodes/CustomNode.vue";
 import NoteNode from "./nodes/NoteNode.vue";
 import StartNode from "./nodes/StartNode.vue";
@@ -366,6 +367,9 @@ function handleDrop(event: DragEvent) {
     // 获取节点类型特定数据
     const specificData = NODE_TYPE_SPECIFIC_DATA[draggedNode.id] || {};
 
+    // 生成唯一标签
+    const uniqueLabel = generateUniqueLabel(draggedNode.name, coreNodes.value);
+
     // 创建新的节点对象
     const newNode: Node = {
       id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -374,7 +378,7 @@ function handleDrop(event: DragEvent) {
       data: {
         nodeType: draggedNode.id,
         // 通用字段：从 draggedNode 获取
-        label: draggedNode.name,
+        label: uniqueLabel,
         description: draggedNode.description,
         // 对于 custom 类型，添加 type 字段
         ...(nodeType === "custom" && { type: draggedNode.id }),
@@ -395,6 +399,12 @@ function handleDrop(event: DragEvent) {
         .toString(36)
         .substring(2, 9)}`;
 
+      // 生成容器节点的唯一标签（需要考虑刚添加的 for 节点）
+      const containerLabel = generateUniqueLabel("批处理体", [
+        ...coreNodes.value,
+        newNode,
+      ]);
+
       // 创建容器节点（放在 for 节点下方）
       const containerNode: Node = {
         id: containerId,
@@ -405,7 +415,7 @@ function handleDrop(event: DragEvent) {
             adjustedPosition.y + 100 + editorConfig.value.autoLayoutRankSpacing, // 放在 for 节点下方 150px
         },
         data: {
-          label: "批处理体",
+          label: containerLabel,
           type: "forLoopContainer",
           config: {
             forNodeId: newNode.id,
@@ -681,6 +691,152 @@ function handleNodeDelete({ nodeId }: { nodeId: string }) {
   vueFlowCore.deleteNode(nodeId);
 }
 
+/**
+ * 处理节点标签更新
+ */
+function handleNodeLabelUpdate({
+  nodeId,
+  label,
+}: {
+  nodeId: string;
+  label: string;
+}) {
+  console.log(`[VueFlowCanvas] 节点标签更新: ${nodeId} -> ${label}`);
+
+  // 生成唯一标签（排除当前节点）
+  const uniqueLabel = generateUniqueLabel(label, coreNodes.value, nodeId);
+
+  // 如果标签被修改了，提示用户
+  if (uniqueLabel !== label) {
+    console.log(`[VueFlowCanvas] 标签重复，自动调整为: ${uniqueLabel}`);
+  }
+
+  // 更新节点数据
+  vueFlowCore.updateNodes((nodes) =>
+    nodes.map((n) =>
+      n.id === nodeId
+        ? {
+            ...n,
+            data: {
+              ...n.data,
+              label: uniqueLabel,
+            },
+          }
+        : n
+    )
+  );
+}
+
+/**
+ * 处理节点复制请求
+ */
+function handleNodeDuplicate({ nodeId }: { nodeId: string }) {
+  console.log("[VueFlowCanvas] 节点复制请求:", nodeId);
+
+  const node = coreNodes.value.find((n) => n.id === nodeId);
+  if (!node) {
+    console.warn("[VueFlowCanvas] 未找到节点:", nodeId);
+    return;
+  }
+
+  // 创建新节点 ID
+  const newId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  // 复制节点，偏移位置
+  const offset = 30;
+  // 生成基础标签
+  const baseLabel = node.data?.label || "节点";
+  // 生成唯一标签
+  const uniqueLabel = generateUniqueLabel(baseLabel, coreNodes.value);
+
+  const newNode: Node = {
+    ...JSON.parse(JSON.stringify(node)),
+    id: newId,
+    position: {
+      x: node.position.x + offset,
+      y: node.position.y + offset,
+    },
+    data: {
+      ...node.data,
+      label: uniqueLabel,
+    },
+  } as Node;
+
+  vueFlowCore.addNode(newNode);
+  console.log("[VueFlowCanvas] 节点已复制:", newId, newNode);
+
+  // 清除当前选中的节点，然后选中新克隆的节点
+  const { removeSelectedElements, addSelectedNodes } = vueFlowApi;
+
+  // 先清空所有选中
+  removeSelectedElements?.();
+
+  // 等待 DOM 更新后选中新节点
+  nextTick(() => {
+    const nodeToSelect = coreNodes.value.find((n) => n.id === newId);
+    if (nodeToSelect) {
+      addSelectedNodes?.([nodeToSelect as any]);
+    }
+  });
+}
+
+/**
+ * 处理节点从容器移出请求
+ */
+function handleNodeDetachFromContainer({
+  nodeId,
+  containerId,
+}: {
+  nodeId: string;
+  containerId: string;
+}) {
+  console.log(
+    `[VueFlowCanvas] 节点从容器移出请求: ${nodeId} <- ${containerId}`
+  );
+
+  const node = coreNodes.value.find((n) => n.id === nodeId);
+  const container = coreNodes.value.find((n) => n.id === containerId);
+
+  if (!node || !container) {
+    console.warn("[VueFlowCanvas] 节点或容器不存在");
+    return;
+  }
+
+  // 计算绝对坐标（相对坐标转绝对坐标）
+  const absoluteX = container.position.x + node.position.x;
+  const absoluteY = container.position.y + node.position.y;
+
+  // 收集需要删除的边（与该节点相关的所有边）
+  const edgesToDelete: string[] = [];
+  coreEdges.value.forEach((edge) => {
+    if (edge.source === nodeId || edge.target === nodeId) {
+      edgesToDelete.push(edge.id);
+    }
+  });
+
+  // 删除所有相关连接
+  edgesToDelete.forEach((edgeId) => {
+    vueFlowCore.deleteEdge(edgeId);
+  });
+
+  // 更新节点：移除父节点，设置绝对位置
+  vueFlowCore.updateNodes((nodes) =>
+    nodes.map((n) =>
+      n.id === nodeId
+        ? {
+            ...n,
+            parentNode: undefined,
+            position: { x: absoluteX, y: absoluteY },
+          }
+        : n
+    )
+  );
+
+  console.log(
+    `[VueFlowCanvas] ✅ 节点 ${nodeId} 已脱离容器 ${containerId}，删除了 ${edgesToDelete.length} 条连接`
+  );
+}
+
 onMounted(() => {
   // 设置插件上下文（在挂载后设置，确保 VueFlow 已初始化）
   pluginManager.setContext({
@@ -688,8 +844,11 @@ onMounted(() => {
     vueflow: vueFlowApi,
   });
 
-  // 监听节点删除事件（从按钮触发的删除）
+  // 监听节点操作事件
   eventBusUtils.on("node:delete-request", handleNodeDelete);
+  eventBusUtils.on("node:label-updated", handleNodeLabelUpdate);
+  eventBusUtils.on("node:duplicate-request", handleNodeDuplicate);
+  eventBusUtils.on("node:detach-from-container", handleNodeDetachFromContainer);
 
   // 注册并启用插件
   const configSyncPlugin = createConfigSyncPlugin();
@@ -761,6 +920,12 @@ onMounted(() => {
 onUnmounted(() => {
   // 清理事件监听器
   eventBusUtils.off("node:delete-request", handleNodeDelete);
+  eventBusUtils.off("node:label-updated", handleNodeLabelUpdate);
+  eventBusUtils.off("node:duplicate-request", handleNodeDuplicate);
+  eventBusUtils.off(
+    "node:detach-from-container",
+    handleNodeDetachFromContainer
+  );
 
   // 清理所有插件
   pluginManager.getEnabledPlugins().forEach((plugin) => {

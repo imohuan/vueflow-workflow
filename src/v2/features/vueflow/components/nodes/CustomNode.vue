@@ -1,5 +1,10 @@
 <template>
-  <StandardNode :id="id" :data="standardNodeData" :selected="selected" />
+  <StandardNode
+    :id="id"
+    :data="standardNodeData"
+    :selected="selected"
+    :parent="parent"
+  />
 </template>
 
 <script setup lang="ts">
@@ -23,6 +28,7 @@ interface Props {
     [key: string]: any;
   };
   selected?: boolean;
+  parent?: string;
 }
 
 const props = defineProps<Props>();

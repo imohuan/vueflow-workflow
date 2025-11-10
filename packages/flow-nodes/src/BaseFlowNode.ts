@@ -65,7 +65,7 @@ export interface NodeExecutionContext {
   /** 工作流全局上下文 */
   workflow?: Record<string, any>;
   /** 节点数据/配置 */
-  nodeData: Record<string, any>;
+  nodeData?: Record<string, any>;
   /** 中止信号 */
   signal?: AbortSignal;
   /** For 循环节点专用：执行容器内节点的方法 */
