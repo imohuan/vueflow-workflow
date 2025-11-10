@@ -324,8 +324,9 @@ export interface NodeMetadata {
  * 节点执行函数类型
  * @param inputs - 节点输入数据
  * @param context - 节点执行上下文（包含 nodeId, nodeData, workflowId, executeContainer 等）
+ * @returns 节点执行结果（NodeExecutionResult 从 BaseFlowNode 导入）
  */
 export type NodeExecuteFunction = (
   inputs: Record<string, any>,
   context: Record<string, any>
-) => Promise<Record<string, any>>;
+) => Promise<import("../BaseFlowNode").NodeExecutionResult>;

@@ -149,6 +149,7 @@ import { useEditorConfigStore } from "../../../stores/editorConfig";
 import { NODE_SIZE } from "../../../config";
 import { eventBusUtils } from "../events/eventBus";
 import { generateUniqueLabel } from "../utils/labelUtils";
+import { useUiStore } from "../../../stores/ui";
 import CustomNode from "./nodes/CustomNode.vue";
 import NoteNode from "./nodes/NoteNode.vue";
 import StartNode from "./nodes/StartNode.vue";
@@ -302,6 +303,10 @@ const vueFlowCore = useVueFlowCore({
   enableEvents: true,
   pluginManager,
 });
+
+// 全局快捷键可用性（来自 UI Store）
+const uiStore = useUiStore();
+const { enableShortcut } = storeToRefs(uiStore);
 
 const { nodes: coreNodes, edges: coreEdges, events } = vueFlowCore;
 
@@ -862,7 +867,7 @@ onMounted(() => {
   const configSyncPlugin = createConfigSyncPlugin();
   pluginManager.register(configSyncPlugin);
 
-  const copyPastePlugin = createCopyPastePlugin();
+  const copyPastePlugin = createCopyPastePlugin({ enableShortcut });
   pluginManager.register(copyPastePlugin);
 
   const multiSelectPlugin = createMultiSelectPlugin();
@@ -890,7 +895,7 @@ onMounted(() => {
   const autoLayoutPlugin = createAutoLayoutPlugin();
   pluginManager.register(autoLayoutPlugin);
 
-  const deletePlugin = createDeletePlugin();
+  const deletePlugin = createDeletePlugin({ enableShortcut });
   pluginManager.register(deletePlugin);
 
   const autoReconnectPlugin = createAutoReconnectPlugin({

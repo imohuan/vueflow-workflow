@@ -5,9 +5,10 @@
 
 import type { Edge, GraphNode, Node } from "@vue-flow/core";
 import type { PluginContext, VueFlowPlugin } from "./types";
-import { nextTick, computed } from "vue";
+import type { ComputedRef } from "vue";
+import { nextTick } from "vue";
 import { generateUniqueLabel } from "../utils/labelUtils";
-import { onKeyStroke, useActiveElement } from "@vueuse/core";
+import { onKeyStroke } from "@vueuse/core";
 
 /**
  * 剪贴板数据
@@ -20,10 +21,16 @@ interface ClipboardData {
   center: { x: number; y: number };
 }
 
+interface CopyPastePluginOptions {
+  enableShortcut: ComputedRef<boolean>;
+}
+
 /**
  * 创建复制粘贴插件
  */
-export function createCopyPastePlugin(): VueFlowPlugin {
+export function createCopyPastePlugin(
+  options: CopyPastePluginOptions
+): VueFlowPlugin {
   let clipboard: ClipboardData | null = null;
   let pasteOffset = 0; // 粘贴偏移量，每次粘贴递增
 
@@ -234,14 +241,7 @@ export function createCopyPastePlugin(): VueFlowPlugin {
     ],
 
     setup(context: PluginContext) {
-      // 获取当前活动元素（用于判断是否在输入框中）
-      const activeElement = useActiveElement();
-      const notUsingInput = computed(
-        () =>
-          activeElement.value?.tagName !== "INPUT" &&
-          activeElement.value?.tagName !== "TEXTAREA" &&
-          !activeElement.value?.isContentEditable
-      );
+      const { enableShortcut } = options;
 
       // 注册快捷键（自动清理）
       // Ctrl+C / Cmd+C - 复制
@@ -249,12 +249,12 @@ export function createCopyPastePlugin(): VueFlowPlugin {
         onKeyStroke(
           "c",
           (e) => {
-            if (notUsingInput.value && (e.ctrlKey || e.metaKey)) {
+            if (enableShortcut.value && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
               copyNodes(context);
             }
           },
-          { dedupe: true }
+          { dedupe: false }
         )
       );
 
@@ -263,12 +263,12 @@ export function createCopyPastePlugin(): VueFlowPlugin {
         onKeyStroke(
           "v",
           (e) => {
-            if (notUsingInput.value && (e.ctrlKey || e.metaKey)) {
+            if (enableShortcut.value && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
               pasteNodes(context);
             }
           },
-          { dedupe: true }
+          { dedupe: false }
         )
       );
 
@@ -277,12 +277,12 @@ export function createCopyPastePlugin(): VueFlowPlugin {
         onKeyStroke(
           "x",
           (e) => {
-            if (notUsingInput.value && (e.ctrlKey || e.metaKey)) {
+            if (enableShortcut.value && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
               cutNodes(context);
             }
           },
-          { dedupe: true }
+          { dedupe: false }
         )
       );
 

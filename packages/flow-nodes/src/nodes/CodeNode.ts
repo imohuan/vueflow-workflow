@@ -101,6 +101,7 @@ export class CodeNode extends BaseFlowNode {
         "dataItems",
         null
       );
+
       const rawParamsIsArray = Array.isArray(rawParams);
       const incomingParams =
         rawParams && typeof rawParams === "object" && !rawParamsIsArray

@@ -5,13 +5,19 @@
 
 import type { Edge, Node } from "@vue-flow/core";
 import type { VueFlowPlugin, PluginContext } from "./types";
-import { computed } from "vue";
-import { onKeyStroke, useActiveElement } from "@vueuse/core";
+import type { ComputedRef } from "vue";
+import { onKeyStroke } from "@vueuse/core";
+
+interface DeletePluginOptions {
+  enableShortcut: ComputedRef<boolean>;
+}
 
 /**
  * 创建删除插件
  */
-export function createDeletePlugin(): VueFlowPlugin {
+export function createDeletePlugin(
+  options: DeletePluginOptions
+): VueFlowPlugin {
   // 保存清理函数
   const cleanupFns: Array<() => void> = [];
 
@@ -72,21 +78,14 @@ export function createDeletePlugin(): VueFlowPlugin {
     ],
 
     setup(context: PluginContext) {
-      // 获取当前活动元素（用于判断是否在输入框中）
-      const activeElement = useActiveElement();
-      const notUsingInput = computed(
-        () =>
-          activeElement.value?.tagName !== "INPUT" &&
-          activeElement.value?.tagName !== "TEXTAREA" &&
-          !activeElement.value?.isContentEditable
-      );
+      const { enableShortcut } = options;
 
       // Delete / Backspace - 删除选中的节点和边
       cleanupFns.push(
         onKeyStroke(
           ["Delete", "Backspace"],
           (e) => {
-            if (notUsingInput.value) {
+            if (enableShortcut.value) {
               const selectedNodes = (context.vueflow.getSelectedNodes?.value ??
                 []) as Node[];
               const selectedEdges = (context.vueflow.getSelectedEdges?.value ??

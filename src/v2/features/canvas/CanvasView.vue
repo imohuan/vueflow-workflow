@@ -54,11 +54,11 @@
   </n-layout>
 </template>
 <script setup lang="ts">
-import { reactive, ref, nextTick, computed, watch } from "vue";
+import { reactive, ref, nextTick, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
 import { useMessage } from "naive-ui";
-import { onKeyStroke, useActiveElement, useMagicKeys } from "@vueuse/core";
+import { onKeyStroke, useMagicKeys } from "@vueuse/core";
 import CustomNode from "../vueflow/components/nodes/CustomNode.vue";
 import CanvasToolbar from "./components/CanvasToolbar.vue";
 import QuickNodeMenu from "./components/QuickNodeMenu.vue";
@@ -292,10 +292,10 @@ async function handleExecute(selectedNodeIds?: string[]) {
       globalVariables: workflowStore.getGlobalVariableJson(),
     } as any);
   } catch (error) {
-    // 这里只处理异常情况（非正常的执行错误通过事件处理）
-    const errorMessage = error instanceof Error ? error.message : "未知错误";
+    // 执行错误已经通过 execution:error 事件处理，这里只记录日志
+    // 所有执行错误（包括节点执行错误）都会触发 execution:error 事件，由事件监听器统一处理
+    // 这里不显示错误消息，避免与 execution:error 事件处理重复
     console.error("[CanvasView] 工作流执行异常:", error);
-    message.error(`执行异常: ${errorMessage}`);
   } finally {
     canvasStore.setExecuting(false);
   }
@@ -385,6 +385,7 @@ events.on("execution:complete", (result) => {
 events.on("execution:error", (payload) => {
   console.error("[CanvasView] 工作流执行错误:", payload);
   message.destroyAll();
+  // 显示错误消息（这是执行错误的唯一显示位置）
   message.error(`执行失败: ${payload.error}`);
 });
 
@@ -505,21 +506,14 @@ events.on("execution:result:preview", (payload: any) => {
 
 // ========== 键盘快捷键处理 ==========
 
-// 检查是否在输入框中（避免在输入时触发快捷键）
-const activeElement = useActiveElement();
-const notUsingInput = computed(() => {
-  return (
-    activeElement.value?.tagName !== "INPUT" &&
-    activeElement.value?.tagName !== "TEXTAREA" &&
-    !activeElement.value?.isContentEditable
-  );
-});
+// 全局快捷键可用性（来自 UI Store）
+const { enableShortcut, hasFoucsInput, hasModalOpen } = storeToRefs(uiStore);
 
 // Tab 键切换左侧浮动面板
 onKeyStroke(
   "Tab",
   (e) => {
-    if (notUsingInput.value && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+    if (enableShortcut.value && !e.ctrlKey && !e.shiftKey && !e.altKey) {
       e.preventDefault();
       uiStore.toggleFloatingPanel();
       console.log(
@@ -535,7 +529,7 @@ onKeyStroke(
 onKeyStroke(
   "Escape",
   (e) => {
-    if (notUsingInput.value && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+    if (hasFoucsInput.value && !e.ctrlKey && !e.shiftKey && !e.altKey) {
       e.preventDefault();
 
       if (editorPanelModalVisible.value) {
@@ -590,7 +584,7 @@ const keys = useMagicKeys({
 const ctrlShiftF = keys["Alt+Shift+F"] as any;
 
 watch(ctrlShiftF, (pressed) => {
-  if (pressed && notUsingInput.value) {
+  if (pressed && enableShortcut.value) {
     console.log("[CanvasView] Ctrl+Shift+F 执行自动布局");
     handleAutoLayout();
   }

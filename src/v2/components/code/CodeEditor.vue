@@ -141,10 +141,16 @@ async function initEditor() {
     editorDomNode.addEventListener("wheel", handleWheel, {
       passive: false,
     });
+    editorDomNode.addEventListener("keydown", keydownHandler, true); // 使用捕获阶段，确保在 VueFlow 之前处理
   }
 
   // 触发 ready 事件
   emit("ready", editor, monaco);
+}
+
+// 阻止键盘事件冒泡（防止 VueFlow 或其他组件拦截编辑器内的键盘输入）
+function keydownHandler(e: KeyboardEvent) {
+  if (editor && editor?.hasTextFocus() && e.key === " ") e.stopPropagation();
 }
 
 /** 处理滚轮缩放 */
@@ -212,6 +218,7 @@ onBeforeUnmount(() => {
     const editorDomNode = editor.getDomNode();
     if (editorDomNode) {
       editorDomNode.removeEventListener("wheel", handleWheel);
+      editorDomNode.removeEventListener("keydown", keydownHandler, true);
     }
     const model = editor.getModel();
     editor.dispose();

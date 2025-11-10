@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
+import { useActiveElement } from "@vueuse/core";
 
 /**
  * 面板尺寸预设
@@ -113,6 +114,34 @@ export const useUiStore = defineStore("ui", () => {
 
   /** 当前预览的节点执行状态 */
   const previewNodeData = ref<any>(null);
+
+  // ==================== 全局快捷键可用性 ====================
+  const activeElement = useActiveElement();
+
+  const hasFoucsInput = computed(() => {
+    return (
+      activeElement.value?.tagName !== "INPUT" &&
+      activeElement.value?.tagName !== "TEXTAREA" &&
+      !activeElement.value?.isContentEditable
+    );
+  });
+
+  const hasModalOpen = computed(() => {
+    return (
+      infoModalVisible.value ||
+      editorModalVisible.value ||
+      nodeConfigModalVisible.value ||
+      variableEditorModalVisible.value ||
+      editorPanelModalVisible.value
+    );
+  });
+
+  const enableShortcut = computed(() => {
+    // 任何一个 Modal 打开时，禁用快捷键
+    if (hasModalOpen.value) return false;
+    // 输入环境中也禁用快捷键
+    return hasFoucsInput.value;
+  });
 
   // ==================== Actions ====================
 
@@ -340,6 +369,11 @@ export const useUiStore = defineStore("ui", () => {
   }
 
   return {
+    // 全局快捷键可用性
+    hasModalOpen,
+    hasFoucsInput,
+    enableShortcut,
+
     // 状态
     floatingPanelVisible,
     activeTab,

@@ -654,10 +654,24 @@ export class WorkflowExecutor {
       }
 
       // 执行节点
-      const outputs = await this.executeWithTimeout(
+      const result = await this.executeWithTimeout(
         () => executeFunc(inputs, nodeContext),
         options.timeout
       );
+
+      // 检查执行结果
+      // NodeResolver 现在返回完整的 NodeExecutionResult 对象
+      // 检查 success 字段，如果为 false 则抛出错误
+      if (result && typeof result === "object" && "success" in result) {
+        if (result.success === false) {
+          const errorMessage = result.error || "节点执行失败";
+          throw new Error(errorMessage);
+        }
+      }
+
+      // 提取输出数据
+      // result 应该是 NodeExecutionResult 类型，提取 outputs 字段
+      const outputs = result?.outputs ?? {};
 
       // 保存输出
       context.setNodeOutput(nodeId, outputs);
