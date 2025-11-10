@@ -15,7 +15,9 @@
         :class="executionStatus?.status === 'running' ? 'animate-spin' : ''"
       />
       <span class="text-xs">{{ statusText }}</span>
-      <span v-if="duration !== null" class="text-[11px] opacity-90 ml-0.5"
+      <span
+        v-if="duration !== null && executionStatus?.status !== 'running'"
+        class="text-[11px] opacity-90 ml-0.5"
         >{{ duration }}ms</span
       >
     </div>

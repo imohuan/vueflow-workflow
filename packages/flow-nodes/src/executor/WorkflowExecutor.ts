@@ -886,7 +886,7 @@ export class WorkflowExecutor {
       `[WorkflowExecutor] 容器 ${containerId} 内有 ${containerNodes.length} 个节点`
     );
 
-    // 重置容器内节点的状态
+    // 重置容器内节点的状态（清除上一轮的时间戳）
     for (const node of containerNodes) {
       context.setNodeState(node.id, "pending");
     }

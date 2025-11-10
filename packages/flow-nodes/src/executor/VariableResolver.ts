@@ -131,8 +131,7 @@ class ExecutionContextOutputExtractor implements NodeOutputExtractor {
 function collectUpstreamNodeIds(
   targetNodeId: string,
   edges: WorkflowEdge[],
-  nodes: WorkflowNode[],
-  targetParentContainerId?: string
+  nodes: WorkflowNode[]
 ): string[] {
   const visited = new Set<string>();
   const result: string[] = [];
@@ -148,25 +147,21 @@ function collectUpstreamNodeIds(
       const sourceNode = nodeMap.get(edge.source);
       if (!sourceNode) continue;
 
-      const sourceParentId =
-        sourceNode.parentNode || sourceNode.data?.parentNode;
-
-      // 如果目标节点在容器内
-      if (targetParentContainerId) {
-        // 检查源节点是否在同一容器内
-        if (sourceParentId === targetParentContainerId) {
-          // 容器内的上游节点，继续递归
-          visited.add(edge.source);
-          result.push(edge.source);
-          traverse(edge.source);
-        }
-        // 如果源节点不在容器内，跳过（容器外节点会在遍历容器时收集）
-      } else {
-        // 目标节点不在容器内，正常收集所有上游节点
-        visited.add(edge.source);
-        result.push(edge.source);
-        traverse(edge.source);
+      // 判斷他是否是for循环体
+      const forNodeId = sourceNode.data?.config?.forNodeId;
+      if (forNodeId) {
+        const forNode = nodeMap.get(forNodeId);
+        if (!forNode) continue;
+        visited.add(forNodeId);
+        result.push(forNodeId);
+        traverse(forNodeId);
+        continue;
       }
+
+      // 目标节点不在容器内，正常收集所有上游节点
+      visited.add(edge.source);
+      result.push(edge.source);
+      traverse(edge.source);
     }
   };
 
@@ -411,8 +406,7 @@ export function buildVariableContext(
   const upstreamIds = collectUpstreamNodeIds(
     targetNodeId,
     edges,
-    nodes,
-    targetParentContainerId
+    nodes
   ).reverse();
 
   // 如果目标节点在容器内，找到容器对应的 For 节点
