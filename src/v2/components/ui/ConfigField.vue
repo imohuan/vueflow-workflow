@@ -17,28 +17,32 @@
     <!-- 根据字段类型渲染不同的输入组件 -->
     <div class="field-input">
       <!-- 文本输入 - 使用 VariableTextInput -->
-      <VariableTextInput
-        v-if="field.type === 'input' || isDraggingVariable"
-        :model-value="modelValue"
-        :placeholder="field.placeholder"
-        :disabled="field.disabled"
-        :multiline="false"
-        :show-border="isDraggingVariable"
-        preview-mode="bottom"
-        @update:model-value="handleUpdate"
-      />
+      <template
+        v-if="['input', 'textarea'].includes(field.type) || isDragOrHasVariable"
+      >
+        <!-- 多行文本 - 使用 VariableTextInput -->
+        <VariableTextInput
+          v-if="field.type === 'textarea'"
+          :model-value="modelValue"
+          :placeholder="field.placeholder"
+          :disabled="field.disabled"
+          :multiline="true"
+          :show-border="isDraggingVariable"
+          preview-mode="bottom"
+          @update:model-value="handleUpdate"
+        />
 
-      <!-- 多行文本 - 使用 VariableTextInput -->
-      <VariableTextInput
-        v-else-if="field.type === 'textarea'"
-        :model-value="modelValue"
-        :placeholder="field.placeholder"
-        :disabled="field.disabled"
-        :multiline="true"
-        :show-border="isDraggingVariable"
-        preview-mode="bottom"
-        @update:model-value="handleUpdate"
-      />
+        <VariableTextInput
+          v-else="field.type === 'input'"
+          :model-value="modelValue"
+          :placeholder="field.placeholder"
+          :disabled="field.disabled"
+          :multiline="false"
+          :show-border="isDraggingVariable"
+          preview-mode="bottom"
+          @update:model-value="handleUpdate"
+        />
+      </template>
 
       <!-- 数字输入 -->
       <n-input-number
@@ -158,9 +162,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import VariableTextInput from "../variables-inputs/VariableTextInput.vue";
 import type { ConfigField } from "../../typings/config";
+import { containsVariableReference } from "workflow-flow-nodes";
 
 interface Props {
   field: ConfigField;
@@ -177,6 +182,14 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 const validationError = ref<string>("");
+
+/** 是否正在拖拽变量或包含变量 */
+const isDragOrHasVariable = computed(() => {
+  // 檢測是否有变量
+  return (
+    containsVariableReference(props.modelValue) || props.isDraggingVariable
+  );
+});
 
 /**
  * 处理值更新

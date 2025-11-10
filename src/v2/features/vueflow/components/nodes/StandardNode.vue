@@ -136,7 +136,7 @@
       </div>
 
       <!-- 内容板块 -->
-      <div class="bg-white nodrag nopan" :style="bodyStyle">
+      <div class="bg-white nopan" :style="bodyStyle">
         <slot>
           <div
             v-if="data.description"

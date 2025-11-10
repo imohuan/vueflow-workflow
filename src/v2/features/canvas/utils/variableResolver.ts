@@ -23,6 +23,7 @@ function convertNode(node: Node): WorkflowNode {
     label: node.data?.label || node.label,
     position: node.position,
     data: node.data || {},
+    parentNode: node.parentNode,
   };
 }
 
@@ -58,7 +59,6 @@ export function extractAvailableVariables(
   // 转换为 executor 格式
   const workflowNodes: WorkflowNode[] = nodes.map(convertNode);
   const workflowEdges: WorkflowEdge[] = edges.map(convertEdge);
-
   // 使用 executor 的变量提取逻辑，全局变量在 buildVariableContext 内部处理
   return buildVariableContext(
     targetNodeId,

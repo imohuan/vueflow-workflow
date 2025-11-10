@@ -25,12 +25,12 @@ interface UseVariableContextReturn {
 
 /**
  * 使用变量上下文
- * 
+ *
  * 这个 composable 会自动监听：
  * - 当前选中的节点 ID
  * - 工作流的节点和边
  * - 全局变量
- * 
+ *
  * 并缓存计算结果，避免重复计算
  */
 export function useVariableContext(): UseVariableContextReturn {
@@ -50,6 +50,8 @@ export function useVariableContext(): UseVariableContextReturn {
       const nodes = (canvasStore.nodes || []) as any[];
       const edges = (canvasStore.edges || []) as any[];
       const globalVars = workflowStore.getGlobalVariableJson();
+
+      console.log("[useVariableContext] 提取变量", nodes, edges);
 
       return extractAvailableVariables(
         selectedNodeId.value,

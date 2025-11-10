@@ -895,7 +895,7 @@ export class WorkflowExecutor {
     const sortedNodes = this.topologicalSort(containerNodes, containerEdges);
 
     // 将迭代变量注入到执行上下文中（临时）
-    (context as any).loopVariables = iterationVars;
+    context.loopVariables = iterationVars;
 
     let containerOutput: any = null;
 
@@ -917,7 +917,7 @@ export class WorkflowExecutor {
     }
 
     // 恢复原始上下文
-    (context as any).loopVariables = undefined;
+    context.loopVariables = undefined;
 
     return containerOutput;
   }

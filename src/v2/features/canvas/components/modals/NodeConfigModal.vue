@@ -237,7 +237,6 @@ const selectedNode = computed<Node | undefined>(() => {
   return findNode(selectedNodeId.value);
 });
 
-
 const leftWidth = ref(320);
 const rightWidth = ref(320);
 const rightPanelMode = ref<"output" | "logs">("output");

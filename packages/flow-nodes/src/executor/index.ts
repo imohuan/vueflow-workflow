@@ -36,6 +36,8 @@ export {
   type VariableTreeNode,
   type VariableContextResult,
   type NodeOutputExtractor,
+  tokenRegex,
+  containsVariableReference,
   buildVariableContext,
   buildVariableContextFromExecutionContext,
   resolveConfigWithVariables,

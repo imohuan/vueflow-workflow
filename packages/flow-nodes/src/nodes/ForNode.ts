@@ -121,6 +121,7 @@ export class ForNode extends BaseFlowNode {
       const iterations = items.map((value, index) => ({
         [config.itemName]: value,
         [config.indexName]: index,
+        list: items,
       }));
 
       // 如果没有迭代数据，直接返回

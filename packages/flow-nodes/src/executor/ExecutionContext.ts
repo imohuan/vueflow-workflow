@@ -49,6 +49,9 @@ export class ExecutionContext {
   /** 是否已取消 */
   private cancelled: boolean = false;
 
+  /** 循环变量 */
+  loopVariables: Record<string, any> | undefined = undefined;
+
   constructor(
     workflow: Workflow,
     executionId: string,

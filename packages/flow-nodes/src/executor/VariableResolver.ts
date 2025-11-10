@@ -364,12 +364,40 @@ export function buildVariableContext(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
   extractor?: NodeOutputExtractor,
-  globalVariables?: Record<string, any>
+  globalVariables?: Record<string, any>,
+  loopVariables?: Record<string, any>
 ): VariableContextResult {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const upstreamIds = collectUpstreamNodeIds(targetNodeId, edges);
   const contextMap = new Map<string, unknown>();
   const tree: VariableTreeNode[] = [];
+
+  // 获取目标节点信息
+  const targetNode = nodeMap.get(targetNodeId);
+  const targetParentContainerId =
+    targetNode?.parentNode || targetNode?.data?.parentNode;
+
+  // 如果目标节点在容器内，找到容器对应的 For 节点
+  let parentForNodeId: string | null = null;
+  if (targetParentContainerId) {
+    const containerNode = nodeMap.get(targetParentContainerId);
+    if (containerNode?.type === "forLoopContainer") {
+      // 容器配置中记录了对应的 For 节点 ID
+      parentForNodeId = containerNode.data?.config?.forNodeId;
+      // 如果容器配置中没有，尝试从所有 For 节点中查找
+      if (!parentForNodeId) {
+        for (const node of nodes) {
+          if (
+            node.type === "for" &&
+            node.data?.config?.containerId === targetParentContainerId
+          ) {
+            parentForNodeId = node.id;
+            break;
+          }
+        }
+      }
+    }
+  }
 
   // 使用提供的提取器或默认提取器
   const outputExtractor = extractor || new DefaultNodeOutputExtractor();
@@ -404,13 +432,111 @@ export function buildVariableContext(
     const node = nodeMap.get(nodeId);
     if (!node) return;
 
-    // 提取节点输出
+    const nodeLabel = node.label || node.data?.label || nodeId;
+    const nodeType = node.type;
     const outputs = outputExtractor.extractOutputs(node);
+
+    // 特殊处理 For 节点：根据目标节点位置决定显示内容
+    if (nodeType === "for") {
+      const forConfig = node.data?.config || {};
+      const containerId = forConfig.containerId;
+
+      // 判断：目标节点是否在这个 For 节点的容器内
+      const isTargetInThisContainer =
+        targetParentContainerId &&
+        containerId &&
+        targetParentContainerId === containerId &&
+        parentForNodeId === nodeId;
+
+      if (isTargetInThisContainer) {
+        // 目标节点在容器内：显示迭代变量（item、index、list）
+        const nodeTree: VariableTreeNode = {
+          id: nodeId,
+          label: nodeLabel,
+          valueType: "node",
+          value: null,
+          children: [],
+          nodeId,
+        };
+
+        const itemName = forConfig.itemName || "item";
+        const indexName = forConfig.indexName || "index";
+
+        // 如果有循环变量（运行时），使用实际的迭代数据
+        // 否则从参数中获取示例数据（前端配置时）
+        let itemValue: any;
+        let indexValue: any;
+        let listData: any[] = [];
+        let isRuntime = false;
+
+        const paramsItems = node.data?.params?.items;
+        if (Array.isArray(paramsItems)) listData = paramsItems;
+
+        if (loopVariables) {
+          // 运行时：使用实际的循环变量
+          itemValue = loopVariables[itemName];
+          indexValue = loopVariables[indexName];
+          isRuntime = true;
+        } else {
+          // 前端配置时：使用示例数据
+          itemValue = listData.length > 0 ? listData[0] : null;
+          indexValue = 0;
+        }
+
+        // 使用 buildValueTree 构建 item 变量节点
+        const itemChildren = buildValueTree(
+          itemName,
+          itemValue,
+          nodeLabel,
+          contextMap
+        );
+        if (!isRuntime && itemChildren[0]) {
+          itemChildren[0].label = itemChildren[0].label + " [示例]";
+        }
+        if (itemChildren[0]) nodeTree.children?.push(itemChildren[0]);
+
+        // 使用 buildValueTree 构建 index 变量节点
+        const indexChildren = buildValueTree(
+          indexName,
+          indexValue,
+          nodeLabel,
+          contextMap
+        );
+        if (!isRuntime && indexChildren[0]) {
+          indexChildren[0].label = indexChildren[0].label + " [示例]";
+        }
+        if (indexChildren[0]) nodeTree.children?.push(indexChildren[0]);
+
+        // 手动创建 list 变量节点，使数组元素作为其子节点
+        const listRef = `${nodeLabel}.list`;
+        contextMap.set(listRef, listData);
+        const listNode: VariableTreeNode = {
+          id: listRef,
+          label: "list",
+          valueType: "array",
+          reference: createReference(listRef),
+          value: listData,
+          children:
+            listData.length > 0
+              ? buildObjectOrArrayChildren(listData, listRef, contextMap)
+              : [],
+          nodeId,
+          outputId: "list",
+        };
+        nodeTree.children?.push(listNode);
+        tree.push(nodeTree);
+        return;
+      }
+
+      // 目标节点在容器外：显示执行结果（next）
+      // 继续执行下面的默认逻辑
+    }
+
+    // 其他节点：正常提取输出
     if (!outputs || Object.keys(outputs).length === 0) {
       return;
     }
 
-    const nodeLabel = node.label || node.data?.label || nodeId;
     const nodeTree: VariableTreeNode = {
       id: nodeId,
       label: nodeLabel,
@@ -499,7 +625,8 @@ export function buildVariableContextFromExecutionContext(
     nodes,
     edges,
     extractor,
-    globalVariables
+    globalVariables,
+    context.loopVariables
   );
 }
 
@@ -542,6 +669,16 @@ function traverseConfig(value: unknown, contextMap: Map<string, unknown>): any {
   return value;
 }
 
+/** 变量引用正则 */
+export const tokenRegex = /\{\{\s*\$?([^{}]+?)\s*\}\}/g;
+
+/**
+ * 检测字符串中是否包含变量引用
+ */
+export function containsVariableReference(str: string): boolean {
+  return tokenRegex.test(str);
+}
+
 /**
  * 解析模板字符串中的变量引用
  * 支持 {{ nodeName.field }} 和 {{ $nodeName.field }} 两种格式
@@ -551,7 +688,6 @@ function resolveTemplateString(
   contextMap: Map<string, unknown>
 ): unknown {
   // 支持 {{ $xxx }} 和 {{ xxx }} 两种格式
-  const tokenRegex = /\{\{\s*\$?([^{}]+?)\s*\}\}/g;
   const matches = [...template.matchAll(tokenRegex)];
 
   if (matches.length === 0) {
