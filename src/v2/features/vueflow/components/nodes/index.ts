@@ -10,3 +10,4 @@ export { default as ConnectorNode } from "./ConnectorNode.vue";
 export { default as IfNode } from "./IfNode.vue";
 export { default as ForNode } from "./ForNode.vue";
 export { default as ForLoopContainerNode } from "./ForLoopContainerNode.vue";
+export { default as CodeNode } from "./CodeNode.vue";

@@ -13,9 +13,12 @@ function mapNodeTypeToFieldType(nodeType: string): ConfigFieldType["type"] {
     string: "input",
     number: "number",
     boolean: "switch",
-    array: "json-editor",
-    object: "json-editor",
-    json: "json-editor",
+    // array: "json-editor",
+    // object: "json-editor",
+    // json: "json-editor",
+    array: "textarea",
+    object: "textarea",
+    json: "textarea",
     any: "textarea",
   };
   return typeMap[nodeType] || "input";

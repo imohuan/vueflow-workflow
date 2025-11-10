@@ -1,5 +1,5 @@
 <template>
-  <div class="h-[calc(100vh-120px)] overflow-y-auto variable-scroll">
+  <div class="h-full overflow-y-auto variable-scroll">
     <!-- 未选中节点时的提示 -->
     <div
       v-if="!selectedNode"

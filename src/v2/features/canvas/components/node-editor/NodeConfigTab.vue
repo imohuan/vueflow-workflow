@@ -1,5 +1,5 @@
 <template>
-  <div class="h-[calc(100vh-120px)] overflow-y-auto variable-scroll">
+  <div class="h-full overflow-y-auto variable-scroll">
     <!-- 未选中节点时的提示 -->
     <div
       v-if="!selectedNode"
@@ -17,6 +17,14 @@
       <!-- If 节点特殊配置 -->
       <IfNodeEditor
         v-if="selectedNode.type === 'if'"
+        :selected-node="selectedNode"
+        :node-config="nodeConfig"
+        @update:params="handleParamsUpdate"
+      />
+
+      <!-- Code 节点特殊配置 -->
+      <CodeNodeEditor
+        v-else-if="selectedNode.type === 'code'"
         :selected-node="selectedNode"
         :node-config="nodeConfig"
         @update:params="handleParamsUpdate"
@@ -56,6 +64,7 @@ import IconConfig from "@/icons/IconConfig.vue";
 import IconReset from "@/icons/IconReset.vue";
 import IconTrash from "@/icons/IconTrash.vue";
 import IfNodeEditor from "./editors/IfNodeEditor.vue";
+import CodeNodeEditor from "./editors/CodeNodeEditor.vue";
 import DefaultNodeEditor from "./editors/DefaultNodeEditor.vue";
 import type { ConfigField as ConfigFieldType } from "@/v2/typings/config";
 import type { NodeConfigData } from "./types";

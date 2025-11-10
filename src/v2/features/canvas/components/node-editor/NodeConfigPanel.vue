@@ -105,4 +105,16 @@ onBeforeUnmount(() => {
 .node-config-tabs .n-tabs-nav {
   padding: 0 1rem;
 }
+
+.node-config-tabs {
+  @apply flex flex-col;
+}
+
+.node-config-tabs .n-tabs-nav {
+  @apply flex-none;
+}
+
+.node-config-tabs .n-tab-pane {
+  @apply flex-1 h-full overflow-hidden;
+}
 </style>

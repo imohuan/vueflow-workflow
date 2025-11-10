@@ -156,7 +156,10 @@
           </div>
 
           <!-- 提示信息 -->
-          <div class="border-t border-slate-100 bg-slate-50 px-2 py-1.5">
+          <div
+            v-if="showTip"
+            class="border-t border-slate-100 bg-slate-50 px-2 py-1.5"
+          >
             <p class="text-[10px] leading-tight text-slate-400">
               Tip: 支持拖拽变量插入，变量以
               <span class="font-mono text-emerald-600"
@@ -177,7 +180,7 @@
 
     <!-- 提示文本 -->
     <p
-      v-if="previewMode !== 'dropdown' && isFocused"
+      v-if="previewMode !== 'dropdown' && isFocused && showTip"
       class="text-[10px] leading-tight text-slate-400 px-1"
     >
       Tip: 支持拖拽变量插入，变量以
@@ -187,7 +190,6 @@
       形式表示
     </p>
   </div>
-
 </template>
 
 <script setup lang="ts">
@@ -217,6 +219,8 @@ interface Props {
   density?: "default" | "compact";
   /** 是否显示边框 */
   showBorder?: boolean;
+  /** 是否显示提示信息 */
+  showTip?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -227,6 +231,7 @@ const props = withDefaults(defineProps<Props>(), {
   previewMode: "bottom",
   density: "default",
   showBorder: false,
+  showTip: true,
 });
 
 const emit = defineEmits<{
@@ -297,12 +302,19 @@ const previewItems = computed(() => {
     return [value];
   }
 
-  if (!selectedNodeId.value || !contextMap.value || contextMap.value.size === 0) {
+  if (
+    !selectedNodeId.value ||
+    !contextMap.value ||
+    contextMap.value.size === 0
+  ) {
     return [value];
   }
 
   try {
-    const resolved = resolveConfigWithVariables({ preview: value }, contextMap.value);
+    const resolved = resolveConfigWithVariables(
+      { preview: value },
+      contextMap.value
+    );
 
     const result = resolved.preview;
 

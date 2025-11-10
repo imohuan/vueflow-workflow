@@ -76,6 +76,11 @@
         <ForLoopContainerNode v-bind="nodeProps" />
       </template>
 
+      <!-- Code 代码执行节点插槽 -->
+      <template #node-code="nodeProps">
+        <CodeNode v-bind="nodeProps" />
+      </template>
+
       <!-- 自定义连接线（拖拽时的临时连接线） -->
       <template #connection-line="connectionLineProps">
         <CustomConnectionEdge v-bind="connectionLineProps" />
@@ -152,6 +157,7 @@ import ConnectorNode from "./nodes/ConnectorNode.vue";
 import IfNode from "./nodes/IfNode.vue";
 import ForNode from "./nodes/ForNode.vue";
 import ForLoopContainerNode from "./nodes/ForLoopContainerNode.vue";
+import CodeNode from "./nodes/CodeNode.vue";
 import CustomConnectionEdge from "./edges/CustomConnectionEdge.vue";
 import CustomEdge from "./edges/CustomEdge.vue";
 import {
@@ -250,6 +256,7 @@ const nodeTypes = {
   if: () => IfNode,
   for: () => ForNode,
   forLoopContainer: () => ForLoopContainerNode,
+  code: () => CodeNode,
 };
 
 // 边类型映射
@@ -360,6 +367,7 @@ function handleDrop(event: DragEvent) {
       "if",
       "for",
       "forLoopContainer",
+      "code",
     ].includes(draggedNode.id)
       ? draggedNode.id
       : "custom";

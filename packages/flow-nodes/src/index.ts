@@ -48,6 +48,12 @@ export {
   OPERATORS_BY_TYPE,
 } from "./nodes/IfNode";
 
+// 导出 CodeNode 的类型
+export type {
+  CodeNodeDataItem,
+  CodeNodeConfig,
+} from "./nodes/CodeNode";
+
 // 使用 import.meta.glob 动态导入所有节点文件
 const nodeModules = import.meta.glob<Record<string, any>>("./nodes/*.ts", {
   eager: true,

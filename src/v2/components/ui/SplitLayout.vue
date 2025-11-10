@@ -93,7 +93,9 @@
             </div>
           </div>
 
-          <div class="w-full h-full rounded-lg overflow-hidden bg-white">
+          <div
+            class="w-full h-full rounded-lg overflow-hidden bg-white flex flex-col"
+          >
             <!-- 中间面板标题 -->
             <div
               v-if="centerTitle || $slots.centerHeader"

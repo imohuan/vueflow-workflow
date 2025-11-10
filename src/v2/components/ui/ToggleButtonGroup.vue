@@ -1,11 +1,13 @@
 <template>
   <div
     ref="containerRef"
-    class="relative flex items-center bg-slate-200 rounded-md p-0.5 h-7"
+    class="relative flex items-center bg-slate-200 rounded-md p-0.5"
+    :class="containerSizeClass"
   >
     <!-- 滑动背景指示器 -->
     <div
-      class="absolute bg-white rounded transition-all duration-200 ease-out h-6"
+      class="absolute bg-white rounded transition-all duration-200 ease-out"
+      :class="indicatorSizeClass"
       :style="indicatorStyle"
     />
     <!-- 按钮列表 -->
@@ -15,23 +17,28 @@
       :ref="(el: any) => setButtonRef(el, option.value)"
       @click="handleClick(option.value)"
       :class="[
-        'relative z-10 px-2.5 py-1 text-xs font-medium rounded transition-all',
+        'relative z-10 font-medium rounded transition-all flex items-center gap-1.5',
+        buttonPaddingClass,
+        textSizeClass,
         modelValue === option.value ? 'text-slate-900' : 'text-slate-500',
       ]"
     >
+      <component v-if="option.icon" :is="option.icon" :class="iconSizeClass" />
       {{ option.label }}
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, onMounted } from "vue";
+import { computed, ref, watch, nextTick, onMounted, type Component } from "vue";
 
 interface Option {
   /** 选项值 */
   value: string;
   /** 选项标签 */
   label: string;
+  /** 可选图标组件 */
+  icon?: Component;
 }
 
 interface Props {
@@ -39,6 +46,8 @@ interface Props {
   options: Option[];
   /** 当前选中的值 */
   modelValue: string;
+  /** 尺寸 */
+  size?: "sm" | "md" | "lg";
 }
 
 interface Emits {
@@ -50,6 +59,62 @@ const emit = defineEmits<Emits>();
 
 const containerRef = ref<HTMLElement | null>(null);
 const buttonRefs = ref<Map<string, HTMLElement>>(new Map());
+
+// 尺寸相关样式
+const containerSizeClass = computed(() => {
+  switch (props.size ?? "md") {
+    case "sm":
+      return "h-6";
+    case "lg":
+      return "h-8";
+    default:
+      return "h-7";
+  }
+});
+
+const indicatorSizeClass = computed(() => {
+  switch (props.size ?? "md") {
+    case "sm":
+      return "h-5";
+    case "lg":
+      return "h-7";
+    default:
+      return "h-6";
+  }
+});
+
+const buttonPaddingClass = computed(() => {
+  switch (props.size ?? "md") {
+    case "sm":
+      return "px-2 py-0.5";
+    case "lg":
+      return "px-3 py-1.5";
+    default:
+      return "px-2.5 py-1";
+  }
+});
+
+const textSizeClass = computed(() => {
+  switch (props.size ?? "md") {
+    case "sm":
+      return "text-[11px]";
+    case "lg":
+      return "text-sm";
+    default:
+      return "text-xs";
+  }
+});
+
+const iconSizeClass = computed(() => {
+  switch (props.size ?? "md") {
+    case "sm":
+      return "h-3 w-3";
+    case "lg":
+      return "h-4 w-4";
+    default:
+      return "h-3.5 w-3.5";
+  }
+});
 
 // 计算指示器样式
 const indicatorStyle = computed(() => {

@@ -63,6 +63,14 @@ export class StartNode extends BaseFlowNode {
             name: "John Doe",
             age: 30,
           },
+          {
+            name: "IXOA Doe",
+            age: 10,
+          },
+          {
+            name: "UN NJH Doe",
+            age: 25,
+          },
         ],
         maps: {
           name: "John Doe",

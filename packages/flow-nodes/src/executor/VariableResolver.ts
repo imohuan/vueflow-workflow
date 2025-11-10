@@ -121,25 +121,56 @@ class ExecutionContextOutputExtractor implements NodeOutputExtractor {
 
 /**
  * 收集目标节点的所有上游节点 ID
+ * 如果目标节点在容器内，找到对应的For循环节点，然后收集For节点的上游
+ *
+ * @param targetNodeId - 目标节点 ID
+ * @param edges - 工作流边列表
+ * @param nodes - 工作流节点列表
+ * @param targetParentContainerId - 目标节点所在的容器 ID（可选）
  */
 function collectUpstreamNodeIds(
   targetNodeId: string,
-  edges: WorkflowEdge[]
+  edges: WorkflowEdge[],
+  nodes: WorkflowNode[],
+  targetParentContainerId?: string
 ): string[] {
   const visited = new Set<string>();
   const result: string[] = [];
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
 
+  // 递归收集上游节点
   const traverse = (nodeId: string) => {
-    edges
-      .filter((edge) => edge.target === nodeId)
-      .forEach((edge) => {
-        if (!edge.source || visited.has(edge.source)) return;
+    const incomingEdges = edges.filter((edge) => edge.target === nodeId);
+
+    for (const edge of incomingEdges) {
+      if (!edge.source || visited.has(edge.source)) continue;
+
+      const sourceNode = nodeMap.get(edge.source);
+      if (!sourceNode) continue;
+
+      const sourceParentId =
+        sourceNode.parentNode || sourceNode.data?.parentNode;
+
+      // 如果目标节点在容器内
+      if (targetParentContainerId) {
+        // 检查源节点是否在同一容器内
+        if (sourceParentId === targetParentContainerId) {
+          // 容器内的上游节点，继续递归
+          visited.add(edge.source);
+          result.push(edge.source);
+          traverse(edge.source);
+        }
+        // 如果源节点不在容器内，跳过（容器外节点会在遍历容器时收集）
+      } else {
+        // 目标节点不在容器内，正常收集所有上游节点
         visited.add(edge.source);
         result.push(edge.source);
         traverse(edge.source);
-      });
+      }
+    }
   };
 
+  // 先收集容器内的上游节点
   traverse(targetNodeId);
   return result;
 }
@@ -368,7 +399,6 @@ export function buildVariableContext(
   loopVariables?: Record<string, any>
 ): VariableContextResult {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-  const upstreamIds = collectUpstreamNodeIds(targetNodeId, edges);
   const contextMap = new Map<string, unknown>();
   const tree: VariableTreeNode[] = [];
 
@@ -376,6 +406,14 @@ export function buildVariableContext(
   const targetNode = nodeMap.get(targetNodeId);
   const targetParentContainerId =
     targetNode?.parentNode || targetNode?.data?.parentNode;
+
+  // 收集上游节点（传入容器信息以支持容器内节点过滤）
+  const upstreamIds = collectUpstreamNodeIds(
+    targetNodeId,
+    edges,
+    nodes,
+    targetParentContainerId
+  ).reverse();
 
   // 如果目标节点在容器内，找到容器对应的 For 节点
   let parentForNodeId: string | null = null;
@@ -470,7 +508,13 @@ export function buildVariableContext(
         let isRuntime = false;
 
         const paramsItems = node.data?.params?.items;
-        if (Array.isArray(paramsItems)) listData = paramsItems;
+        // 解析 paramsItems 中可能存在的变量引用
+        if (paramsItems !== undefined && paramsItems !== null) {
+          const resolvedItems = resolveTemplateString(paramsItems, contextMap);
+          if (Array.isArray(resolvedItems)) {
+            listData = resolvedItems;
+          }
+        }
 
         if (loopVariables) {
           // 运行时：使用实际的循环变量
@@ -596,7 +640,7 @@ export function buildVariableContext(
   });
 
   return {
-    tree,
+    tree: tree.reverse(),
     map: contextMap,
   };
 }
