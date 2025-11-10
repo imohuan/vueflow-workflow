@@ -90,6 +90,17 @@ export const useUiStore = defineStore("ui", () => {
     onSave: null as ((value: string) => void) | null,
   });
 
+  /** 编辑器面板 Modal 是否显示 */
+  const editorPanelModalVisible = ref(false);
+
+  /** 编辑器面板内容 */
+  const editorPanelContent = ref({
+    title: "",
+    content: "",
+    language: "javascript" as string,
+    onSave: null as ((value: string) => void) | null,
+  });
+
   // ==================== 节点选中状态 ====================
 
   /** 当前选中的节点 ID */
@@ -294,6 +305,40 @@ export const useUiStore = defineStore("ui", () => {
     }
   }
 
+  /**
+   * 打开编辑器面板模态框
+   */
+  function openEditorPanelModal(
+    title: string,
+    content: string,
+    language: string = "javascript",
+    onSave?: (value: string) => void
+  ) {
+    editorPanelContent.value = {
+      title,
+      content,
+      language,
+      onSave: onSave || null,
+    };
+    editorPanelModalVisible.value = true;
+  }
+
+  /**
+   * 关闭编辑器面板模态框
+   */
+  function closeEditorPanelModal() {
+    editorPanelModalVisible.value = false;
+    // 延迟清理，确保模态框关闭动画完成
+    setTimeout(() => {
+      editorPanelContent.value = {
+        title: "",
+        content: "",
+        language: "javascript",
+        onSave: null,
+      };
+    }, 300);
+  }
+
   return {
     // 状态
     floatingPanelVisible,
@@ -309,6 +354,8 @@ export const useUiStore = defineStore("ui", () => {
     nodeConfigModalVisible,
     variableEditorModalVisible,
     variableEditorModalContent,
+    editorPanelModalVisible,
+    editorPanelContent,
     selectedNodeId,
     previewNodeId,
     previewNodeData,
@@ -331,6 +378,8 @@ export const useUiStore = defineStore("ui", () => {
     closeNodeConfigModal,
     openVariableEditorModal,
     closeVariableEditorModal,
+    openEditorPanelModal,
+    closeEditorPanelModal,
     showNodePreview,
     clearNodePreview,
   };

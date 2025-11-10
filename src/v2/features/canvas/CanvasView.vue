@@ -50,6 +50,7 @@
     <FullscreenEditorModal />
     <NodeConfigModal />
     <VariableEditorModal />
+    <EditorPanelModal />
   </n-layout>
 </template>
 <script setup lang="ts">
@@ -68,6 +69,7 @@ import InfoModal from "../../components/modals/InfoModal.vue";
 import FullscreenEditorModal from "../../components/modals/FullscreenEditorModal.vue";
 import NodeConfigModal from "./components/modals/NodeConfigModal.vue";
 import VariableEditorModal from "../../components/variables-inputs/VariableEditorModal.vue";
+import EditorPanelModal from "./components/modals/EditorPanelModal.vue";
 import { useCanvasStore } from "../../stores/canvas";
 import { useEditorConfigStore } from "../../stores/editorConfig";
 import { useUiStore } from "../../stores/ui";
@@ -86,6 +88,7 @@ const {
   editorModalVisible,
   nodeConfigModalVisible,
   variableEditorModalVisible,
+  editorPanelModalVisible,
 } = storeToRefs(uiStore);
 const { fitView, getSelectedNodes, removeSelectedElements } = useVueFlow();
 const message = useMessage();
@@ -534,6 +537,12 @@ onKeyStroke(
   (e) => {
     if (notUsingInput.value && !e.ctrlKey && !e.shiftKey && !e.altKey) {
       e.preventDefault();
+
+      if (editorPanelModalVisible.value) {
+        uiStore.closeEditorPanelModal();
+        console.log("[CanvasView] Escape 键关闭编辑器面板模态框");
+        return;
+      }
 
       // 先检查并关闭模态框（优先级更高）
       if (nodeConfigModalVisible.value) {

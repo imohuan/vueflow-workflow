@@ -69,23 +69,28 @@
         class="relative rounded-md border border-slate-200 bg-white overflow-hidden"
       >
         <CodeEditor
-          :model-value="isDeclarationView ? typeDeclarationsValue : codeValue"
+          ref="codeEditorRef"
+          :model-value="
+            isDeclarationView ? generatedTypeDeclarations : codeValue
+          "
           :readonly="isDeclarationView"
-          language="typescript"
+          :language="isDeclarationView ? 'typescript' : 'javascript'"
           :options="{
             minimap: { enabled: false },
-            lineNumbers: 'on',
+            lineNumbers: 'off',
             fontSize: 13,
           }"
           class="code-editor-container"
           @update:model-value="handleEditorInput"
+          @ready="handleEditorReady"
         />
 
         <div class="w-5 h-8 pt-3 absolute bottom-0 right-0">
           <button
             type="button"
             class="flex items-center justify-center w-full h-full border-l rounded-tl-md border-t border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-700 hover:bg-slate-100 rounded-r-md shrink-0"
-            title="打开变量编辑器"
+            title="全屏编辑代码"
+            @click="handleOpenEditorPanel"
           >
             <IconExternalLink class="h-3 w-3" />
           </button>
@@ -93,7 +98,7 @@
       </div>
 
       <div class="mt-2 text-xs text-slate-500">
-        <p>
+        <p v-if="!isDeclarationView">
           提示：编写
           <code
             class="rounded bg-slate-100 px-1 py-0.5 font-mono text-emerald-600"
@@ -102,13 +107,16 @@
           </code>
           函数，参数将从上方配置的映射中获取
         </p>
+        <p v-else>
+          提示：类型声明根据上方参数映射自动生成，用于代码编辑器的智能提示
+        </p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onBeforeUnmount } from "vue";
 import type { Node } from "@vue-flow/core";
 import { useVueFlow } from "@vue-flow/core";
 import { NButton } from "naive-ui";
@@ -121,6 +129,12 @@ import IconExternalLink from "@/icons/IconExternalLink.vue";
 import ParamItem from "../components/ParamItem.vue";
 import ToggleButtonGroup from "@/v2/components/ui/ToggleButtonGroup.vue";
 import IconReset from "@/icons/IconReset.vue";
+import { generateParamsInterface } from "@/v2/features/canvas/utils/typeInference";
+import { useVariableContext } from "@/v2/composables/useVariableContext";
+import { resolveConfigWithVariables } from "workflow-flow-nodes";
+import type { MonacoInstance } from "@/v2/components/code/monaco";
+import type * as Monaco from "monaco-editor";
+import { useUiStore } from "@/v2/stores/ui";
 
 interface CodeNodeDataItem {
   key: string;
@@ -147,6 +161,17 @@ const emit = defineEmits<Emits>();
 
 const { updateNode } = useVueFlow();
 
+// 获取变量上下文
+const { contextMap } = useVariableContext();
+
+// UI Store
+const uiStore = useUiStore();
+
+// Monaco 编辑器实例
+const codeEditorRef = ref<InstanceType<typeof CodeEditor>>();
+let monacoInstance: MonacoInstance | null = null;
+let typeLibDisposable: Monaco.IDisposable | null = null;
+
 const isDeclarationView = ref(false);
 const viewMode = computed({
   get() {
@@ -169,17 +194,6 @@ export async function main(params) {
   };
 }`;
 
-// 默认类型声明
-const DEFAULT_TYPE_DECLARATIONS = `/**
- * 可以在此处声明类型以辅助编辑器智能提示
- * 例如：
- *
- * interface ExampleParams {
- *   user: { id: string; name: string };
- * }
- */
-`;
-
 // 键名验证正则
 const KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
 
@@ -194,10 +208,10 @@ const dataItems = ref<CodeNodeDataItem[]>(currentConfig.value.dataItems || []);
 // 代码值
 const codeValue = ref(currentConfig.value.code || DEFAULT_CODE);
 
-// 类型声明值
-const typeDeclarationsValue = ref(
-  currentConfig.value.typeDeclarations || DEFAULT_TYPE_DECLARATIONS
-);
+// 自动生成的类型声明
+const generatedTypeDeclarations = computed(() => {
+  return generateTypeDeclarationFromDataItems(dataItems.value);
+});
 
 // 监听节点变化
 watch(
@@ -206,9 +220,16 @@ watch(
     if (newConfig) {
       dataItems.value = newConfig.dataItems || [];
       codeValue.value = newConfig.code || DEFAULT_CODE;
-      typeDeclarationsValue.value =
-        newConfig.typeDeclarations || DEFAULT_TYPE_DECLARATIONS;
     }
+  },
+  { deep: true }
+);
+
+// 监听 dataItems 变化，自动更新类型声明
+watch(
+  [dataItems, contextMap],
+  () => {
+    updateTypeDeclaration();
   },
   { deep: true }
 );
@@ -284,16 +305,42 @@ function handleEditorInput(value: string) {
  * 重置当前视图内容为默认
  */
 function handleReset() {
-  if (isDeclarationView.value) {
-    // 重置声明
-    typeDeclarationsValue.value = DEFAULT_TYPE_DECLARATIONS;
-    updateConfig({
-      typeDeclarations: DEFAULT_TYPE_DECLARATIONS,
-    });
-  } else {
-    // 重置代码
-    updateCode(DEFAULT_CODE);
-  }
+  // 只重置代码，声明是自动生成的
+  updateCode(DEFAULT_CODE);
+}
+
+/**
+ * 打开编辑器面板模态框
+ */
+function handleOpenEditorPanel() {
+  // 获取当前显示的代码内容
+  const currentContent = isDeclarationView.value
+    ? generatedTypeDeclarations.value
+    : codeValue.value;
+
+  // 获取当前语言
+  const currentLanguage = isDeclarationView.value ? "typescript" : "javascript";
+
+  // 获取节点标签作为标题
+  const nodeLabel = props.selectedNode.data?.label || "代码节点";
+  const title = `${nodeLabel} - ${
+    isDeclarationView.value ? "类型声明（只读）" : "代码编辑"
+  }`;
+
+  // 打开编辑器面板
+  // 如果是声明模式，不传递保存回调（只读模式）
+  // 如果是代码模式，传递保存回调
+  uiStore.openEditorPanelModal(
+    title,
+    currentContent,
+    currentLanguage,
+    isDeclarationView.value
+      ? undefined // 声明模式下不允许保存
+      : (value: string) => {
+          // 代码模式下更新代码
+          updateCode(value);
+        }
+  );
 }
 
 /**
@@ -347,6 +394,109 @@ function getKeyError(index: number): string {
 
   return "";
 }
+
+/**
+ * 编辑器就绪回调
+ */
+function handleEditorReady(
+  _editor: Monaco.editor.IStandaloneCodeEditor,
+  monaco: MonacoInstance
+) {
+  monacoInstance = monaco;
+  console.log("✅ Monaco 编辑器已就绪");
+  // 立即应用类型声明
+  updateTypeDeclaration();
+}
+
+/**
+ * 根据 dataItems 生成类型声明
+ */
+function generateTypeDeclarationFromDataItems(
+  items: CodeNodeDataItem[]
+): string {
+  if (!items || items.length === 0) {
+    return `interface MainParams {
+  [key: string]: any;
+}`;
+  }
+
+  // 解析所有变量值
+  const resolvedValues: Record<string, unknown> = {};
+
+  try {
+    // 构建配置对象用于解析
+    const configToResolve: Record<string, string> = {};
+    items.forEach((item) => {
+      const key = item.key?.trim();
+      if (key) {
+        configToResolve[key] = item.value || "";
+      }
+    });
+
+    // 如果有变量上下文，解析变量
+    if (contextMap.value && contextMap.value.size > 0) {
+      const resolved = resolveConfigWithVariables(
+        configToResolve,
+        contextMap.value
+      );
+
+      // 提取解析后的值
+      Object.keys(configToResolve).forEach((key) => {
+        resolvedValues[key] = resolved[key];
+      });
+    }
+  } catch (error) {
+    console.warn("生成类型声明时解析变量失败:", error);
+  }
+
+  // 生成 MainParams 接口声明
+  return generateParamsInterface(items, resolvedValues, "MainParams");
+}
+
+/**
+ * 更新类型声明到 Monaco 编辑器
+ * 在代码模式下，类型声明会被添加到 JavaScript 默认配置中，提供智能提示
+ */
+function updateTypeDeclaration() {
+  if (!monacoInstance) {
+    return;
+  }
+
+  // 清除旧的类型库
+  if (typeLibDisposable) {
+    typeLibDisposable.dispose();
+    typeLibDisposable = null;
+  }
+
+  const typeDecl = generatedTypeDeclarations.value.trim();
+  if (!typeDecl) {
+    console.log("📝 无类型声明");
+    return;
+  }
+
+  console.log("📝 更新类型声明（代码模式下引用）:\n", typeDecl);
+
+  // 添加新的类型库到 JavaScript 默认配置
+  // 这样在代码模式下编写 JavaScript 代码时，也能获得类型提示
+  const uri = monacoInstance.Uri.parse(
+    `file:///node_modules/@types/code-node/index.d.ts`
+  );
+
+  // 添加到 JavaScript 默认配置（用于代码模式的智能提示）
+  typeLibDisposable =
+    monacoInstance.languages.typescript.javascriptDefaults.addExtraLib(
+      typeDecl,
+      uri.toString()
+    );
+}
+
+// 组件卸载时清理
+onBeforeUnmount(() => {
+  if (typeLibDisposable) {
+    typeLibDisposable.dispose();
+    typeLibDisposable = null;
+  }
+});
 </script>
 
 <style scoped>

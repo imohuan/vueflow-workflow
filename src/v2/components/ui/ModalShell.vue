@@ -174,23 +174,13 @@ const handleOverlayClick = () => {
   close();
 };
 
-const handleKeydown = (event: KeyboardEvent) => {
-  if (!modelValue.value) return;
-  if (!closeOnEsc.value) return;
-  if (event.key === "Escape") {
-    close();
-  }
-};
-
 onMounted(() => {
-  window.addEventListener("keydown", handleKeydown);
   if (modelValue.value) {
     document.body.classList.add("overflow-hidden");
   }
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("keydown", handleKeydown);
   document.body.classList.remove("overflow-hidden");
 });
 
