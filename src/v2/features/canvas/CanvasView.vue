@@ -1,4 +1,4 @@
-     <template>
+<template>
   <n-layout has-sider class="h-full">
     <VerticalTabNav />
 
@@ -87,7 +87,7 @@ const {
   nodeConfigModalVisible,
   variableEditorModalVisible,
 } = storeToRefs(uiStore);
-const { fitView, getSelectedNodes } = useVueFlow();
+const { fitView, getSelectedNodes, removeSelectedElements } = useVueFlow();
 const message = useMessage();
 
 // 事件系统
@@ -326,6 +326,7 @@ events.on("node:double-clicked", ({ node }) => {
   if (["connector", "note"].includes(node.type || "")) return;
   // 选中节点并打开配置面板
   uiStore.selectNode(node.id);
+  removeSelectedElements();
 });
 
 // 监听节点右键菜单

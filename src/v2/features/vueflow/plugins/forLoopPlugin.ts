@@ -3,7 +3,11 @@
  * 处理 For 循环节点和容器节点的交互逻辑
  */
 
-import type { VueFlowPlugin, PluginContext, ContainerHighlightType } from "./types";
+import type {
+  VueFlowPlugin,
+  PluginContext,
+  ContainerHighlightType,
+} from "./types";
 import type { Node, Edge } from "@vue-flow/core";
 import { ref, type Ref } from "vue";
 import { CONTAINER_CONFIG } from "../../../config/nodeConfig";
@@ -47,7 +51,8 @@ export function createForLoopPlugin(): VueFlowPlugin {
   };
 
   // 容器高亮状态（响应式）
-  const containerHighlightRef: Ref<Record<string, ContainerHighlightType>> = ref({});
+  const containerHighlightRef: Ref<Record<string, ContainerHighlightType>> =
+    ref({});
 
   /**
    * 提取边的类名数组
@@ -78,7 +83,10 @@ export function createForLoopPlugin(): VueFlowPlugin {
    * @param containerId 容器 ID
    * @param type 高亮类型：normal=绿色（可移入），warning=红色（有连接，无法移入）
    */
-  function setContainerHighlight(containerId: string, type: ContainerHighlightType) {
+  function setContainerHighlight(
+    containerId: string,
+    type: ContainerHighlightType
+  ) {
     containerHighlightRef.value = { [containerId]: type };
     console.log(`[ForLoopPlugin] 设置容器高亮: ${containerId}, 类型: ${type}`);
   }
@@ -474,7 +482,6 @@ export function createForLoopPlugin(): VueFlowPlugin {
     }
 
     if (node.type === "forLoopContainer") return;
-    console.log("[111]", node, node.parentNode);
 
     // 使用 VueFlow API 获取交集节点
     const intersections = context.vueflow.getIntersectingNodes(node) || [];
