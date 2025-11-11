@@ -9,12 +9,59 @@
           </h3>
           <p class="mt-1 text-xs text-slate-500">节点执行结果</p>
         </div>
+        <div class="flex items-center gap-2">
+          <!-- 迭代信息徽章 -->
+          <span
+            v-if="hasIterationHistory && currentIterationData"
+            class="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded"
+            :title="`迭代 ${currentIterationPage}，索引：${currentIterationData.iterationIndex}`"
+          >
+            迭代 {{ currentIterationPage }}
+          </span>
+          <!-- 执行状态徽章 -->
+          <div
+            v-if="executionStatus"
+            class="rounded-md px-2 py-1 text-xs font-medium"
+            :class="statusBadgeClass"
+          >
+            {{ statusText }}
+          </div>
+        </div>
+      </div>
+      <!-- 迭代历史分页控件 -->
+      <div
+        v-if="hasIterationHistory"
+        class="mt-3 flex items-center justify-between"
+      >
+        <span class="text-xs text-slate-500">
+          共 {{ iterationHistory?.totalIterations }} 次迭代
+        </span>
         <div
-          v-if="executionStatus"
-          class="rounded-md px-2 py-1 text-xs font-medium"
-          :class="statusBadgeClass"
+          class="h-7 flex items-center gap-0.5 px-1.5 bg-slate-100 rounded"
         >
-          {{ statusText }}
+          <button
+            class="p-0 text-slate-600 hover:text-slate-900 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors"
+            :disabled="currentIterationPage <= 1"
+            @click="handlePreviousPage"
+            title="上一次迭代"
+          >
+            <IconArrowLeft class="h-3.5 w-3.5" />
+          </button>
+          <span
+            class="text-xs font-medium font-mono text-slate-700 min-w-[38px] text-center leading-none"
+          >
+            {{ currentIterationPage }}/{{ iterationHistory?.totalIterations }}
+          </span>
+          <button
+            class="p-0 text-slate-600 hover:text-slate-900 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors"
+            :disabled="
+              currentIterationPage >= (iterationHistory?.totalIterations || 0)
+            "
+            @click="handleNextPage"
+            title="下一次迭代"
+          >
+            <IconArrowRight class="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </div>
@@ -142,7 +189,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useMessage } from "naive-ui";
 import { useCanvasStore } from "../../../../stores/canvas";
 import { useUiStore } from "../../../../stores/ui";
@@ -150,16 +197,57 @@ import IconResult from "@/icons/IconResult.vue";
 import IconErrorCircle from "@/icons/IconErrorCircle.vue";
 import IconCache from "@/icons/IconCache.vue";
 import IconSkip from "@/icons/IconSkip.vue";
+import IconArrowLeft from "@/icons/IconArrowLeft.vue";
+import IconArrowRight from "@/icons/IconArrowRight.vue";
 
 const message = useMessage();
 const canvasStore = useCanvasStore();
 const uiStore = useUiStore();
 
+/** 迭代历史分页状态 */
+const currentIterationPage = ref(1);
+
 /** 当前查看的节点 ID（从 UI Store 读取） */
 const currentNodeId = computed(() => uiStore.previewNodeId);
 
-/** 当前节点的执行状态（从 UI Store 读取） */
-const executionStatus = computed(() => uiStore.previewNodeData);
+/** 当前节点的迭代历史 */
+const iterationHistory = computed(() => {
+  const nodeId = currentNodeId.value;
+  if (!nodeId) return null;
+  const node = canvasStore.nodes.find((n: any) => n.id === nodeId);
+  if (!node) return null;
+  return node.data?.iterationHistory;
+});
+
+/** 是否有迭代历史 */
+const hasIterationHistory = computed(() => {
+  return !!iterationHistory.value && iterationHistory.value.totalIterations > 0;
+});
+
+/** 当前迭代的数据（如果有迭代历史） */
+const currentIterationData = computed(() => {
+  if (!hasIterationHistory.value || !iterationHistory.value) return null;
+  const page = currentIterationPage.value;
+  const iterations = iterationHistory.value.iterations;
+  if (page < 1 || page > iterations.length) return null;
+  return iterations[page - 1];
+});
+
+/** 当前节点的执行状态（从 UI Store 读取或从迭代历史获取） */
+const executionStatus = computed(() => {
+  // 优先使用迭代历史数据
+  if (hasIterationHistory.value && currentIterationData.value) {
+    return {
+      status: currentIterationData.value.executionStatus || "success",
+      result: currentIterationData.value.executionResult,
+      error: currentIterationData.value.executionError,
+      duration: currentIterationData.value.executionDuration,
+      timestamp: currentIterationData.value.executionTimestamp,
+    };
+  }
+  // 否则使用 UI Store 的数据
+  return uiStore.previewNodeData;
+});
 
 /** 获取节点标签 */
 const nodeLabel = computed(() => {
@@ -269,6 +357,49 @@ function copyResult() {
       message.error("复制失败");
     });
 }
+
+/** 切换到指定迭代页 */
+function handleIterationPageChange(page: number) {
+  if (!hasIterationHistory.value || !iterationHistory.value) return;
+  const totalPages = iterationHistory.value.totalIterations;
+  if (page < 1 || page > totalPages) return;
+  currentIterationPage.value = page;
+  // 同步更新到 store
+  if (currentNodeId.value) {
+    canvasStore.setNodeIterationPage(currentNodeId.value, page);
+  }
+}
+
+/** 上一页 */
+function handlePreviousPage() {
+  if (currentIterationPage.value > 1) {
+    handleIterationPageChange(currentIterationPage.value - 1);
+  }
+}
+
+/** 下一页 */
+function handleNextPage() {
+  if (hasIterationHistory.value && iterationHistory.value) {
+    if (currentIterationPage.value < iterationHistory.value.totalIterations) {
+      handleIterationPageChange(currentIterationPage.value + 1);
+    }
+  }
+}
+
+// 监听节点变化和迭代历史变化，同步当前页码
+watch(
+  [currentNodeId, iterationHistory],
+  () => {
+    if (hasIterationHistory.value && iterationHistory.value) {
+      // 如果有迭代历史，同步当前页码
+      currentIterationPage.value = iterationHistory.value.currentPage || 1;
+    } else {
+      // 没有迭代历史，重置为第一页
+      currentIterationPage.value = 1;
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped></style>

@@ -12,13 +12,16 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: resolve(__dirname, "src/index.ts"),
+      entry: {
+        index: resolve(__dirname, "src/index.ts"),
+        server: resolve(__dirname, "src/server/index.ts"),
+      },
       name: "WorkflowFlowNodes",
       formats: ["es", "cjs"],
-      fileName: (format) => {
-        if (format === "es") return "index.js";
-        if (format === "cjs") return "index.cjs";
-        return `index.${format}.js`;
+      fileName: (format, entryName) => {
+        if (format === "es") return `${entryName}.js`;
+        if (format === "cjs") return `${entryName}.cjs`;
+        return `${entryName}.${format}.js`;
       },
     },
     sourcemap: true,
@@ -26,7 +29,7 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     rollupOptions: {
-      external: [],
+      external: ["ws"], // WebSocket 库作为外部依赖
       output: {
         exports: "named",
       },

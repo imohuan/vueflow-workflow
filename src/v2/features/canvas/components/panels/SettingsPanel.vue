@@ -96,26 +96,52 @@
           title="服务器地址"
           description="远程服务器的 API 地址"
         >
-          <n-input
-            v-model:value="config.serverUrl"
-            placeholder="http://localhost:3000"
-          >
-            <template #prefix>
-              <svg
-                class="h-4 w-4 text-slate-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          <div class="space-y-3">
+            <n-input
+              v-model:value="config.serverUrl"
+              placeholder="http://localhost:3001"
+            >
+              <template #prefix>
+                <IconGlobe class="text-slate-400" />
+              </template>
+            </n-input>
+
+            <!-- 测试连接按钮 -->
+            <div class="flex flex-wrap items-center gap-2">
+              <n-button
+                :loading="testingConnection"
+                :disabled="!config.serverUrl"
+                @click="testConnection"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                <template #icon>
+                  <IconBolt />
+                </template>
+                测试连接
+              </n-button>
+
+              <!-- 连接状态指示器 -->
+              <div
+                v-if="connectionStatus !== null"
+                :class="[
+                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm whitespace-nowrap',
+                  connectionStatus === 'success'
+                    ? 'bg-green-50 text-green-700'
+                    : 'bg-red-50 text-red-700',
+                ]"
+              >
+                <IconCheckCircle
+                  class="w-4 h-4"
+                  v-if="connectionStatus === 'success'"
                 />
-              </svg>
-            </template>
-          </n-input>
+                <IconXCircle class="w-4 h-4" v-else />
+                <span>{{
+                  connectionStatus === "success"
+                    ? "连接成功"
+                    : connectionMessage
+                }}</span>
+              </div>
+            </div>
+          </div>
         </ConfigSection>
 
         <!-- 最大并发数 -->
@@ -609,6 +635,10 @@ import IconPlay from "@/icons/IconPlay.vue";
 import IconCanvas from "@/icons/IconCanvas.vue";
 import IconCheck from "@/icons/IconCheck.vue";
 import IconReset from "@/icons/IconReset.vue";
+import IconGlobe from "@/icons/IconGlobe.vue";
+import IconBolt from "@/icons/IconBolt.vue";
+import IconCheckCircle from "@/icons/IconCheckCircle.vue";
+import IconXCircle from "@/icons/IconXCircle.vue";
 
 const message = useMessage();
 const editorConfigStore = useEditorConfigStore();
@@ -616,6 +646,98 @@ const { config } = storeToRefs(editorConfigStore);
 
 // 当前激活的标签页
 const activeTab = ref("general");
+
+// 连接测试状态
+const testingConnection = ref(false);
+const connectionStatus = ref<"success" | "error" | null>(null);
+const connectionMessage = ref("");
+
+/**
+ * 测试 WebSocket 连接
+ */
+async function testConnection() {
+  if (!config.value.serverUrl) {
+    return;
+  }
+
+  testingConnection.value = true;
+  connectionStatus.value = null;
+  connectionMessage.value = "";
+
+  // 将 http:// 或 https:// 转换为 ws:// 或 wss://
+  let wsUrl = config.value.serverUrl;
+  if (wsUrl.startsWith("http://")) {
+    wsUrl = wsUrl.replace("http://", "ws://");
+  } else if (wsUrl.startsWith("https://")) {
+    wsUrl = wsUrl.replace("https://", "wss://");
+  } else if (!wsUrl.startsWith("ws://") && !wsUrl.startsWith("wss://")) {
+    wsUrl = "ws://" + wsUrl;
+  }
+
+  let ws: WebSocket | null = null;
+  let timeout: number | null = null;
+
+  try {
+    // 创建 WebSocket 连接
+    ws = new WebSocket(wsUrl);
+
+    // 设置超时（5秒）
+    timeout = window.setTimeout(() => {
+      if (ws && ws.readyState !== WebSocket.OPEN) {
+        ws.close();
+        connectionStatus.value = "error";
+        connectionMessage.value = "连接超时";
+        message?.error("连接超时，请检查服务器地址");
+      }
+    }, 5000);
+
+    // 连接成功
+    ws.onopen = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      connectionStatus.value = "success";
+      message?.success("服务器连接成功！");
+      testingConnection.value = false;
+
+      // 2秒后关闭测试连接
+      setTimeout(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+      }, 2000);
+    };
+
+    // 连接失败
+    ws.onerror = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      connectionStatus.value = "error";
+      connectionMessage.value = "连接失败";
+      message?.error("无法连接到服务器，请检查地址和服务器状态");
+      testingConnection.value = false;
+    };
+
+    // 连接关闭
+    ws.onclose = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      testingConnection.value = false;
+    };
+  } catch (error) {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    connectionStatus.value = "error";
+    connectionMessage.value = "连接异常";
+    message?.error(
+      "连接异常: " + (error instanceof Error ? error.message : String(error))
+    );
+    testingConnection.value = false;
+  }
+}
 
 /**
  * 重置配置

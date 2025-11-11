@@ -32,6 +32,10 @@ export type {
 // 导出 Executor 模块（会导出自己的 NodeExecutionStatus）
 export * from "./executor";
 
+// 注意：服务端执行器单独导出，使用方式：
+// import { createWorkflowServer } from 'workflow-flow-nodes/server';
+// 详见 ./server/README.md
+
 // 导出 IfNode 的类型和常量
 export type {
   DataType,
@@ -126,4 +130,54 @@ export function getNodeClass(
   type: string
 ): (new () => BaseFlowNode) | undefined {
   return NODE_CLASS_REGISTRY[type];
+}
+
+/**
+ * 创建节点工具函数集合
+ * 接受自定义的 NODE_CLASS_REGISTRY
+ */
+export function createNodeUtils(registry: Record<string, new () => BaseFlowNode>) {
+  return {
+    /**
+     * 节点工厂函数
+     */
+    createNodeInstance(type: string): BaseFlowNode {
+      const NodeClass = registry[type];
+      if (!NodeClass) {
+        throw new Error(`未知的节点类型: ${type}`);
+      }
+      return new NodeClass();
+    },
+
+    /**
+     * 获取所有已注册节点的元信息
+     */
+    getAllNodeMetadata() {
+      return Object.values(registry).map((NodeClass) => {
+        const instance = new NodeClass();
+        return instance.getMetadata();
+      });
+    },
+
+    /**
+     * 获取所有节点类型
+     */
+    getAllNodeTypes(): string[] {
+      return Object.keys(registry);
+    },
+
+    /**
+     * 根据类型获取节点类
+     */
+    getNodeClass(type: string): (new () => BaseFlowNode) | undefined {
+      return registry[type];
+    },
+
+    /**
+     * 获取注册表
+     */
+    getRegistry() {
+      return registry;
+    },
+  };
 }

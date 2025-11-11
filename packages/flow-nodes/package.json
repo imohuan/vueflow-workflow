@@ -17,6 +17,18 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "development": "./src/server/index.ts",
+      "import": {
+        "types": "./dist/server.d.ts",
+        "default": "./dist/server.js"
+      },
+      "require": {
+        "types": "./dist/server.d.ts",
+        "default": "./dist/server.cjs"
+      }
     }
   },
   "scripts": {
@@ -24,13 +36,15 @@
     "dev": "vite build --watch",
     "test": "vitest"
   },
-  "dependencies": {},
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
   "devDependencies": {
-    "@types/node": "^22.10.2",
+    "@types/node": "^22.19.0",
+    "@types/ws": "^8.18.1",
     "typescript": "~5.9.3",
     "vite": "^6.0.11",
-    "vite-plugin-dts": "^4.5.4",
-    "vitest": "^2.1.8"
+    "vite-plugin-dts": "^4.5.4"
   },
   "files": [
     "dist"
