@@ -575,7 +575,6 @@ async function handleQuickMenuSelectNode({
     const edgeId = `edge-${Date.now()}-${Math.random()
       .toString(36)
       .substring(2, 9)}`;
-
     let newEdge: Edge;
 
     // 根据起始端口类型确定连接方向
@@ -583,22 +582,10 @@ async function handleQuickMenuSelectNode({
       // 从输入端口拖拽：新节点的输出端口 -> 起始节点的输入端口
       console.log("[VueFlowCanvas] 从输入端口拖拽，创建反向连接");
       console.log("[VueFlowCanvas] 从", nodeMetadata);
-
-      // 选择新节点的输出端口
-      let sourceHandle: string | undefined = undefined;
-      if (
-        Array.isArray(nodeMetadata.outputs) &&
-        nodeMetadata.outputs.length > 0
-      ) {
-        sourceHandle = nodeMetadata.outputs[0]?.name || undefined;
-      }
-
-      if (!sourceHandle) sourceHandle = "output";
-
       newEdge = {
         id: edgeId,
         source: newNode.id,
-        sourceHandle,
+        sourceHandle: nodeMetadata.type === "if" ? "condition-0" : "output",
         target: startHandle.nodeId,
         targetHandle: startHandle.handleId ?? undefined,
         ...defaultEdgeOptions.value,
@@ -606,22 +593,12 @@ async function handleQuickMenuSelectNode({
     } else {
       // 从输出端口拖拽（默认情况）：起始节点的输出端口 -> 新节点的输入端口
       console.log("[VueFlowCanvas] 从输出端口拖拽，创建正向连接");
-      // 选择新节点的输入端口
-      let targetHandle: string | undefined = undefined;
-      if (
-        Array.isArray(nodeMetadata.inputs) &&
-        nodeMetadata.inputs.length > 0
-      ) {
-        targetHandle = nodeMetadata.inputs[0]?.name || undefined;
-      }
-      if (!targetHandle) targetHandle = "input";
-
       newEdge = {
         id: edgeId,
         source: startHandle.nodeId,
         sourceHandle: startHandle.handleId ?? undefined,
         target: newNode.id,
-        targetHandle,
+        targetHandle: "input",
         ...defaultEdgeOptions.value,
       } as Edge;
     }
