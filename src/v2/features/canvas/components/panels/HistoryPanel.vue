@@ -28,7 +28,8 @@
           v-for="record in filteredHistory"
           :key="record.id"
           :type="getTimelineType(record.status)"
-          class="group"
+          class="group cursor-pointer rounded-lg p-1 -m-1 hover:bg-linear-to-r hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200 border border-transparent mb-2"
+          @click="viewDetails(record)"
         >
           <!-- 自定义标题 -->
           <template #header>
@@ -41,35 +42,20 @@
                 {{ record.workflowName }}
               </div>
 
-              <!-- 右侧：操作按钮组（hover 时显示）-->
-              <n-space
-                :size="4"
-                class="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              <!-- 右侧：删除按钮（hover 时显示）-->
+              <n-button
+                size="tiny"
+                circle
+                secondary
+                type="error"
+                @click.stop="deleteRecord(record)"
+                title="删除"
+                class="opacity-0 group-hover:opacity-100"
               >
-                <n-button
-                  size="tiny"
-                  circle
-                  secondary
-                  @click="viewDetails(record)"
-                  title="查看详情"
-                >
-                  <template #icon>
-                    <n-icon :component="IconInfo" />
-                  </template>
-                </n-button>
-                <n-button
-                  size="tiny"
-                  circle
-                  secondary
-                  type="error"
-                  @click="deleteRecord(record)"
-                  title="删除"
-                >
-                  <template #icon>
-                    <n-icon :component="IconDelete" />
-                  </template>
-                </n-button>
-              </n-space>
+                <template #icon>
+                  <n-icon :component="IconDelete" />
+                </template>
+              </n-button>
             </div>
           </template>
 
@@ -104,7 +90,6 @@
 import { ref, computed, onMounted } from "vue";
 import { useMessage, useDialog } from "naive-ui";
 import IconDelete from "@/icons/IconDelete.vue";
-import IconInfo from "@/icons/IconInfo.vue";
 import IconPlay from "@/icons/IconPlay.vue";
 import { useCanvasStore } from "@/v2/stores/canvas";
 import { useVueFlowEvents } from "@/v2/features/vueflow/events";
@@ -289,14 +274,6 @@ async function viewDetails(record: ExecutionRecord) {
     console.error("加载执行详情失败:", error);
     message?.error("加载执行详情失败");
   }
-}
-
-/**
- * 重新执行工作流
- */
-function rerunWorkflow(record: ExecutionRecord) {
-  console.log("重新执行:", record);
-  message?.success(`开始执行: ${record.workflowName}`);
 }
 
 /**
