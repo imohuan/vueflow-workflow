@@ -12,6 +12,8 @@ import type {
   ExecutionErrorEvent,
   CachedNodeResult,
   IterationResultData,
+  WorkflowNode,
+  WorkflowEdge,
 } from "workflow-flow-nodes";
 
 /**
@@ -218,6 +220,9 @@ export interface ExecutionHistoryRecord {
   cachedNodeIds: string[];
   // 节点执行结果（可选，用于恢复详细状态）
   nodeResults?: Record<string, any>;
+  // 工作流结构快照（用于恢复工作流状态）
+  nodes?: WorkflowNode[];
+  edges?: WorkflowEdge[];
 }
 
 /**

@@ -72,7 +72,10 @@ function saveHistoryToStorage(history: ExecutionHistoryRecord[]): void {
 /**
  * 添加执行记录到历史
  */
-function addExecutionHistory(result: ExecutionResult): void {
+function addExecutionHistory(
+  result: ExecutionResult,
+  workflow?: Workflow
+): void {
   try {
     // 将 Map 转换为普通对象以便序列化
     const nodeResultsObj: Record<string, any> = {};
@@ -99,6 +102,9 @@ function addExecutionHistory(result: ExecutionResult): void {
       cachedNodeIds: result.cachedNodeIds,
       // 保存节点执行结果
       nodeResults: nodeResultsObj,
+      // 保存工作流结构快照（用于恢复工作流状态）
+      nodes: workflow?.nodes,
+      edges: workflow?.edges,
     };
 
     const history = getHistoryFromStorage();
@@ -254,7 +260,7 @@ const wrapExecutionOptions = (
     postMessageToMain({ type: "EXECUTION_COMPLETE", payload: result });
     emitState("completed");
     // 保存执行历史
-    addExecutionHistory(result);
+    // addExecutionHistory(result);
     options?.onExecutionComplete?.(result);
     resetExecutionContext();
   },
@@ -268,9 +274,9 @@ const wrapExecutionOptions = (
     });
     emitState("error");
     // 保存执行历史（包含错误信息）
-    if (normalized.result) {
-      addExecutionHistory(normalized.result);
-    }
+    // if (normalized.result) {
+    //   addExecutionHistory(normalized.result);
+    // }
     options?.onExecutionError?.(normalized);
     resetExecutionContext();
   },
@@ -331,12 +337,21 @@ const handleUnexpectedError = (
     `exec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const workflowId = executionContext.workflowId ?? workflow.workflow_id;
 
+  const fallbackResult = createFallbackResult(
+    executionId,
+    workflowId,
+    errorMessage
+  );
+
   const payload: ExecutionErrorEvent = {
     executionId,
     workflowId,
     error: errorMessage,
-    result: createFallbackResult(executionId, workflowId, errorMessage),
+    result: fallbackResult,
   };
+
+  // 保存失败的执行历史，包含工作流结构
+  addExecutionHistory(fallbackResult, workflow);
 
   postMessageToMain({
     type: "EXECUTION_ERROR",
@@ -401,6 +416,10 @@ async function executeWorkflow(workflow: Workflow, options?: ExecutionOptions) {
     const executionOptions = wrapExecutionOptions(options);
     const result = await executor.execute(workflow, executionOptions);
     console.log(`${loggerPrefix} 工作流执行完成:`, result);
+
+    // 保存执行历史，包含工作流结构
+    addExecutionHistory(result, workflow);
+
     return result;
   } catch (error) {
     console.error(`${loggerPrefix} 工作流执行失败:`, error);

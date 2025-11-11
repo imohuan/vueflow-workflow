@@ -8,6 +8,7 @@
       <!-- VueFlow 画布 -->
       <div ref="canvasContainerRef" class="absolute inset-0">
         <VueFlowCanvas
+          ref="vueFlowCanvasRef"
           :custom-node-component="CustomNode"
           :show-background="true"
           :show-controls="true"
@@ -115,6 +116,7 @@ const quickMenu = reactive({
 
 const quickMenuRef = ref<HTMLDivElement | null>(null);
 const canvasContainerRef = ref<HTMLElement | null>(null);
+const vueFlowCanvasRef = ref<InstanceType<typeof VueFlowCanvas> | null>(null);
 
 uiStore.activeTab = "node-library";
 
@@ -222,6 +224,16 @@ function handleStop() {
  * @param selectedNodeIds 可选，指定要执行的节点 ID 列表。如果不传，则使用当前选中的节点
  */
 async function handleExecute(selectedNodeIds?: string[]) {
+  // 🔧 关键修复：执行前强制同步画布数据到 Store
+  // 解决防抖延迟导致的数据不一致问题
+  if (vueFlowCanvasRef.value?.syncToStore) {
+    vueFlowCanvasRef.value.syncToStore();
+    console.log("[CanvasView] 已强制同步画布数据到 Store");
+
+    // 等待下一个 tick，确保 store 更新完成
+    await nextTick();
+  }
+
   // 检查是否有当前工作流
   const currentWorkflow = workflowStore.currentWorkflow;
   if (!currentWorkflow) {

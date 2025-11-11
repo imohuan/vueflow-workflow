@@ -2,7 +2,10 @@ import { defineStore } from "pinia";
 import { computed, ref, markRaw } from "vue";
 import { useWorkflowStore } from "./workflow";
 import { useVueFlowExecution } from "../features/vueflow/executor/VueFlowExecution";
-import type { NodeMetadataItem, ExecutionResult } from "../features/vueflow/executor/types";
+import type {
+  NodeMetadataItem,
+  ExecutionResult,
+} from "../features/vueflow/executor/types";
 import type { NodeExecutionStatus } from "../features/vueflow/composables/useNodeExecutionStatus";
 
 /**
@@ -43,7 +46,9 @@ export const useCanvasStore = defineStore("newCanvas", () => {
 
   // ===== 节点执行状态管理 =====
   /** 节点执行状态映射 */
-  const nodeExecutionStatuses = ref<Map<string, NodeExecutionStatus>>(new Map());
+  const nodeExecutionStatuses = ref<Map<string, NodeExecutionStatus>>(
+    new Map()
+  );
 
   /** 当前执行 ID */
   const currentExecutionId = ref<string | null>(null);
@@ -351,7 +356,9 @@ export const useCanvasStore = defineStore("newCanvas", () => {
   /**
    * 获取节点执行状态
    */
-  function getNodeExecutionStatus(nodeId: string): NodeExecutionStatus | undefined {
+  function getNodeExecutionStatus(
+    nodeId: string
+  ): NodeExecutionStatus | undefined {
     return nodeExecutionStatuses.value.get(nodeId);
   }
 
@@ -371,7 +378,11 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     };
 
     // 计算执行时长（仅当没有明确提供 duration 时才计算）
-    if (updated.duration === undefined && updated.startTime && updated.endTime) {
+    if (
+      updated.duration === undefined &&
+      updated.startTime &&
+      updated.endTime
+    ) {
       updated.duration = updated.endTime - updated.startTime;
     }
 
@@ -391,9 +402,14 @@ export const useCanvasStore = defineStore("newCanvas", () => {
   /**
    * 从历史记录加载执行状态到画布
    * @param executionResult 执行结果数据
+   * @param historyRecord 历史记录（可选，包含工作流结构快照）
    */
-  function loadExecutionStatus(executionResult: ExecutionResult) {
+  function loadExecutionStatus(
+    executionResult: ExecutionResult,
+    historyRecord?: any
+  ) {
     console.log("[Canvas] 加载执行状态:", executionResult);
+    debugger;
 
     // 清空旧状态
     clearNodeExecutionStatuses();
@@ -401,6 +417,25 @@ export const useCanvasStore = defineStore("newCanvas", () => {
 
     // 更新执行状态管理器
     vueFlowExecution.state.completeExecution(executionResult);
+
+    // 如果历史记录包含工作流结构，恢复到画布
+    if (historyRecord?.nodes && historyRecord?.edges) {
+      console.log("[Canvas] 恢复工作流结构:", {
+        nodes: historyRecord.nodes.length,
+        edges: historyRecord.edges.length,
+      });
+
+      // 更新当前工作流的 nodes 和 edges
+      if (workflowStore.currentWorkflow) {
+        workflowStore.updateWorkflow(
+          workflowStore.currentWorkflow.workflow_id,
+          {
+            nodes: historyRecord.nodes,
+            edges: historyRecord.edges,
+          }
+        );
+      }
+    }
 
     // 加载节点状态
     if (executionResult.nodeResults) {

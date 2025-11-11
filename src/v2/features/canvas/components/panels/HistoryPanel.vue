@@ -255,16 +255,13 @@ function calculateDuration(record: ExecutionRecord): string {
 
 /**
  * 查看详情
- * 将历史记录的执行结果数据加载到画布中
- *
- * 注意：当前历史记录系统只保存执行摘要信息（状态、时间、节点数量等），
- * 不包含详细的节点执行结果数据。要完整恢复节点结果，需要扩展历史存储系统。
+ * 将历史记录的执行结果数据加载到画布中，包括工作流结构（nodes 和 edges）
  */
 async function viewDetails(record: ExecutionRecord) {
   try {
     console.log("查看详情:", record);
 
-    // 获取完整的历史记录（包含执行结果）
+    // 获取完整的历史记录（包含执行结果和工作流结构）
     const history = await canvasStore.vueFlowExecution.getHistory(
       record.workflowId
     );
@@ -283,10 +280,11 @@ async function viewDetails(record: ExecutionRecord) {
       nodeResults: new Map(Object.entries(historyRecord.nodeResults || {})),
     };
 
-    // 直接使用 canvasStore 的 loadExecutionStatus 方法加载状态
-    canvasStore.loadExecutionStatus(executionResult);
+    // 加载执行状态和工作流结构
+    // 传递完整的 historyRecord，包含 nodes 和 edges
+    canvasStore.loadExecutionStatus(executionResult, historyRecord);
 
-    message?.success(`已加载执行状态到画布`);
+    message?.success(`已加载执行状态和工作流结构到画布`);
   } catch (error) {
     console.error("加载执行详情失败:", error);
     message?.error("加载执行详情失败");

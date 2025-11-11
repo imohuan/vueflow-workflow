@@ -62,6 +62,15 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
   }
 
   /**
+   * 立即同步 VueFlow 数据到 Store（无防抖）
+   * 用于执行工作流前确保数据一致性
+   */
+  function syncToStoreImmediate() {
+    canvasStore.updateNodes(nodes.value as any);
+    canvasStore.updateEdges(edges.value as any);
+  }
+
+  /**
    * 设置 Store 监听器
    */
   function setupStoreWatchers() {
@@ -309,6 +318,7 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
     fitViewToCanvas,
     getCanvasCenter,
     syncFromStore,
+    syncToStoreImmediate,
 
     // 事件系统
     events,

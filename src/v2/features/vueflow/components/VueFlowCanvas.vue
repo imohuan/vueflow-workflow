@@ -1062,6 +1062,15 @@ onMounted(() => {
   console.log("[VueFlowCanvas] 已注册插件:", enabledPlugins);
 });
 
+// 暴露方法供父组件调用
+defineExpose({
+  /**
+   * 立即同步画布数据到 Store
+   * 用于执行工作流前确保数据一致性
+   */
+  syncToStore: vueFlowCore.syncToStoreImmediate,
+});
+
 onUnmounted(() => {
   // 清理事件监听器
   eventBusUtils.off("node:delete-request", handleNodeDelete);
