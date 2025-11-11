@@ -529,7 +529,7 @@ function handleDrop(event: DragEvent) {
 /**
  * 处理快捷菜单节点选择
  */
-function handleQuickMenuSelectNode({
+async function handleQuickMenuSelectNode({
   nodeId,
   screenPosition,
   startHandle,
@@ -564,9 +564,15 @@ function handleQuickMenuSelectNode({
 
   // 如果存在连接开始端口信息，则自动创建从起点到新节点的连接
   if (startHandle && startHandle.nodeId) {
-    // 选择目标端口：优先使用新节点的第一个输入名称
-    let targetHandle: string | undefined = undefined;
-    if (Array.isArray(nodeMetadata.inputs) && nodeMetadata.inputs.length > 0) {
+    // 等待 DOM 更新确保端口已渲染，然后刷新端口几何
+    await nextTick();
+    vueFlowApi.updateNodeInternals?.([newNode.id]);
+
+    // 选择目标端口：
+    // - 标准节点/大多数节点的默认输入端口为 "input"
+    // - 若节点有自定义实现不可用，则回退到元数据第一个输入名
+    let targetHandle: string | undefined = "input";
+    if (!targetHandle && Array.isArray(nodeMetadata.inputs) && nodeMetadata.inputs.length > 0) {
       targetHandle = nodeMetadata.inputs[0]?.name || undefined;
     }
 
