@@ -572,7 +572,11 @@ async function handleQuickMenuSelectNode({
     // - 标准节点/大多数节点的默认输入端口为 "input"
     // - 若节点有自定义实现不可用，则回退到元数据第一个输入名
     let targetHandle: string | undefined = "input";
-    if (!targetHandle && Array.isArray(nodeMetadata.inputs) && nodeMetadata.inputs.length > 0) {
+    if (
+      !targetHandle &&
+      Array.isArray(nodeMetadata.inputs) &&
+      nodeMetadata.inputs.length > 0
+    ) {
       targetHandle = nodeMetadata.inputs[0]?.name || undefined;
     }
 
