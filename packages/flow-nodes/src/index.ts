@@ -34,6 +34,12 @@ export * from "./executor";
 
 // 注意：服务端执行器单独导出，使用方式：
 // import { createWorkflowServer } from 'workflow-flow-nodes/server';
+export type {
+  ServerConfig,
+  ClientMessage,
+  ServerMessage,
+  createWorkflowServer,
+} from "./server";
 // 详见 ./server/README.md
 
 // 导出 IfNode 的类型和常量
@@ -53,15 +59,7 @@ export {
 } from "./nodes/IfNode";
 
 // 导出 CodeNode 的类型
-export type {
-  CodeNodeDataItem,
-  CodeNodeConfig,
-} from "./nodes/CodeNode";
-
-// 使用 import.meta.glob 动态导入所有节点文件
-const nodeModules = import.meta.glob<Record<string, any>>("./nodes/*.ts", {
-  eager: true,
-});
+export type { CodeNodeDataItem, CodeNodeConfig } from "./nodes/CodeNode";
 
 /**
  * 节点类注册表
@@ -69,6 +67,10 @@ const nodeModules = import.meta.glob<Record<string, any>>("./nodes/*.ts", {
  */
 export const NODE_CLASS_REGISTRY: Record<string, new () => BaseFlowNode> = {};
 
+// 使用 import.meta.glob 动态导入所有节点文件
+const nodeModules = import.meta.glob<Record<string, any>>("./nodes/*.ts", {
+  eager: true,
+});
 // 自动注册所有节点类
 for (const path in nodeModules) {
   const module = nodeModules[path];
@@ -136,7 +138,9 @@ export function getNodeClass(
  * 创建节点工具函数集合
  * 接受自定义的 NODE_CLASS_REGISTRY
  */
-export function createNodeUtils(registry: Record<string, new () => BaseFlowNode>) {
+export function createNodeUtils(
+  registry: Record<string, new () => BaseFlowNode>
+) {
   return {
     /**
      * 节点工厂函数

@@ -1,6 +1,6 @@
 {
   "name": "workflow-flow-nodes",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -19,20 +19,22 @@
       }
     },
     "./server": {
-      "types": "./dist/server.d.ts",
+      "types": "./dist/index.d.ts",
       "development": "./src/server/index.ts",
       "import": {
-        "types": "./dist/server.d.ts",
-        "default": "./dist/server.js"
+        "types": "./dist/index.d.ts",
+        "default": "./dist/server/index.js"
       },
       "require": {
-        "types": "./dist/server.d.ts",
-        "default": "./dist/server.cjs"
+        "types": "./dist/index.d.ts",
+        "default": "./dist/server/index.cjs"
       }
     }
   },
   "scripts": {
-    "build": "vite build",
+    "build": "pnpm run build:main && pnpm run build:server",
+    "build:main": "vite build",
+    "build:server": "vite build --config vite.config.server.ts",
     "dev": "vite build --watch",
     "test": "vitest"
   },

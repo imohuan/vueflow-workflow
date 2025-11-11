@@ -173,7 +173,7 @@ export class WebSocketExecutorClient {
       // 触发对应的消息处理器
       const handler = this.messageHandlers.get(message.type);
       if (handler) {
-        handler(message.payload);
+        handler((message as any).payload);
       }
 
       // 特殊处理初始化消息

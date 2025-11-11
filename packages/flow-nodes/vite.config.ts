@@ -6,22 +6,20 @@ export default defineConfig({
   plugins: [
     dts({
       include: ["src/**/*"],
+      // exclude: ["src/server/**/*"],
       outDir: "dist",
       rollupTypes: true,
     }),
   ],
   build: {
     lib: {
-      entry: {
-        index: resolve(__dirname, "src/index.ts"),
-        server: resolve(__dirname, "src/server/index.ts"),
-      },
+      entry: resolve(__dirname, "src/index.ts"),
       name: "WorkflowFlowNodes",
       formats: ["es", "cjs"],
-      fileName: (format, entryName) => {
-        if (format === "es") return `${entryName}.js`;
-        if (format === "cjs") return `${entryName}.cjs`;
-        return `${entryName}.${format}.js`;
+      fileName: (format) => {
+        if (format === "es") return "index.js";
+        if (format === "cjs") return "index.cjs";
+        return `index.${format}.js`;
       },
     },
     sourcemap: true,
@@ -29,9 +27,14 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     rollupOptions: {
-      external: ["ws"], // WebSocket 库作为外部依赖
       output: {
         exports: "named",
+        // 内联所有动态导入，禁止代码分割
+        inlineDynamicImports: true,
+      },
+      // 保留副作用代码
+      treeshake: {
+        moduleSideEffects: true,
       },
     },
   },

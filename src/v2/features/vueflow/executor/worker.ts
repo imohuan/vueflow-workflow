@@ -4,9 +4,9 @@
  */
 
 import {
+  NODE_CLASS_REGISTRY,
   WorkflowExecutor,
   createNodeResolver,
-  NODE_CLASS_REGISTRY,
   getAllNodeMetadata,
 } from "workflow-flow-nodes";
 
@@ -219,7 +219,7 @@ const handleUnexpectedError = (
  */
 function initialize() {
   try {
-    console.log(`${loggerPrefix} 开始初始化...`);
+    console.log(`${loggerPrefix} 开始初始化...`, NODE_CLASS_REGISTRY);
 
     // 创建节点解析器
     const nodeResolver = createNodeResolver(NODE_CLASS_REGISTRY);

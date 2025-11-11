@@ -297,7 +297,7 @@ async function loadNodeList() {
     };
 
     // 将工具分类添加到列表开头
-    nodeCategories.value.unshift(toolsCategory);
+    // nodeCategories.value.unshift(toolsCategory);
 
     // 默认展开所有分类
     expandedCategories.value = nodeCategories.value.map((cat) => cat.id);

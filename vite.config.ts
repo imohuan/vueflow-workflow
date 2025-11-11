@@ -13,14 +13,14 @@ export default defineConfig({
     // 配置条件导出，优先使用 development 条件（指向 TypeScript 源文件）
     conditions: ["development", "import", "module", "browser", "default"],
   },
-  build: {
-    rollupOptions: {
-      input: {
-        v1: path.resolve(__dirname, "index-v1.html"),
-        v2: path.resolve(__dirname, "index-v2.html"),
-      },
-    },
-  },
+  // build: {
+  //   rollupOptions: {
+  //     input: {
+  //       v1: path.resolve(__dirname, "index-v1.html"),
+  //       v2: path.resolve(__dirname, "index-v2.html"),
+  //     },
+  //   },
+  // },
   server: {
     port: 3000,
     proxy: {

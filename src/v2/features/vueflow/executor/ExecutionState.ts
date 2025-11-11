@@ -85,7 +85,14 @@ export function useExecutionState(): ExecutionStateManager {
     endTime.value = Date.now();
 
     if (result.nodeResults) {
-      nodeStates.value = new Map(result.nodeResults);
+      // 处理不同格式的 nodeResults
+      if (result.nodeResults instanceof Map) {
+        // 如果已经是 Map，直接使用
+        nodeStates.value = new Map(result.nodeResults);
+      } else if (typeof result.nodeResults === "object") {
+        // 如果是普通对象，转换为 Map
+        nodeStates.value = new Map(Object.entries(result.nodeResults));
+      }
     }
   }
 

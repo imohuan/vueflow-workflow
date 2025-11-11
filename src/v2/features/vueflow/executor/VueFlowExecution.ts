@@ -3,7 +3,9 @@
  * 提供统一的 API 给 UI 层使用
  */
 
-import { ref, onUnmounted, type Ref } from "vue";
+import { ref, onUnmounted, computed, type Ref } from "vue";
+import { storeToRefs } from "pinia";
+import { useEditorConfigStore } from "../../../stores/editorConfig";
 import { eventBusUtils } from "../events";
 import { useExecutionState } from "./ExecutionState";
 import type {
@@ -29,6 +31,8 @@ import type {
   ExecutionLifecycleEvent,
   ExecutionErrorEvent,
 } from "./types";
+
+import { WebSocketExecutorClient } from "./websocket-client";
 
 /**
  * VueFlow 执行系统返回值
@@ -138,7 +142,12 @@ export function useVueFlowExecution(
     ...config,
   };
 
-  const mode = ref<ExecutionMode>(finalConfig.mode);
+  // 从配置中读取执行模式
+  const editorConfigStore = useEditorConfigStore();
+  const { config: editorConfig } = storeToRefs(editorConfigStore);
+
+  // 使用计算属性跟踪配置中的执行模式
+  const mode = computed(() => editorConfig.value.executionMode);
   const isInitialized = ref(false);
   const stateManager = useExecutionState();
 
@@ -150,36 +159,148 @@ export function useVueFlowExecution(
   const pendingCacheRequests = new Map<string, PendingCacheRequest>();
   const pendingNodeListRequests = new Map<string, PendingNodeListRequest>();
 
-  async function initialize() {
+  /**
+   * 统一的通道初始化函数
+   * 根据配置的模式创建对应的通道
+   */
+  async function ensureChannel(): Promise<ExecutionChannel> {
+    // 如果通道已存在，直接返回
+    if (channel && isInitialized.value) {
+      return channel;
+    }
+
+    // 清理旧通道
     if (channel) {
-      return;
+      cleanupChannel();
     }
 
-    if (mode.value !== "worker") {
-      throw new Error("Server 模式暂未实现");
+    // 根据模式创建通道
+    if (mode.value === "worker") {
+      const workerChannel = createWorkerChannel(finalConfig.workerUrl!);
+      channelHandler = handleChannelMessage;
+      workerChannel.onMessage(handleChannelMessage);
+      await workerChannel.init();
+      workerChannel.send({ type: "INIT" });
+      channel = workerChannel;
+      isInitialized.value = true;
+      console.log(`[VueFlowExecution] Worker 通道已准备`);
+    } else if (mode.value === "server") {
+      // Server 模式：使用 WebSocket 客户端
+      const serverUrl = editorConfig.value.serverUrl;
+
+      // 将 http:// 转换为 ws://
+      let wsUrl = serverUrl;
+      if (wsUrl.startsWith("http://")) {
+        wsUrl = wsUrl.replace("http://", "ws://");
+      } else if (wsUrl.startsWith("https://")) {
+        wsUrl = wsUrl.replace("https://", "wss://");
+      } else if (!wsUrl.startsWith("ws://") && !wsUrl.startsWith("wss://")) {
+        wsUrl = "ws://" + wsUrl;
+      }
+
+      const wsClient = new WebSocketExecutorClient({
+        url: wsUrl,
+        autoReconnect: true,
+        enableLogging: true,
+      });
+
+      // 连接到服务器
+      await wsClient.connect();
+
+      // 创建通道适配器
+      const wsChannel: ExecutionChannel = {
+        init: async () => {
+          // WebSocket 已经在 connect() 中初始化
+          return Promise.resolve();
+        },
+        send: (command: ExecutionCommand) => {
+          // 将命令转发到 WebSocket 客户端
+          switch (command.type) {
+            case "EXECUTE":
+              wsClient.execute(
+                command.payload.workflow,
+                command.payload.options
+              );
+              break;
+            case "PAUSE":
+              wsClient.pause();
+              break;
+            case "RESUME":
+              wsClient.resume();
+              break;
+            case "STOP":
+              wsClient.stop();
+              break;
+            case "GET_CACHE_STATS":
+              wsClient.getCacheStats(
+                command.payload.workflowId,
+                command.payload.requestId
+              );
+              break;
+            case "CLEAR_CACHE":
+              wsClient.clearCache(command.payload.workflowId);
+              break;
+            case "CLEAR_ALL_CACHE":
+              wsClient.clearAllCache();
+              break;
+            case "GET_NODE_LIST":
+              wsClient.getNodeList(command.payload.requestId);
+              break;
+            default:
+              console.warn("[VueFlowExecution] 未知的命令类型:", command);
+          }
+        },
+        onMessage: (handler: (message: ExecutionEventMessage) => void) => {
+          // 监听所有消息类型
+          const eventTypes: ExecutionEventMessage["type"][] = [
+            "INITIALIZED",
+            "EXECUTION_START",
+            "EXECUTION_COMPLETE",
+            "EXECUTION_ERROR",
+            "NODE_START",
+            "NODE_COMPLETE",
+            "NODE_ERROR",
+            "PROGRESS",
+            "CACHE_HIT",
+            "ITERATION_UPDATE",
+            "STATE_CHANGE",
+            "CACHE_STATS",
+            "NODE_LIST",
+            "ERROR",
+          ];
+
+          eventTypes.forEach((type) => {
+            wsClient.on(type, (payload) => {
+              handler({ type, payload } as any);
+            });
+          });
+        },
+        offMessage: () => {
+          // WebSocketExecutorClient 的 off 方法
+          // 暂时不实现，因为重连机制由客户端管理
+        },
+        terminate: () => {
+          wsClient.disconnect();
+        },
+      };
+
+      channel = wsChannel;
+      channelHandler = handleChannelMessage;
+      wsChannel.onMessage(handleChannelMessage);
+      isInitialized.value = true;
+      console.log(`[VueFlowExecution] WebSocket 通道已准备`);
+    } else {
+      throw new Error(`不支持的执行模式: ${mode.value}`);
     }
 
-    const workerChannel = createWorkerChannel(finalConfig.workerUrl!);
-    channelHandler = handleChannelMessage;
-    workerChannel.onMessage(handleChannelMessage);
-    await workerChannel.init();
-    workerChannel.send({ type: "INIT" });
-    channel = workerChannel;
-    isInitialized.value = true;
-    console.log(`[VueFlowExecution] 执行通道已准备 (${mode.value} 模式)`);
+    return channel!;
   }
 
   async function execute(
     workflow: Workflow,
     options?: ExecutionOptions
   ): Promise<ExecutionResult> {
-    if (!channel) {
-      await initialize();
-    }
-
-    if (!channel) {
-      throw new Error("执行通道未初始化");
-    }
+    await ensureChannel();
 
     if (awaitingExecution) {
       return Promise.reject(new Error("已有执行任务正在等待开始"));
@@ -210,13 +331,7 @@ export function useVueFlowExecution(
   }
 
   async function getCacheStats(workflowId: string): Promise<CacheStats> {
-    if (!channel) {
-      await initialize();
-    }
-
-    if (!channel) {
-      throw new Error("执行通道未初始化");
-    }
+    await ensureChannel();
 
     const requestId = generateRequestId();
 
@@ -236,27 +351,18 @@ export function useVueFlowExecution(
   }
 
   async function clearCache(workflowId: string): Promise<void> {
-    if (!channel) {
-      await initialize();
-    }
-    channel?.send({ type: "CLEAR_CACHE", payload: { workflowId } });
+    await ensureChannel();
+    channel!.send({ type: "CLEAR_CACHE", payload: { workflowId } });
   }
 
   async function clearAllCache(): Promise<void> {
-    if (!channel) {
-      await initialize();
-    }
-    channel?.send({ type: "CLEAR_ALL_CACHE" });
+    await ensureChannel();
+    channel!.send({ type: "CLEAR_ALL_CACHE" });
   }
 
   async function getNodeList(): Promise<NodeMetadataItem[]> {
-    if (!channel) {
-      await initialize();
-    }
-
-    if (!channel) {
-      throw new Error("执行通道未初始化");
-    }
+    // 必须通过通道获取节点列表
+    await ensureChannel();
 
     const requestId = generateRequestId();
 
@@ -276,26 +382,23 @@ export function useVueFlowExecution(
   }
 
   async function switchMode(newMode: ExecutionMode): Promise<void> {
+    // 注意：mode 现在由配置管理，这个函数暂时保留用于手动切换
+    console.warn(
+      "[VueFlowExecution] switchMode 已弃用，请使用配置面板切换执行模式"
+    );
+
     if (newMode === mode.value) {
       return;
     }
 
-    if (channel) {
-      if (channelHandler) {
-        channel.offMessage(channelHandler);
-      }
-      channel.terminate();
-      channel = null;
-    }
+    // 清理旧通道
+    cleanupChannel();
 
-    mode.value = newMode;
-    isInitialized.value = false;
+    // 更新配置
+    editorConfigStore.updateConfig({ executionMode: newMode });
 
-    if (newMode !== "worker") {
-      throw new Error("Server 模式暂未实现");
-    }
-
-    await initialize();
+    // 初始化新通道
+    await ensureChannel();
 
     console.log(`[VueFlowExecution] 已切换到 ${newMode} 模式`);
   }
@@ -512,9 +615,10 @@ export function useVueFlowExecution(
     return `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  // 默认初始化执行通道
-  initialize().catch((error) => {
+  // 自动初始化执行通道
+  ensureChannel().catch((error: any) => {
     console.error("[VueFlowExecution] 初始化失败:", error);
+    // 初始化失败不阻塞应用，会在实际使用时再次尝试
   });
 
   return {
