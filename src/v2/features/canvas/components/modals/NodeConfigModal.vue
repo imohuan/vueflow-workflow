@@ -22,8 +22,8 @@
       v-else
       :show-back-button="true"
       :center-width="500"
-      :min-left-width="0.2"
-      :min-right-width="0.2"
+      :min-left-width="280"
+      :min-right-width="320"
       back-text="返回工作流"
       @resize="handleResize"
       @back="handleClose"
@@ -141,52 +141,33 @@
             <!-- 迭代历史分页控件 -->
             <div
               v-if="hasIterationHistory"
-              class="flex items-center gap-2 mr-3 px-3 py-1 bg-slate-100 rounded-md"
+              class="h-7 flex items-center gap-0.5 mr-1.5 px-1.5 bg-slate-100 rounded"
             >
               <button
-                class="p-0.5 text-slate-600 hover:text-slate-900 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors"
+                class="p-0 text-slate-600 hover:text-slate-900 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors"
                 :disabled="currentIterationPage <= 1"
                 @click="handlePreviousPage"
                 title="上一次迭代"
               >
-                <svg
-                  class="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
+                <IconArrowLeft class="h-3.5 w-3.5" />
               </button>
-              <span class="text-xs font-medium text-slate-700 min-w-[60px] text-center">
-                {{ currentIterationPage }} / {{ iterationHistory?.totalIterations }}
+              <span
+                class="text-xs font-medium font-mono text-slate-700 min-w-[38px] text-center leading-none"
+              >
+                {{ currentIterationPage }}/{{
+                  iterationHistory?.totalIterations
+                }}
               </span>
               <button
-                class="p-0.5 text-slate-600 hover:text-slate-900 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors"
+                class="p-0 text-slate-600 hover:text-slate-900 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors"
                 :disabled="
-                  currentIterationPage >= (iterationHistory?.totalIterations || 0)
+                  currentIterationPage >=
+                  (iterationHistory?.totalIterations || 0)
                 "
                 @click="handleNextPage"
                 title="下一次迭代"
               >
-                <svg
-                  class="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
+                <IconArrowRight class="h-3.5 w-3.5" />
               </button>
             </div>
             <button
@@ -264,6 +245,8 @@ import IconLoading from "@/icons/IconLoading.vue";
 import IconErrorCircle from "@/icons/IconErrorCircle.vue";
 import IconNodeEditor from "@/icons/IconNodeEditor.vue";
 import IconEdit from "@/icons/IconEdit.vue";
+import IconArrowLeft from "@/icons/IconArrowLeft.vue";
+import IconArrowRight from "@/icons/IconArrowRight.vue";
 import NodeExecutionStatus from "../status/NodeExecutionStatus.vue";
 import CodeEditor from "@/v2/components/code/CodeEditor.vue";
 import { useUiStore } from "@/v2/stores/ui";

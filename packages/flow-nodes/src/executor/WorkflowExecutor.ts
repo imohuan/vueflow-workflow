@@ -573,8 +573,6 @@ export class WorkflowExecutor {
           contextMap
         );
 
-        debugger;
-
         console.log(
           `[WorkflowExecutor] 节点 ${nodeId} 解析后的 params:`,
           resolvedParams
