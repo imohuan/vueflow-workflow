@@ -121,6 +121,7 @@
         :enable-drag="props.enableDrag"
         :expanded-node-ids="props.expandedNodeIds"
         @toggle="(id, exp) => emit('toggle', id, exp)"
+        @toggle-with-first="(id) => emit('toggleWithFirst', id)"
       />
     </div>
   </div>
@@ -137,6 +138,7 @@ defineOptions({ name: "VariableTreeItem" });
 
 interface Emits {
   (e: 'toggle', nodeId: string, expanded: boolean): void;
+  (e: 'toggleWithFirst', nodeId: string): void;
 }
 
 const emit = defineEmits<Emits>();
@@ -228,7 +230,12 @@ function toggle() {
 function handleRowClick() {
   // 只有在有子节点时才展开/收起
   if (hasChildren.value) {
-    toggle();
+    // 如果是根节点（level=0）且当前是折叠状态，展开首项链路
+    if (props.level === 0 && !expanded.value && props.expandedNodeIds !== undefined) {
+      emit('toggleWithFirst', props.node.id);
+    } else {
+      toggle();
+    }
   }
 }
 

@@ -84,30 +84,29 @@
             </div>
             <div v-else>
               <!-- Header 栏 -->
-              <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200">
+              <div
+                class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200"
+              >
                 <span class="text-xs text-slate-500 font-medium">变量列表</span>
-                <div class="flex items-center gap-2">
-                  <button
-                    @click="expandFirst"
-                    class="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors"
-                    title="展开数组第一项链路"
-                  >
-                    <span>▸ 展开首项</span>
-                  </button>
-                  <button
-                    @click="expandAll"
-                    class="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors"
-                    title="展开所有层级"
-                  >
-                    <span>▾ 展开全部</span>
-                  </button>
-                  <button
-                    @click="collapseAll"
-                    class="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors"
-                    title="折叠所有节点"
-                  >
-                    <span>◂ 全部折叠</span>
-                  </button>
+                <div class="flex items-center gap-1.5">
+                  <n-button size="tiny" text @click="expandFirst">
+                    <template #icon>
+                      <span class="text-sm">▸</span>
+                    </template>
+                    展开首项
+                  </n-button>
+                  <n-button size="tiny" text @click="expandAll">
+                    <template #icon>
+                      <span class="text-sm">▾</span>
+                    </template>
+                    展开全部
+                  </n-button>
+                  <n-button size="tiny" text @click="collapseAll">
+                    <template #icon>
+                      <span class="text-sm">◂</span>
+                    </template>
+                    全部折叠
+                  </n-button>
                 </div>
               </div>
               <!-- 树列表 -->
@@ -120,6 +119,7 @@
                   :enable-drag="props.enableDrag"
                   :expanded-node-ids="expandedNodeIds ?? undefined"
                   @toggle="handleToggle"
+                  @toggle-with-first="handleToggleWithFirst"
                 />
               </div>
             </div>
@@ -179,7 +179,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
-import { NInput, NSelect } from "naive-ui";
+import { NInput, NSelect, NButton } from "naive-ui";
 import { ToggleButtonGroup } from "@/v2/components/ui";
 import VariableTreeItem from "./VariableTreeItem.vue";
 import JsonTreeViewer from "./JsonTreeViewer.vue";
@@ -256,14 +256,14 @@ function collectAllNodeIds(nodes: VariableTreeNode[]): string[] {
  */
 function collectFirstBranchIds(nodes: VariableTreeNode[]): string[] {
   const ids: string[] = [];
-  
+
   const traverse = (node: VariableTreeNode) => {
     // 展开当前节点
     ids.push(node.id);
-    
+
     // 递归处理子节点
     if (node.children && node.children.length > 0) {
-      if (node.valueType === 'array') {
+      if (node.valueType === "array") {
         // 对于数组，只处理第一个元素
         const firstChild = node.children[0];
         if (firstChild) {
@@ -275,7 +275,7 @@ function collectFirstBranchIds(nodes: VariableTreeNode[]): string[] {
       }
     }
   };
-  
+
   nodes.forEach(traverse);
   return ids;
 }
@@ -303,10 +303,10 @@ function handleToggle(nodeId: string, expanded: boolean) {
   // 如果当前是 null（使用内部状态），需要先初始化为包含所有当前展开节点的 Set
   if (expandedNodeIds.value === null) {
     // 收集当前所有第一层节点的 ID（它们默认是展开的）
-    const firstLevelIds = props.variables.map(node => node.id);
+    const firstLevelIds = props.variables.map((node) => node.id);
     expandedNodeIds.value = new Set(firstLevelIds);
   }
-  
+
   // 现在 expandedNodeIds.value 一定不是 null
   const currentSet = expandedNodeIds.value;
   if (expanded) {
@@ -314,6 +314,29 @@ function handleToggle(nodeId: string, expanded: boolean) {
   } else {
     currentSet.delete(nodeId);
   }
+  // 触发响应式更新
+  expandedNodeIds.value = new Set(currentSet);
+}
+
+/** 处理根节点点击：展开该节点的首项链路 */
+function handleToggleWithFirst(nodeId: string) {
+  // 找到该节点
+  const node = props.variables.find((n) => n.id === nodeId);
+  if (!node) return;
+
+  // 收集该节点及其首项链路的所有节点ID
+  const ids = collectFirstBranchIds([node]);
+
+  // 如果当前是 null，初始化为第一层节点
+  if (expandedNodeIds.value === null) {
+    const firstLevelIds = props.variables.map((n) => n.id);
+    expandedNodeIds.value = new Set(firstLevelIds);
+  }
+
+  // 将首项链路的节点添加到展开列表
+  const currentSet = expandedNodeIds.value;
+  ids.forEach((id) => currentSet.add(id));
+
   // 触发响应式更新
   expandedNodeIds.value = new Set(currentSet);
 }
