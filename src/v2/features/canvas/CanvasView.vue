@@ -222,6 +222,8 @@ async function handleExecute(selectedNodeIds?: string[]) {
 
   // 检查执行系统是否已初始化
   if (!executionManager.isInitialized.value) {
+    executionManager.ensureChannel();
+
     message.loading("执行系统正在初始化...", { duration: 0 });
     // 等待初始化完成
     let retries = 0;

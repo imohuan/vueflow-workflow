@@ -621,7 +621,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useMessage } from "naive-ui";
 import { useEditorConfigStore } from "../../../../stores/editorConfig";
@@ -630,6 +630,7 @@ import ExecutionModeSelector from "../../../../components/settings/ExecutionMode
 import EdgeTypeSelector from "../../../../components/settings/EdgeTypeSelector.vue";
 import GridTypeSelector from "../../../../components/settings/GridTypeSelector.vue";
 import ColorPicker from "../../../../components/settings/ColorPicker.vue";
+import { useVueFlowExecution } from "../../../vueflow/executor/VueFlowExecution";
 import IconSettings from "@/icons/IconSettings.vue";
 import IconPlay from "@/icons/IconPlay.vue";
 import IconCanvas from "@/icons/IconCanvas.vue";
@@ -643,6 +644,7 @@ import IconXCircle from "@/icons/IconXCircle.vue";
 const message = useMessage();
 const editorConfigStore = useEditorConfigStore();
 const { config } = storeToRefs(editorConfigStore);
+const execution = useVueFlowExecution();
 
 // 当前激活的标签页
 const activeTab = ref("general");
@@ -651,6 +653,16 @@ const activeTab = ref("general");
 const testingConnection = ref(false);
 const connectionStatus = ref<"success" | "error" | null>(null);
 const connectionMessage = ref("");
+
+// 监听执行模式变化并调用执行系统的切换函数
+watch(
+  () => config.value.executionMode,
+  async (newMode, oldMode) => {
+    if (newMode && newMode !== oldMode) {
+      await execution.switchMode(newMode as any);
+    }
+  }
+);
 
 /**
  * 测试 WebSocket 连接

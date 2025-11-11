@@ -35,27 +35,6 @@ import type {
 import { WebSocketExecutorClient } from "./websocket-client";
 
 /**
- * VueFlow 执行系统返回值
- */
-export interface VueFlowExecutionManager {
-  mode: Ref<ExecutionMode>;
-  state: ReturnType<typeof useExecutionState>;
-  execute(
-    workflow: Workflow,
-    options?: ExecutionOptions
-  ): Promise<ExecutionResult>;
-  pause(): void;
-  resume(): void;
-  stop(): void;
-  getCacheStats(workflowId: string): Promise<CacheStats>;
-  clearCache(workflowId: string): Promise<void>;
-  clearAllCache(): Promise<void>;
-  switchMode(newMode: ExecutionMode): Promise<void>;
-  getNodeList(): Promise<NodeMetadataItem[]>;
-  isInitialized: Ref<boolean>;
-}
-
-/**
  * 默认配置
  */
 const DEFAULT_WORKER_URL = new URL("./worker.ts", import.meta.url);
@@ -133,9 +112,7 @@ function createWorkerChannel(workerUrl: string | URL): ExecutionChannel {
 /**
  * 使用 VueFlow 执行系统
  */
-export function useVueFlowExecution(
-  config?: Partial<ExecutionConfig>
-): VueFlowExecutionManager {
+export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
   const finalConfig: ExecutionConfig = {
     ...DEFAULT_CONFIG,
     workerUrl: config?.workerUrl ?? DEFAULT_WORKER_URL,
@@ -615,12 +592,6 @@ export function useVueFlowExecution(
     return `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  // 自动初始化执行通道
-  ensureChannel().catch((error: any) => {
-    console.error("[VueFlowExecution] 初始化失败:", error);
-    // 初始化失败不阻塞应用，会在实际使用时再次尝试
-  });
-
   return {
     mode,
     state: stateManager,
@@ -634,5 +605,6 @@ export function useVueFlowExecution(
     switchMode,
     getNodeList,
     isInitialized,
+    ensureChannel,
   };
 }
