@@ -167,6 +167,16 @@ export const useEditorConfigStore = defineStore("editorConfig", () => {
   // 异步水合
   (async () => {
     config.value = await loadConfigFromStorageAsync();
+
+    // 检查 URL 查询参数中是否有 serverUrl，如果有则切换到 server 模式
+    const urlParams = new URLSearchParams(window.location.href.split("?")[1]);
+    const serverUrlFromQuery = urlParams.get("serverUrl");
+    console.log(urlParams, serverUrlFromQuery);
+
+    if (serverUrlFromQuery) {
+      config.value.executionMode = "server";
+      config.value.serverUrl = serverUrlFromQuery;
+    }
   })();
 
   // 防抖计时器
