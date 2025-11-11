@@ -74,6 +74,26 @@
 
       <!-- 内容区域 -->
       <span class="json-content">
+        <!-- 如果有键名，先显示键名 -->
+        <template v-if="keyName !== null">
+          <span class="json-key">
+            <span
+              class="json-key-content"
+              :class="{
+                'cursor-grab active:cursor-grabbing': props.enableDrag,
+                'cursor-default': !props.enableDrag,
+                'is-dragging': isDragging,
+                'is-highlight': isHighlighted,
+              }"
+              @mousedown="handleKeyMouseDown"
+            >
+              "{{ keyName }}"
+            </span>
+            <span class="json-colon">: </span>
+          </span>
+        </template>
+
+        <!-- 然后根据值类型显示内容 -->
         <!-- 对象或数组的开始括号 -->
         <template v-if="isExpandable">
           <span class="json-brackets cursor-pointer" @click="toggleExpand">
@@ -95,37 +115,15 @@
               // {{ itemCountLabel }}
             </span>
           </template>
+          <span v-if="!isLast" class="json-comma">,</span>
         </template>
 
-        <!-- 键值对 -->
-        <template v-else-if="keyName !== null">
-          <span class="json-key">
-            <span
-              class="json-key-content"
-              :class="{
-                'cursor-grab active:cursor-grabbing': props.enableDrag,
-                'cursor-default': !props.enableDrag,
-                'is-dragging': isDragging,
-                'is-highlight': isHighlighted,
-              }"
-              @mousedown="handleKeyMouseDown"
-            >
-              "{{ keyName }}"
-            </span>
-            <span class="json-colon">: </span>
-          </span>
+        <!-- 基本类型值 -->
+        <template v-else>
           <span
             class="json-value"
             :class="[valueClass, { 'is-highlight': isHighlighted }]"
           >
-            {{ formattedValue }}
-          </span>
-          <span v-if="!isLast" class="json-comma">,</span>
-        </template>
-
-        <!-- 基本类型值（数组元素） -->
-        <template v-else>
-          <span class="json-value" :class="valueClass">
             {{ formattedValue }}
           </span>
           <span v-if="!isLast" class="json-comma">,</span>
