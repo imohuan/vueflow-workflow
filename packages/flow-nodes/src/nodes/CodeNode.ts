@@ -83,6 +83,15 @@ export class CodeNode extends BaseFlowNode {
     };
   }
 
+  shouldUseCache(
+    inputs: Record<string, any>,
+    context: NodeExecutionContext
+  ): boolean {
+    // 默认策略：始终允许使用缓存
+    // 缓存有效性由缓存键（configHash）来判断
+    return false;
+  }
+
   async execute(
     inputs: Record<string, any>,
     context: NodeExecutionContext

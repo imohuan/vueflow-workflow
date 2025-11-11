@@ -21,6 +21,7 @@ import type {
   ExecutionCommand,
   ExecutionEventMessage,
   NodeMetadataItem,
+  ExecutionHistoryRecord,
 } from "./types";
 
 // ==================== 全局变量 ====================
@@ -45,6 +46,134 @@ const getOptionalContextIds = () => ({
   executionId: executionContext.executionId ?? undefined,
   workflowId: executionContext.workflowId ?? undefined,
 });
+
+// ==================== 历史记录管理 ====================
+
+const MAX_HISTORY_RECORDS = 1000; // 最大保存记录数
+
+// 使用内存变量存储历史记录（Worker 环境无法使用 localStorage）
+let executionHistoryRecords: ExecutionHistoryRecord[] = [];
+
+/**
+ * 获取历史记录
+ */
+function getHistoryFromStorage(): ExecutionHistoryRecord[] {
+  return executionHistoryRecords;
+}
+
+/**
+ * 保存历史记录
+ */
+function saveHistoryToStorage(history: ExecutionHistoryRecord[]): void {
+  // 限制记录数量，保留最新的记录
+  executionHistoryRecords = history.slice(-MAX_HISTORY_RECORDS);
+}
+
+/**
+ * 添加执行记录到历史
+ */
+function addExecutionHistory(result: ExecutionResult): void {
+  try {
+    // 将 Map 转换为普通对象以便序列化
+    const nodeResultsObj: Record<string, any> = {};
+    if (result.nodeResults instanceof Map) {
+      result.nodeResults.forEach((value, key) => {
+        nodeResultsObj[key] = value;
+      });
+    }
+
+    const record: ExecutionHistoryRecord = {
+      executionId: result.executionId,
+      workflowId: result.workflowId,
+      success: result.success,
+      startTime: result.startTime,
+      endTime: result.endTime,
+      duration: result.duration,
+      error: result.error,
+      executedNodeCount: result.executedNodeIds.length,
+      skippedNodeCount: result.skippedNodeIds.length,
+      cachedNodeCount: result.cachedNodeIds.length,
+      // 保存节点ID列表
+      executedNodeIds: result.executedNodeIds,
+      skippedNodeIds: result.skippedNodeIds,
+      cachedNodeIds: result.cachedNodeIds,
+      // 保存节点执行结果
+      nodeResults: nodeResultsObj,
+    };
+
+    const history = getHistoryFromStorage();
+    history.push(record);
+    saveHistoryToStorage(history);
+
+    console.log(`${loggerPrefix} 已保存执行历史:`, record.executionId);
+  } catch (error) {
+    console.error(`${loggerPrefix} 添加执行历史失败:`, error);
+  }
+}
+
+/**
+ * 获取执行历史
+ */
+function getExecutionHistory(
+  requestId: string,
+  workflowId?: string,
+  limit?: number
+): void {
+  try {
+    let history = getHistoryFromStorage();
+
+    // 按工作流ID过滤
+    if (workflowId) {
+      history = history.filter((record) => record.workflowId === workflowId);
+    }
+
+    // 按时间倒序排序（最新的在前）
+    history.sort((a, b) => b.startTime - a.startTime);
+
+    // 限制返回数量
+    if (limit && limit > 0) {
+      history = history.slice(0, limit);
+    }
+
+    postMessageToMain({
+      type: "HISTORY_DATA",
+      payload: {
+        requestId,
+        history,
+      },
+    });
+
+    console.log(
+      `${loggerPrefix} 已返回历史记录，共 ${history.length} 条`,
+      workflowId ? `(工作流: ${workflowId})` : "(全部)"
+    );
+  } catch (error) {
+    console.error(`${loggerPrefix} 获取执行历史失败:`, error);
+  }
+}
+
+/**
+ * 清空执行历史
+ */
+function clearExecutionHistory(workflowId?: string): void {
+  try {
+    if (workflowId) {
+      // 清空指定工作流的历史
+      const history = getHistoryFromStorage();
+      const filtered = history.filter(
+        (record) => record.workflowId !== workflowId
+      );
+      saveHistoryToStorage(filtered);
+      console.log(`${loggerPrefix} 已清空工作流历史:`, workflowId);
+    } else {
+      // 清空所有历史
+      executionHistoryRecords = [];
+      console.log(`${loggerPrefix} 已清空所有执行历史`);
+    }
+  } catch (error) {
+    console.error(`${loggerPrefix} 清空执行历史失败:`, error);
+  }
+}
 
 const requireContextIds = () => {
   if (!executionContext.executionId || !executionContext.workflowId) {
@@ -124,6 +253,8 @@ const wrapExecutionOptions = (
     executionContext.workflowId = result.workflowId;
     postMessageToMain({ type: "EXECUTION_COMPLETE", payload: result });
     emitState("completed");
+    // 保存执行历史
+    addExecutionHistory(result);
     options?.onExecutionComplete?.(result);
     resetExecutionContext();
   },
@@ -136,6 +267,10 @@ const wrapExecutionOptions = (
       payload: normalized,
     });
     emitState("error");
+    // 保存执行历史（包含错误信息）
+    if (normalized.result) {
+      addExecutionHistory(normalized.result);
+    }
     options?.onExecutionError?.(normalized);
     resetExecutionContext();
   },
@@ -422,6 +557,18 @@ self.addEventListener(
 
         case "GET_NODE_LIST":
           getNodeList(message.payload.requestId);
+          break;
+
+        case "GET_HISTORY":
+          getExecutionHistory(
+            message.payload.requestId,
+            message.payload.workflowId,
+            message.payload.limit
+          );
+          break;
+
+        case "CLEAR_HISTORY":
+          clearExecutionHistory(message.payload.workflowId);
           break;
 
         default:

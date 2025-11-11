@@ -127,6 +127,20 @@ export type ExecutionCommand =
       payload: {
         requestId: string;
       };
+    }
+  | {
+      type: "GET_HISTORY";
+      payload: {
+        requestId: string;
+        workflowId?: string;
+        limit?: number;
+      };
+    }
+  | {
+      type: "CLEAR_HISTORY";
+      payload: {
+        workflowId?: string;
+      };
     };
 
 /**
@@ -164,6 +178,13 @@ export type ExecutionEventMessage =
         requestId: string;
         nodes: NodeMetadataItem[];
       };
+    }
+  | {
+      type: "HISTORY_DATA";
+      payload: {
+        requestId: string;
+        history: ExecutionHistoryRecord[];
+      };
     };
 
 /**
@@ -175,6 +196,28 @@ export interface ExecutionChannel {
   send(message: ExecutionCommand): void;
   onMessage(handler: (message: ExecutionEventMessage) => void): void;
   offMessage(handler: (message: ExecutionEventMessage) => void): void;
+}
+
+/**
+ * 执行历史记录
+ */
+export interface ExecutionHistoryRecord {
+  executionId: string;
+  workflowId: string;
+  success: boolean;
+  startTime: number;
+  endTime: number;
+  duration: number;
+  error?: string;
+  executedNodeCount: number;
+  skippedNodeCount: number;
+  cachedNodeCount: number;
+  // 节点ID列表
+  executedNodeIds: string[];
+  skippedNodeIds: string[];
+  cachedNodeIds: string[];
+  // 节点执行结果（可选，用于恢复详细状态）
+  nodeResults?: Record<string, any>;
 }
 
 /**

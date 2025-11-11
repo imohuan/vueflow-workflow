@@ -319,11 +319,8 @@ const { validateConnection } = useConnectionValidation(coreEdges);
 // 提供插件管理器供子组件访问
 provide(PLUGIN_MANAGER_KEY, pluginManager);
 
-// 节点执行状态管理
-const executionStatusManager = useNodeExecutionStatus();
-
-// 提供节点执行状态给所有子节点组件
-provide("nodeExecutionStatuses", executionStatusManager.nodeStatuses.value);
+// 初始化节点执行状态监听（监听事件并同步到 canvasStore）
+useNodeExecutionStatus();
 
 /**
  * 小地图节点颜色

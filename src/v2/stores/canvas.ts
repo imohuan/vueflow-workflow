@@ -2,7 +2,8 @@ import { defineStore } from "pinia";
 import { computed, ref, markRaw } from "vue";
 import { useWorkflowStore } from "./workflow";
 import { useVueFlowExecution } from "../features/vueflow/executor/VueFlowExecution";
-import type { NodeMetadataItem } from "../features/vueflow/executor/types";
+import type { NodeMetadataItem, ExecutionResult } from "../features/vueflow/executor/types";
+import type { NodeExecutionStatus } from "../features/vueflow/composables/useNodeExecutionStatus";
 
 /**
  * Canvas Store
@@ -39,6 +40,13 @@ export const useCanvasStore = defineStore("newCanvas", () => {
 
   /** 节点列表加载时间戳 */
   const nodeListLoadedAt = ref<number | null>(null);
+
+  // ===== 节点执行状态管理 =====
+  /** 节点执行状态映射 */
+  const nodeExecutionStatuses = ref<Map<string, NodeExecutionStatus>>(new Map());
+
+  /** 当前执行 ID */
+  const currentExecutionId = ref<string | null>(null);
 
   // ===== 计算属性：从 workflow store 读取数据 =====
   /** 当前工作流的节点列表 */
@@ -338,6 +346,111 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     }
   }
 
+  // ===== 节点执行状态管理方法 =====
+
+  /**
+   * 获取节点执行状态
+   */
+  function getNodeExecutionStatus(nodeId: string): NodeExecutionStatus | undefined {
+    return nodeExecutionStatuses.value.get(nodeId);
+  }
+
+  /**
+   * 设置节点执行状态
+   */
+  function setNodeExecutionStatus(
+    nodeId: string,
+    status: Partial<NodeExecutionStatus>
+  ) {
+    const current = nodeExecutionStatuses.value.get(nodeId);
+    const updated: NodeExecutionStatus = {
+      nodeId,
+      status: "pending",
+      ...current,
+      ...status,
+    };
+
+    // 计算执行时长（仅当没有明确提供 duration 时才计算）
+    if (updated.duration === undefined && updated.startTime && updated.endTime) {
+      updated.duration = updated.endTime - updated.startTime;
+    }
+
+    nodeExecutionStatuses.value.set(nodeId, updated);
+    // 触发响应式更新
+    nodeExecutionStatuses.value = new Map(nodeExecutionStatuses.value);
+  }
+
+  /**
+   * 清空所有节点执行状态
+   */
+  function clearNodeExecutionStatuses() {
+    nodeExecutionStatuses.value.clear();
+    currentExecutionId.value = null;
+  }
+
+  /**
+   * 从历史记录加载执行状态到画布
+   * @param executionResult 执行结果数据
+   */
+  function loadExecutionStatus(executionResult: ExecutionResult) {
+    console.log("[Canvas] 加载执行状态:", executionResult);
+
+    // 清空旧状态
+    clearNodeExecutionStatuses();
+    currentExecutionId.value = executionResult.executionId;
+
+    // 更新执行状态管理器
+    vueFlowExecution.state.completeExecution(executionResult);
+
+    // 加载节点状态
+    if (executionResult.nodeResults) {
+      const nodeResults =
+        executionResult.nodeResults instanceof Map
+          ? executionResult.nodeResults
+          : new Map(Object.entries(executionResult.nodeResults));
+
+      for (const [nodeId, result] of nodeResults.entries()) {
+        if (result && typeof result === "object") {
+          const resultData = result as any;
+          const status = resultData.status || "success";
+
+          // 根据状态设置节点执行状态
+          if (status === "success" || status === "completed") {
+            setNodeExecutionStatus(nodeId, {
+              status: "success",
+              result: resultData.outputs || result,
+              endTime: resultData.endTime || Date.now(),
+              startTime: resultData.startTime || Date.now(),
+              timestamp: resultData.timestamp || Date.now(),
+            });
+          } else if (status === "error" || status === "failed") {
+            setNodeExecutionStatus(nodeId, {
+              status: "error",
+              error: resultData.error || "执行失败",
+              endTime: resultData.endTime || Date.now(),
+              startTime: resultData.startTime || Date.now(),
+              timestamp: resultData.timestamp || Date.now(),
+            });
+          } else if (status === "cached") {
+            setNodeExecutionStatus(nodeId, {
+              status: "cached",
+              result: resultData.outputs || result,
+              duration: resultData.duration || 0,
+              endTime: resultData.endTime || Date.now(),
+              startTime: resultData.startTime || Date.now(),
+              timestamp: resultData.timestamp || Date.now(),
+            });
+          }
+        }
+      }
+    }
+
+    console.log(
+      "[Canvas] 已加载执行状态，节点数量:",
+      nodeExecutionStatuses.value.size
+    );
+  }
+
   return {
     // ===== 计算属性（从 workflow store 读取）=====
     nodes,
@@ -383,6 +496,14 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     isLoadingNodeList,
     nodeListLoadedAt,
     loadNodeList,
+
+    // ===== 节点执行状态管理 =====
+    nodeExecutionStatuses,
+    currentExecutionId,
+    getNodeExecutionStatus,
+    setNodeExecutionStatus,
+    clearNodeExecutionStatuses,
+    loadExecutionStatus,
 
     // ===== 执行系统实例 =====
     vueFlowExecution,

@@ -25,14 +25,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, type Component } from "vue";
+import { computed, type Component } from "vue";
 import IconLoading from "@/icons/IconLoading.vue";
 import IconCheckCircle from "@/icons/IconCheckCircle.vue";
 import IconErrorCircle from "@/icons/IconErrorCircle.vue";
 import IconCache from "@/icons/IconCache.vue";
 import IconSkip from "@/icons/IconSkip.vue";
 import { eventBusUtils } from "../../events";
-import type { NodeExecutionStatus } from "../../composables/useNodeExecutionStatus";
+import { useCanvasStore } from "@/v2/stores/canvas";
 
 interface Props {
   /** 节点 ID */
@@ -41,15 +41,12 @@ interface Props {
 
 const props = defineProps<Props>();
 
-// 注入节点状态映射
-const nodeStatuses = inject<Map<string, NodeExecutionStatus>>(
-  "nodeExecutionStatuses",
-  new Map()
-);
+// 直接使用 canvasStore 获取节点执行状态
+const canvasStore = useCanvasStore();
 
 // 获取当前节点的执行状态
 const executionStatus = computed(() => {
-  return nodeStatuses.get(props.nodeId);
+  return canvasStore.getNodeExecutionStatus(props.nodeId);
 });
 
 /** 是否显示徽章 */

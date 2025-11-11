@@ -334,15 +334,12 @@ const currentIterationData = computed(() => {
   return iterations[page - 1];
 });
 
-/** 当前节点的执行状态（参考 NodeResultPreviewPanel.vue） */
+/** 当前节点的执行状态（与 NodeResultPreviewPanel.vue 保持一致） */
 const executionStatus = computed(() => {
-  if (!selectedNodeId.value) return null;
-  const node = canvasStore.nodes.find(
-    (n: any) => n.id === selectedNodeId.value
-  );
-  if (!node) return null;
+  const nodeId = selectedNodeId.value;
+  if (!nodeId) return null;
 
-  // 如果有迭代历史，使用当前页的迭代数据
+  // 优先使用迭代历史数据
   if (hasIterationHistory.value && currentIterationData.value) {
     return {
       status: currentIterationData.value.executionStatus || "success",
@@ -353,21 +350,8 @@ const executionStatus = computed(() => {
     };
   }
 
-  // 从节点数据中获取执行状态
-  const executionResult = node.data?.executionResult;
-  const executionStatus = node.data?.executionStatus;
-  const executionError = node.data?.executionError;
-  const executionDuration = node.data?.executionDuration;
-
-  if (!executionStatus && !executionResult) return null;
-
-  return {
-    status: executionStatus || (executionResult ? "success" : null),
-    result: executionResult,
-    error: executionError,
-    duration: executionDuration,
-    timestamp: node.data?.executionTimestamp || Date.now(),
-  };
+  // 否则使用 canvasStore 的执行状态数据
+  return canvasStore.getNodeExecutionStatus(nodeId);
 });
 
 /** 是否有执行结果 */

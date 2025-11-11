@@ -233,8 +233,11 @@ const currentIterationData = computed(() => {
   return iterations[page - 1];
 });
 
-/** 当前节点的执行状态（从 UI Store 读取或从迭代历史获取） */
+/** 当前节点的执行状态（从 canvasStore 读取或从迭代历史获取） */
 const executionStatus = computed(() => {
+  const nodeId = currentNodeId.value;
+  if (!nodeId) return null;
+
   // 优先使用迭代历史数据
   if (hasIterationHistory.value && currentIterationData.value) {
     return {
@@ -245,8 +248,9 @@ const executionStatus = computed(() => {
       timestamp: currentIterationData.value.executionTimestamp,
     };
   }
-  // 否则使用 UI Store 的数据
-  return uiStore.previewNodeData;
+  
+  // 否则使用 canvasStore 的执行状态数据
+  return canvasStore.getNodeExecutionStatus(nodeId);
 });
 
 /** 获取节点标签 */

@@ -3,7 +3,7 @@
  * 提供统一的 API 给 UI 层使用
  */
 
-import { ref, onUnmounted, computed, type Ref } from "vue";
+import { ref, onUnmounted, computed } from "vue";
 import { storeToRefs } from "pinia";
 import { useEditorConfigStore } from "../../../stores/editorConfig";
 import { eventBusUtils } from "../events";
@@ -21,6 +21,7 @@ import type {
   ExecutionCacheHitEvent,
   ExecutionChannel,
   NodeMetadataItem,
+  ExecutionHistoryRecord,
 } from "./types";
 
 import type {
@@ -63,6 +64,12 @@ interface PendingCacheRequest {
 
 interface PendingNodeListRequest {
   resolve: (nodes: NodeMetadataItem[]) => void;
+  reject: (reason: unknown) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+interface PendingHistoryRequest {
+  resolve: (history: ExecutionHistoryRecord[]) => void;
   reject: (reason: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
 }
@@ -135,6 +142,7 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
   const activeExecutions = new Map<string, PendingExecution>();
   const pendingCacheRequests = new Map<string, PendingCacheRequest>();
   const pendingNodeListRequests = new Map<string, PendingNodeListRequest>();
+  const pendingHistoryRequests = new Map<string, PendingHistoryRequest>();
 
   /**
    * 统一的通道初始化函数
@@ -223,6 +231,14 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
             case "GET_NODE_LIST":
               wsClient.getNodeList(command.payload.requestId);
               break;
+            case "GET_HISTORY":
+              // WebSocket 暂不支持，需要在服务端实现
+              console.warn("[VueFlowExecution] WebSocket 模式暂不支持 GET_HISTORY");
+              break;
+            case "CLEAR_HISTORY":
+              // WebSocket 暂不支持，需要在服务端实现
+              console.warn("[VueFlowExecution] WebSocket 模式暂不支持 CLEAR_HISTORY");
+              break;
             default:
               console.warn("[VueFlowExecution] 未知的命令类型:", command);
           }
@@ -243,6 +259,7 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
             "STATE_CHANGE",
             "CACHE_STATS",
             "NODE_LIST",
+            "HISTORY_DATA",
             "ERROR",
           ];
 
@@ -356,6 +373,34 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
         payload: { requestId },
       });
     });
+  }
+
+  async function getHistory(
+    workflowId?: string,
+    limit?: number
+  ): Promise<ExecutionHistoryRecord[]> {
+    await ensureChannel();
+
+    const requestId = generateRequestId();
+
+    return new Promise<ExecutionHistoryRecord[]>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pendingHistoryRequests.delete(requestId);
+        reject(new Error("获取历史记录超时"));
+      }, CACHE_REQUEST_TIMEOUT);
+
+      pendingHistoryRequests.set(requestId, { resolve, reject, timer });
+
+      channel!.send({
+        type: "GET_HISTORY",
+        payload: { requestId, workflowId, limit },
+      });
+    });
+  }
+
+  async function clearHistory(workflowId?: string): Promise<void> {
+    await ensureChannel();
+    channel!.send({ type: "CLEAR_HISTORY", payload: { workflowId } });
   }
 
   async function switchMode(newMode: ExecutionMode): Promise<void> {
@@ -499,6 +544,19 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
     pendingNodeListRequests.delete(requestId);
   }
 
+  function handleHistoryResponse(
+    requestId: string,
+    history: ExecutionHistoryRecord[]
+  ): void {
+    const pending = pendingHistoryRequests.get(requestId);
+    if (!pending) {
+      return;
+    }
+    clearTimeout(pending.timer);
+    pending.resolve(history);
+    pendingHistoryRequests.delete(requestId);
+  }
+
   function handleChannelMessage(message: ExecutionEventMessage) {
     switch (message.type) {
       case "INITIALIZED":
@@ -543,6 +601,12 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
           message.payload.nodes
         );
         break;
+      case "HISTORY_DATA":
+        handleHistoryResponse(
+          message.payload.requestId,
+          message.payload.history
+        );
+        break;
       case "STATE_CHANGE":
         handleStateChange(message.payload);
         break;
@@ -581,6 +645,11 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
       reject(new Error("执行通道已关闭"));
     });
     pendingNodeListRequests.clear();
+    pendingHistoryRequests.forEach(({ reject, timer }) => {
+      clearTimeout(timer);
+      reject(new Error("执行通道已关闭"));
+    });
+    pendingHistoryRequests.clear();
     isInitialized.value = false;
   }
 
@@ -604,6 +673,8 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
     clearAllCache,
     switchMode,
     getNodeList,
+    getHistory,
+    clearHistory,
     isInitialized,
     ensureChannel,
     cleanupChannel,

@@ -1,10 +1,11 @@
 /**
  * 节点执行状态管理
- * 监听执行事件并维护节点执行状态
+ * 监听执行事件并同步到 canvasStore
  */
 
-import { ref, onUnmounted } from "vue";
+import { onUnmounted } from "vue";
 import { eventBusUtils } from "../events";
+import { useCanvasStore } from "@/v2/stores/canvas";
 import type {
   ExecutionNodeEvent,
   ExecutionNodeCompleteEvent,
@@ -34,47 +35,30 @@ export interface NodeExecutionStatus {
 
 /**
  * 节点执行状态管理 Hook
+ * 监听执行事件并同步到 canvasStore
  */
 export function useNodeExecutionStatus() {
-  /** 节点状态映射 */
-  const nodeStatuses = ref<Map<string, NodeExecutionStatus>>(new Map());
-
-  /** 当前执行 ID */
-  const currentExecutionId = ref<string | null>(null);
+  const canvasStore = useCanvasStore();
 
   /**
    * 获取节点状态
    */
   function getNodeStatus(nodeId: string): NodeExecutionStatus | undefined {
-    return nodeStatuses.value.get(nodeId);
+    return canvasStore.getNodeExecutionStatus(nodeId);
   }
 
   /**
    * 设置节点状态
    */
   function setNodeStatus(nodeId: string, status: Partial<NodeExecutionStatus>) {
-    const current = nodeStatuses.value.get(nodeId);
-    const updated: NodeExecutionStatus = {
-      nodeId,
-      status: "pending",
-      ...current,
-      ...status,
-    };
-
-    // 计算执行时长
-    if (updated.startTime && updated.endTime) {
-      updated.duration = updated.endTime - updated.startTime;
-    }
-
-    nodeStatuses.value.set(nodeId, updated);
+    canvasStore.setNodeExecutionStatus(nodeId, status);
   }
 
   /**
    * 清空所有节点状态
    */
   function clearAllStatuses() {
-    nodeStatuses.value.clear();
-    currentExecutionId.value = null;
+    canvasStore.clearNodeExecutionStatuses();
   }
 
   /**
@@ -85,7 +69,7 @@ export function useNodeExecutionStatus() {
     workflowId: string;
   }) {
     console.log("[NodeExecutionStatus] 执行开始:", payload.executionId);
-    currentExecutionId.value = payload.executionId;
+    canvasStore.currentExecutionId = payload.executionId;
     clearAllStatuses();
   }
 
@@ -180,9 +164,9 @@ export function useNodeExecutionStatus() {
 
   return {
     /** 节点状态映射 */
-    nodeStatuses,
+    nodeStatuses: canvasStore.nodeExecutionStatuses,
     /** 当前执行 ID */
-    currentExecutionId,
+    currentExecutionId: canvasStore.currentExecutionId,
     /** 获取节点状态 */
     getNodeStatus,
     /** 设置节点状态 */

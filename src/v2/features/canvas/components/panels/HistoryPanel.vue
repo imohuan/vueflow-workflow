@@ -61,17 +61,6 @@
                   size="tiny"
                   circle
                   secondary
-                  @click="rerunWorkflow(record)"
-                  title="重新执行"
-                >
-                  <template #icon>
-                    <n-icon :component="IconPlay" />
-                  </template>
-                </n-button>
-                <n-button
-                  size="tiny"
-                  circle
-                  secondary
                   type="error"
                   @click="deleteRecord(record)"
                   title="删除"
@@ -112,18 +101,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useMessage, useDialog } from "naive-ui";
 import IconDelete from "@/icons/IconDelete.vue";
 import IconInfo from "@/icons/IconInfo.vue";
 import IconPlay from "@/icons/IconPlay.vue";
+import { useCanvasStore } from "@/v2/stores/canvas";
+import { useVueFlowEvents } from "@/v2/features/vueflow/events";
+import type {
+  ExecutionHistoryRecord,
+  ExecutionResult,
+} from "@/v2/features/vueflow/executor/types";
 
 // 执行状态
 type ExecutionStatus = "running" | "success" | "failed" | "cancelled";
 
-// 执行记录
+// 执行记录（UI 层）
 interface ExecutionRecord {
   id: string;
+  workflowId: string;
   workflowName: string;
   status: ExecutionStatus;
   startTime: number;
@@ -136,6 +132,8 @@ interface ExecutionRecord {
 
 const message = useMessage();
 const dialog = useDialog();
+const canvasStore = useCanvasStore();
+const vueflowEvents = useVueFlowEvents();
 
 // 状态过滤器
 const statusFilter = ref<ExecutionStatus | "all">("all");
@@ -149,60 +147,9 @@ const statusOptions = [
   { label: "已取消", value: "cancelled" },
 ];
 
-// 执行历史记录（示例数据）
-const executionHistory = ref<ExecutionRecord[]>([
-  {
-    id: "exec-1",
-    workflowName: "数据采集流程",
-    status: "success",
-    startTime: Date.now() - 3600000,
-    endTime: Date.now() - 3540000,
-    totalNodes: 12,
-    successNodes: 12,
-    failedNodes: 0,
-  },
-  {
-    id: "exec-2",
-    workflowName: "表单自动填写",
-    status: "failed",
-    startTime: Date.now() - 7200000,
-    endTime: Date.now() - 7100000,
-    totalNodes: 8,
-    successNodes: 5,
-    failedNodes: 3,
-    errorMessage: "无法找到目标元素",
-  },
-  {
-    id: "exec-3",
-    workflowName: "登录测试",
-    status: "success",
-    startTime: Date.now() - 86400000,
-    endTime: Date.now() - 86340000,
-    totalNodes: 5,
-    successNodes: 5,
-    failedNodes: 0,
-  },
-  {
-    id: "exec-4",
-    workflowName: "数据验证",
-    status: "cancelled",
-    startTime: Date.now() - 172800000,
-    endTime: Date.now() - 172700000,
-    totalNodes: 6,
-    successNodes: 3,
-    failedNodes: 0,
-  },
-  {
-    id: "exec-5",
-    workflowName: "网页截图",
-    status: "success",
-    startTime: Date.now() - 259200000,
-    endTime: Date.now() - 259100000,
-    totalNodes: 3,
-    successNodes: 3,
-    failedNodes: 0,
-  },
-]);
+// 执行历史记录
+const executionHistory = ref<ExecutionRecord[]>([]);
+const isLoading = ref(false);
 
 // 过滤后的历史记录
 const filteredHistory = computed(() => {
@@ -308,10 +255,42 @@ function calculateDuration(record: ExecutionRecord): string {
 
 /**
  * 查看详情
+ * 将历史记录的执行结果数据加载到画布中
+ *
+ * 注意：当前历史记录系统只保存执行摘要信息（状态、时间、节点数量等），
+ * 不包含详细的节点执行结果数据。要完整恢复节点结果，需要扩展历史存储系统。
  */
-function viewDetails(record: ExecutionRecord) {
-  console.log("查看详情:", record);
-  message?.info(`查看执行详情: ${record.workflowName}`);
+async function viewDetails(record: ExecutionRecord) {
+  try {
+    console.log("查看详情:", record);
+
+    // 获取完整的历史记录（包含执行结果）
+    const history = await canvasStore.vueFlowExecution.getHistory(
+      record.workflowId
+    );
+
+    // 查找匹配的历史记录
+    const historyRecord = history.find((h) => h.executionId === record.id);
+
+    if (!historyRecord) {
+      message?.warning("未找到该执行记录的详细数据");
+      return;
+    }
+
+    // 构造 ExecutionResult 对象用于恢复状态
+    const executionResult: ExecutionResult = {
+      ...historyRecord,
+      nodeResults: new Map(Object.entries(historyRecord.nodeResults || {})),
+    };
+
+    // 直接使用 canvasStore 的 loadExecutionStatus 方法加载状态
+    canvasStore.loadExecutionStatus(executionResult);
+
+    message?.success(`已加载执行状态到画布`);
+  } catch (error) {
+    console.error("加载执行详情失败:", error);
+    message?.error("加载执行详情失败");
+  }
 }
 
 /**
@@ -350,12 +329,58 @@ function clearHistory() {
     content: "确定要清空所有执行历史吗？此操作不可撤销。",
     positiveText: "清空",
     negativeText: "取消",
-    onPositiveClick: () => {
-      executionHistory.value = [];
-      message?.success("历史记录已清空");
+    onPositiveClick: async () => {
+      try {
+        await canvasStore.vueFlowExecution.clearHistory();
+        executionHistory.value = [];
+        message?.success("历史记录已清空");
+      } catch (error) {
+        console.error("清空历史失败:", error);
+        message?.error("清空历史失败");
+      }
     },
   });
 }
+
+/**
+ * 加载历史记录
+ */
+async function loadHistory() {
+  isLoading.value = true;
+  try {
+    const history = await canvasStore.vueFlowExecution.getHistory();
+
+    // 转换为 UI 层的格式
+    executionHistory.value = history.map((record: ExecutionHistoryRecord) => ({
+      id: record.executionId,
+      workflowId: record.workflowId,
+      workflowName: record.workflowId, // TODO: 从 workflowStore 获取工作流名称
+      status: record.success ? "success" : "failed",
+      startTime: record.startTime,
+      endTime: record.endTime,
+      totalNodes: record.executedNodeCount + record.skippedNodeCount,
+      successNodes: record.executedNodeCount,
+      failedNodes: 0, // 暂时没有失败节点数
+      errorMessage: record.error,
+    }));
+  } catch (error) {
+    console.error("加载历史记录失败:", error);
+    message?.error("加载历史记录失败");
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+// 组件挂载时加载历史
+onMounted(() => {
+  loadHistory();
+
+  // 监听工作流执行完成事件（成功或失败）
+  vueflowEvents.on("workflow:execution-completed", (data) => {
+    console.log("[HistoryPanel] 工作流执行完成，重新加载历史记录", data);
+    loadHistory();
+  });
+});
 </script>
 
 <style scoped></style>
