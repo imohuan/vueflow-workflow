@@ -233,6 +233,73 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     }
   }
 
+  // ===== 迭代历史管理（用于循环节点）=====
+
+  /**
+   * 追加节点的迭代历史记录
+   * @param nodeId 节点 ID
+   * @param iterationData 迭代数据
+   */
+  function appendNodeIterationHistory(nodeId: string, iterationData: any) {
+    const node = getNodeById(nodeId);
+    if (!node) return;
+
+    // 初始化或获取迭代历史
+    const history = node.data?.iterationHistory || {
+      iterations: [],
+      totalIterations: 0,
+      currentPage: 1,
+    };
+
+    // 追加新的迭代记录
+    history.iterations.push(iterationData);
+    history.totalIterations = history.iterations.length;
+
+    // 更新节点
+    updateNode(nodeId, {
+      data: {
+        ...node.data,
+        iterationHistory: history,
+      },
+    });
+  }
+
+  /**
+   * 设置节点当前查看的迭代页码
+   * @param nodeId 节点 ID
+   * @param page 页码（从 1 开始）
+   */
+  function setNodeIterationPage(nodeId: string, page: number) {
+    const node = getNodeById(nodeId);
+    if (!node?.data?.iterationHistory) return;
+
+    const history = node.data.iterationHistory;
+    history.currentPage = Math.max(1, Math.min(page, history.totalIterations));
+
+    updateNode(nodeId, {
+      data: {
+        ...node.data,
+        iterationHistory: history,
+      },
+    });
+  }
+
+  /**
+   * 清空节点的迭代历史
+   * @param nodeId 节点 ID
+   */
+  function clearNodeIterationHistory(nodeId: string) {
+    const node = getNodeById(nodeId);
+    if (!node) return;
+
+    updateNode(nodeId, {
+      data: {
+        ...node.data,
+        iterationHistory: undefined,
+      },
+    });
+  }
+
   return {
     // ===== 计算属性（从 workflow store 读取）=====
     nodes,
@@ -267,6 +334,11 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     // ===== 工作流操作 =====
     loadWorkflowById,
     clearCanvas,
+
+    // ===== 迭代历史管理 =====
+    appendNodeIterationHistory,
+    setNodeIterationPage,
+    clearNodeIterationHistory,
 
     // ===== 其他 =====
     stopFPSCalculation,

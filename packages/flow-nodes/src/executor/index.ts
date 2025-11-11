@@ -18,6 +18,8 @@ export type {
   NodeExecuteFunction,
   ExecutionLifecycleEvent,
   ExecutionErrorEvent,
+  IterationResultData,
+  IterationHistory,
 } from "./types";
 
 // 导出核心类

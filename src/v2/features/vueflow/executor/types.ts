@@ -11,6 +11,26 @@ import type {
   ExecutionLifecycleEvent,
   ExecutionErrorEvent,
   CachedNodeResult,
+  IterationResultData,
+} from "workflow-flow-nodes";
+
+/**
+ * 重新导出核心类型
+ */
+export type {
+  Workflow,
+  WorkflowNode,
+  WorkflowEdge,
+  ExecutionOptions,
+  ExecutionResult,
+  NodeExecutionState,
+  ExecutionState,
+  CacheStats,
+  ExecutionLifecycleEvent,
+  ExecutionErrorEvent,
+  CachedNodeResult,
+  IterationResultData,
+  IterationHistory,
 } from "workflow-flow-nodes";
 
 /**
@@ -69,6 +89,10 @@ export interface ExecutionCacheHitEvent extends ExecutionNodeEvent {
   cachedResult: CachedNodeResult;
 }
 
+export interface ExecutionIterationUpdateEvent extends ExecutionNodeEvent {
+  iterationData: IterationResultData;
+}
+
 /**
  * 主线程 → 执行通道 命令
  */
@@ -118,6 +142,7 @@ export type ExecutionEventMessage =
   | { type: "NODE_ERROR"; payload: ExecutionNodeErrorEvent }
   | { type: "PROGRESS"; payload: ExecutionProgressEvent }
   | { type: "CACHE_HIT"; payload: ExecutionCacheHitEvent }
+  | { type: "ITERATION_UPDATE"; payload: ExecutionIterationUpdateEvent }
   | {
       type: "CACHE_STATS";
       payload: {
@@ -179,20 +204,3 @@ export interface NodeMetadataItem {
     description?: string;
   }[];
 }
-
-/**
- * 重新导出核心类型
- */
-export type {
-  Workflow,
-  WorkflowNode,
-  WorkflowEdge,
-  ExecutionOptions,
-  ExecutionResult,
-  NodeExecutionState,
-  ExecutionState,
-  CacheStats,
-  ExecutionLifecycleEvent,
-  ExecutionErrorEvent,
-  CachedNodeResult,
-} from "workflow-flow-nodes";

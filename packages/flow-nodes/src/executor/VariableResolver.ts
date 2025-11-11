@@ -721,7 +721,7 @@ export function containsVariableReference(str: string): boolean {
  * 解析模板字符串中的变量引用
  * 支持 {{ nodeName.field }} 和 {{ $nodeName.field }} 两种格式
  */
-function resolveTemplateString(
+export function resolveTemplateString(
   template: string,
   contextMap: Map<string, unknown>
 ): unknown {

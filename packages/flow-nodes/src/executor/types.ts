@@ -115,6 +115,8 @@ export interface ExecutionOptions {
   onProgress?: (progress: number) => void;
   onCacheHit?: (nodeId: string, cachedResult: any) => void;
   onNodeSkipped?: (nodeId: string, reason: string) => void;
+  /** 迭代历史更新回调（用于循环容器内的节点） */
+  onIterationUpdate?: (nodeId: string, iterationData: IterationResultData) => void;
 }
 
 /**
@@ -127,6 +129,46 @@ export type NodeExecutionStatus =
   | "error" // 错误
   | "skipped" // 跳过（不在执行范围内）
   | "cached"; // 使用缓存
+
+/**
+ * 单次迭代的执行数据（用于循环节点内的子节点）
+ */
+export interface IterationResultData {
+  /** 迭代索引（第几次循环，从 0 开始） */
+  iterationIndex: number;
+
+  /** 迭代变量（item, index 等） */
+  iterationVars: Record<string, any>;
+
+  /** 该次迭代的执行结果 */
+  executionResult: any;
+
+  /** 执行状态 */
+  executionStatus: NodeExecutionStatus;
+
+  /** 执行时长（毫秒） */
+  executionDuration?: number;
+
+  /** 执行时间戳 */
+  executionTimestamp: number;
+
+  /** 错误信息（如果有） */
+  executionError?: string;
+}
+
+/**
+ * 迭代历史记录（用于循环节点内的子节点）
+ */
+export interface IterationHistory {
+  /** 所有迭代的执行记录 */
+  iterations: IterationResultData[];
+
+  /** 总迭代次数 */
+  totalIterations: number;
+
+  /** 当前显示的页码（用于 UI，从 1 开始） */
+  currentPage: number;
+}
 
 /**
  * 节点执行状态详情
@@ -158,6 +200,9 @@ export interface NodeExecutionState {
 
   /** 输入数据（调试用） */
   inputs?: Record<string, any>;
+
+  /** 迭代历史（仅用于循环容器内的节点） */
+  iterationHistory?: IterationHistory;
 }
 
 /**

@@ -383,6 +383,11 @@ export function useVueFlowExecution(
     eventBusUtils.emit("execution:cache-hit", payload);
   }
 
+  function handleIterationUpdate(payload: any) {
+    // 发送迭代更新事件到事件总线
+    eventBusUtils.emit("execution:iteration:update", payload);
+  }
+
   function handleStateChange(payload: ExecutionStateEvent) {
     stateManager.setState(payload.state);
     eventBusUtils.emit("execution:state", payload);
@@ -442,6 +447,9 @@ export function useVueFlowExecution(
         break;
       case "CACHE_HIT":
         handleCacheHit(message.payload);
+        break;
+      case "ITERATION_UPDATE":
+        handleIterationUpdate(message.payload);
         break;
       case "CACHE_STATS":
         handleCacheStatsResponse(

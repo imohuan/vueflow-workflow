@@ -85,7 +85,7 @@
             <div v-else>
               <!-- Header 栏 -->
               <div
-                class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200"
+                class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 min-w-[320px]"
               >
                 <span class="text-xs text-slate-500 font-medium">变量列表</span>
                 <div class="flex items-center gap-1.5">

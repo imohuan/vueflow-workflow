@@ -573,6 +573,8 @@ export class WorkflowExecutor {
           contextMap
         );
 
+        debugger;
+
         console.log(
           `[WorkflowExecutor] 节点 ${nodeId} 解析后的 params:`,
           resolvedParams
@@ -882,9 +884,24 @@ export class WorkflowExecutor {
       return null;
     }
 
+    // 获取当前迭代索引
+    const iterationIndex = iterationVars.index ?? 0;
+
     console.log(
-      `[WorkflowExecutor] 容器 ${containerId} 内有 ${containerNodes.length} 个节点`
+      `[WorkflowExecutor] 容器 ${containerId} 第 ${
+        iterationIndex + 1
+      } 次迭代，内有 ${containerNodes.length} 个节点`
     );
+
+    // 如果是第一次迭代，清空容器内所有节点的迭代历史
+    if (iterationIndex === 0) {
+      console.log(
+        `[WorkflowExecutor] 清空容器 ${containerId} 内 ${containerNodes.length} 个节点的迭代历史`
+      );
+      for (const node of containerNodes) {
+        context.clearIterationHistory(node.id);
+      }
+    }
 
     // 重置容器内节点的状态（清除上一轮的时间戳）
     for (const node of containerNodes) {
@@ -923,8 +940,39 @@ export class WorkflowExecutor {
       // 执行节点
       await this.executeNode(node, context, options);
 
-      // 记录最后一个节点的输出作为容器的输出
+      // 获取节点执行结果和状态
       const nodeOutput = context.getNodeOutput(node.id);
+      const nodeState = context.getNodeState(node.id);
+
+      // 保存该节点在本次迭代的执行结果到迭代历史
+      if (nodeState) {
+        const iterationData = {
+          iterationIndex,
+          iterationVars,
+          executionResult: nodeOutput || null,
+          executionStatus: nodeState.status,
+          executionDuration: nodeState.duration,
+          executionTimestamp: Date.now(),
+          executionError: nodeState.error,
+        };
+
+        context.appendIterationResult(node.id, iterationData);
+
+        // 通知前端更新迭代历史
+        options.onIterationUpdate?.(node.id, iterationData);
+
+        console.log(
+          `[WorkflowExecutor] 保存节点 ${node.id} 第 ${
+            iterationIndex + 1
+          } 次迭代结果:`,
+          {
+            status: nodeState.status,
+            hasOutput: !!nodeOutput,
+          }
+        );
+      }
+
+      // 记录最后一个节点的输出作为容器的输出
       if (nodeOutput) {
         containerOutput = nodeOutput;
       }

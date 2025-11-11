@@ -12,6 +12,8 @@ import type {
   CachedNodeResult,
   CacheStats,
   ExecutionState,
+  IterationResultData,
+  IterationHistory,
 } from "./types";
 
 /**
@@ -51,6 +53,9 @@ export class ExecutionContext {
 
   /** 循环变量 */
   loopVariables: Record<string, any> | undefined = undefined;
+
+  /** 节点迭代历史存储（用于循环容器内的节点） */
+  private nodeIterationHistories: Map<string, IterationHistory> = new Map();
 
   constructor(
     workflow: Workflow,
@@ -372,9 +377,60 @@ export class ExecutionContext {
     this.state = "idle";
     this.nodeStates.clear();
     this.nodeOutputs.clear();
+    this.nodeIterationHistories.clear();
     this.startTime = 0;
     this.endTime = 0;
     this.paused = false;
     this.cancelled = false;
+  }
+
+  /**
+   * 追加节点的迭代结果（用于循环容器内的节点）
+   */
+  appendIterationResult(
+    nodeId: string,
+    iterationData: IterationResultData
+  ): void {
+    // 获取或创建迭代历史
+    let history = this.nodeIterationHistories.get(nodeId);
+    if (!history) {
+      history = {
+        iterations: [],
+        totalIterations: 0,
+        currentPage: 1,
+      };
+      this.nodeIterationHistories.set(nodeId, history);
+    }
+
+    // 追加迭代结果
+    history.iterations.push(iterationData);
+    history.totalIterations = history.iterations.length;
+
+    // 同时更新节点状态中的迭代历史
+    const nodeState = this.nodeStates.get(nodeId);
+    if (nodeState) {
+      nodeState.iterationHistory = { ...history };
+    }
+  }
+
+  /**
+   * 获取节点的迭代历史
+   */
+  getIterationHistory(nodeId: string): IterationHistory | undefined {
+    return this.nodeIterationHistories.get(nodeId);
+  }
+
+  /**
+   * 清空节点的迭代历史（在新一轮循环开始前调用）
+   */
+  clearIterationHistory(nodeId: string): void {
+    this.nodeIterationHistories.delete(nodeId);
+  }
+
+  /**
+   * 清空所有迭代历史
+   */
+  clearAllIterationHistories(): void {
+    this.nodeIterationHistories.clear();
   }
 }

@@ -175,6 +175,14 @@ const wrapExecutionOptions = (
     });
     options?.onCacheHit?.(nodeId, cachedResult);
   },
+  onIterationUpdate: (nodeId: string, iterationData: any) => {
+    const ids = requireContextIds();
+    postMessageToMain({
+      type: "ITERATION_UPDATE",
+      payload: { ...ids, nodeId, iterationData },
+    });
+    options?.onIterationUpdate?.(nodeId, iterationData);
+  },
 });
 
 const handleUnexpectedError = (

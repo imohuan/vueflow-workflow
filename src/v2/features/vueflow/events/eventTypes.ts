@@ -15,6 +15,7 @@ import type {
   ExecutionNodeCompleteEvent,
   ExecutionNodeErrorEvent,
   ExecutionCacheHitEvent,
+  ExecutionIterationUpdateEvent,
 } from "../executor/types";
 
 /**
@@ -150,6 +151,8 @@ export interface ExecutionEvents {
   "execution:node:complete": ExecutionNodeCompleteEvent;
   "execution:node:error": ExecutionNodeErrorEvent;
   "execution:cache-hit": ExecutionCacheHitEvent;
+  /** 迭代更新事件（用于循环节点内的子节点） */
+  "execution:iteration:update": ExecutionIterationUpdateEvent;
   /** 节点执行结果预览 */
   "execution:result:preview": {
     nodeId: string;

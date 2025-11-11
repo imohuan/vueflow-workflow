@@ -496,6 +496,20 @@ events.on("execution:cache-hit", ({ nodeId, cachedResult }) => {
   }
 });
 
+// 监听迭代更新事件（用于循环节点内的子节点）
+events.on("execution:iteration:update", ({ nodeId, iterationData }: any) => {
+  console.log(`[CanvasView] 节点 ${nodeId} 迭代 ${iterationData.iterationIndex + 1} 更新:`, iterationData);
+  
+  // 如果是第一次迭代，先清空旧的迭代历史
+  if (iterationData.iterationIndex === 0) {
+    console.log(`[CanvasView] 清空节点 ${nodeId} 的旧迭代历史`);
+    canvasStore.clearNodeIterationHistory(nodeId);
+  }
+  
+  // 将迭代数据追加到节点的迭代历史
+  canvasStore.appendNodeIterationHistory(nodeId, iterationData);
+});
+
 // 监听节点执行结果预览事件
 events.on("execution:result:preview", (payload: any) => {
   console.log("[CanvasView] 显示节点执行结果预览:", payload);
