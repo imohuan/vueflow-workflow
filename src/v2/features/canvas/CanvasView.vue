@@ -106,7 +106,7 @@ const quickMenu = reactive({
   position: { x: 320, y: 220 },
   startHandle: undefined as
     | undefined
-    | { nodeId: string; handleId?: string | null },
+    | { nodeId: string; handleId?: string | null; handleType?: "source" | "target" },
 });
 
 const quickMenuRef = ref<HTMLDivElement | null>(null);
@@ -362,16 +362,17 @@ events.on("canvas:clicked", () => {
 });
 
 // 最近一次连接开始信息（由 edge:connect-start 提供）
-let lastConnectStart: { nodeId: string; handleId?: string | null } | undefined =
+let lastConnectStart: { nodeId: string; handleId?: string | null; handleType?: "source" | "target" } | undefined =
   undefined;
 
 // 监听连接开始，记录来源端口
 events.on("edge:connect-start", (params: any) => {
   // 期望包含 { nodeId, handleId, handleType, event }
-  if (params && params.handleType === "source") {
+  if (params && (params.handleType === "source" || params.handleType === "target")) {
     lastConnectStart = {
       nodeId: params.nodeId,
       handleId: params.handleId,
+      handleType: params.handleType,
     };
   } else {
     lastConnectStart = undefined;
@@ -401,7 +402,7 @@ events.on("edge:connection-failed", ({ position }) => {
  */
 function handleQuickMenuSelectNode(payload: {
   nodeId: string;
-  startHandle?: { nodeId: string; handleId?: string | null };
+  startHandle?: { nodeId: string; handleId?: string | null; handleType?: "source" | "target" };
 }) {
   const { nodeId, startHandle } = payload || ({} as any);
   console.log(

@@ -17,7 +17,7 @@
         :class="{
           'bg-green-50': status.status === 'success',
           'bg-red-50': status.status === 'error',
-          'bg-blue-50': status.status === 'cached',
+          'bg-purple-50': status.status === 'cached',
           'cursor-help': status.status === 'error' && status.error,
         }"
       >
@@ -35,8 +35,8 @@
 
         <!-- 缓存命中 -->
         <template v-else-if="status.status === 'cached'">
-          <IconCheckCircle class="h-3.5 w-3.5 text-blue-600" />
-          <span class="font-medium text-blue-700">缓存</span>
+          <IconCheckCircle class="h-3.5 w-3.5 text-purple-600" />
+          <span class="font-medium text-purple-700">缓存</span>
         </template>
 
         <!-- 执行时长 -->

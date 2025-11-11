@@ -121,7 +121,7 @@ interface Props {
   visible: boolean;
   position: { x: number; y: number };
   /** 拖拽连接线的开始端口（由外部传入，用于在选择节点时回传） */
-  startHandle?: { nodeId: string; handleId?: string | null };
+  startHandle?: { nodeId: string; handleId?: string | null; handleType?: "source" | "target" };
 }
 
 const props = defineProps<Props>();
@@ -131,7 +131,7 @@ const emit = defineEmits<{
     e: "selectNode",
     payload: {
       nodeId: string;
-      startHandle?: { nodeId: string; handleId?: string | null };
+      startHandle?: { nodeId: string; handleId?: string | null; handleType?: "source" | "target" };
     }
   ): void;
 }>();
@@ -201,11 +201,18 @@ const menuStyle = computed(() => ({
 
 // 过滤节点
 const filteredNodes = computed(() => {
+  let nodes = nodeList.value;
+  
+  // 过滤掉开始节点和结束节点
+  nodes = nodes.filter(node => {
+    return node.id !== 'start' && node.id !== 'end';
+  });
+  
   if (!searchKeyword.value.trim()) {
-    return nodeList.value;
+    return nodes;
   }
   const keyword = searchKeyword.value.toLowerCase();
-  return nodeList.value.filter(
+  return nodes.filter(
     (node) =>
       node.name.toLowerCase().includes(keyword) ||
       node.description.toLowerCase().includes(keyword)

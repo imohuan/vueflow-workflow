@@ -143,6 +143,7 @@
         :is-last="isLastChild(index)"
         :parent-is-last="isLast"
         :enable-drag="props.enableDrag"
+        :expand-all="props.expandAll"
       />
       <!-- 闭合括号 -->
       <div class="json-tree-node">
@@ -189,6 +190,8 @@ interface Props {
   parentIsLast?: boolean;
   /** 是否启用拖拽 */
   enableDrag?: boolean;
+  /** 是否展开所有节点 */
+  expandAll?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -198,10 +201,11 @@ const props = withDefaults(defineProps<Props>(), {
   isLast: true,
   parentIsLast: true,
   enableDrag: true,
+  expandAll: false,
 });
 
 // 展开状态
-const isExpanded = ref(props.depth < 2);
+const isExpanded = ref(props.expandAll || props.depth < 2);
 
 // 判断是否可展开（对象或数组）
 const isExpandable = computed(() => {

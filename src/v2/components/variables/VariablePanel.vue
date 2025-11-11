@@ -149,6 +149,7 @@
               v-if="selectedVariableData"
               :data="selectedVariableData"
               :enable-drag="props.enableDrag"
+              :expand-all="props.expandAllJson"
             />
             <div
               v-else-if="props.showJsonSelector"
@@ -162,6 +163,7 @@
                 v-if="props.variables.length > 0 && jsonRootData"
                 :data="jsonRootData"
                 :enable-drag="props.enableDrag"
+                :expand-all="props.expandAllJson"
               />
               <div
                 v-else
@@ -207,6 +209,8 @@ interface Props {
   enableDrag?: boolean;
   /** 是否显示 JSON 视图的下拉选择器 */
   showJsonSelector?: boolean;
+  /** 是否在 JSON 视图中展开所有节点 */
+  expandAllJson?: boolean;
 }
 
 interface Emits {
@@ -226,6 +230,7 @@ const props = withDefaults(defineProps<Props>(), {
   defaultViewMode: "schema",
   enableDrag: true,
   showJsonSelector: true,
+  expandAllJson: false,
 });
 
 const emit = defineEmits<Emits>();

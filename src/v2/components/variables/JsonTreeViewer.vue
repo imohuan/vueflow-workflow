@@ -2,11 +2,12 @@
   <div class="json-tree-viewer">
     <div class="json-tree-list">
       <JsonTreeNode
-        :data="data"
+        :data="props.data"
         :depth="0"
         :path="''"
         :is-last="true"
-        :enable-drag="enableDrag"
+        :enable-drag="props.enableDrag"
+        :expand-all="props.expandAll"
       />
     </div>
   </div>
@@ -20,10 +21,13 @@ interface Props {
   data: unknown;
   /** 是否启用拖拽 */
   enableDrag?: boolean;
+  /** 是否展开所有节点 */
+  expandAll?: boolean;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   enableDrag: true,
+  expandAll: false,
 });
 </script>
 

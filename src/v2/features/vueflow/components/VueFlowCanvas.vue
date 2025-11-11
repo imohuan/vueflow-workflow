@@ -536,7 +536,11 @@ async function handleQuickMenuSelectNode({
 }: {
   nodeId: string;
   screenPosition: { x: number; y: number };
-  startHandle?: { nodeId: string; handleId?: string | null };
+  startHandle?: {
+    nodeId: string;
+    handleId?: string | null;
+    handleType?: "source" | "target";
+  };
 }) {
   console.log(
     "[VueFlowCanvas] 快捷菜单选择节点:",
@@ -568,30 +572,67 @@ async function handleQuickMenuSelectNode({
     await nextTick();
     vueFlowApi.updateNodeInternals?.([newNode.id]);
 
-    // 选择目标端口：
-    // - 标准节点/大多数节点的默认输入端口为 "input"
-    // - 若节点有自定义实现不可用，则回退到元数据第一个输入名
-    let targetHandle: string | undefined = "input";
-    if (
-      !targetHandle &&
-      Array.isArray(nodeMetadata.inputs) &&
-      nodeMetadata.inputs.length > 0
-    ) {
-      targetHandle = nodeMetadata.inputs[0]?.name || undefined;
-    }
-
     const edgeId = `edge-${Date.now()}-${Math.random()
       .toString(36)
       .substring(2, 9)}`;
 
-    const newEdge = {
-      id: edgeId,
-      source: startHandle.nodeId,
-      sourceHandle: startHandle.handleId ?? undefined,
-      target: newNode.id,
-      targetHandle,
-      ...defaultEdgeOptions.value,
-    } as Edge;
+    let newEdge: Edge;
+
+    // 根据起始端口类型确定连接方向
+    if (startHandle.handleType === "target") {
+      // 从输入端口拖拽：新节点的输出端口 -> 起始节点的输入端口
+      console.log("[VueFlowCanvas] 从输入端口拖拽，创建反向连接");
+      console.log("[VueFlowCanvas] 从", nodeMetadata);
+
+      // 选择新节点的输出端口
+      let sourceHandle: string | undefined = undefined;
+      if (
+        Array.isArray(nodeMetadata.outputs) &&
+        nodeMetadata.outputs.length > 0
+      ) {
+        sourceHandle = nodeMetadata.outputs[0]?.name || undefined;
+      }
+
+      if (!sourceHandle) sourceHandle = "output";
+
+      newEdge = {
+        id: edgeId,
+        source: newNode.id,
+        sourceHandle,
+        target: startHandle.nodeId,
+        targetHandle: startHandle.handleId ?? undefined,
+        ...defaultEdgeOptions.value,
+      } as Edge;
+    } else {
+      // 从输出端口拖拽（默认情况）：起始节点的输出端口 -> 新节点的输入端口
+      console.log("[VueFlowCanvas] 从输出端口拖拽，创建正向连接");
+      // 选择新节点的输入端口
+      let targetHandle: string | undefined = undefined;
+      if (
+        Array.isArray(nodeMetadata.inputs) &&
+        nodeMetadata.inputs.length > 0
+      ) {
+        targetHandle = nodeMetadata.inputs[0]?.name || undefined;
+      }
+      if (!targetHandle) targetHandle = "input";
+
+      newEdge = {
+        id: edgeId,
+        source: startHandle.nodeId,
+        sourceHandle: startHandle.handleId ?? undefined,
+        target: newNode.id,
+        targetHandle,
+        ...defaultEdgeOptions.value,
+      } as Edge;
+    }
+
+    console.log("[VueFlowCanvas] 创建连接:", {
+      source: newEdge.source,
+      sourceHandle: newEdge.sourceHandle,
+      target: newEdge.target,
+      targetHandle: newEdge.targetHandle,
+      startHandleType: startHandle.handleType,
+    });
 
     coreEdges.value.push(newEdge);
 

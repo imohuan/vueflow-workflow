@@ -115,9 +115,11 @@
           :default-view-mode="rightViewMode"
           :enable-drag="false"
           :show-json-selector="false"
+          :expand-all-json="true"
           empty-text="暂无执行结果"
           empty-hint="执行节点后显示结果"
           @update:view-mode="(mode) => (rightViewMode = mode)"
+          ref="rightVariablePanel"
         >
           <!-- 标题后：迭代信息和执行状态 -->
           <template #title-suffix>
@@ -284,12 +286,13 @@ const rightPanelMode = ref<"output" | "logs">("output");
 const isEditing = ref(false);
 const editorContent = ref("");
 const originalEditorContent = ref("");
+const rightVariablePanel = ref<InstanceType<typeof VariablePanel> | null>(null);
 
 // 左侧面板状态
 const leftViewMode = ref<"schema" | "json">("schema");
 
 // 右侧面板状态
-const rightViewMode = ref<"schema" | "json">("schema");
+const rightViewMode = ref<"schema" | "json">("json");
 
 const leftViewModeOptions = [
   { value: "schema", label: "Schema" },
