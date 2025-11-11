@@ -75,7 +75,7 @@
       <!-- 底部提示 -->
       <template #footer>
         <n-text depth="3" style="font-size: 10px; line-height: 1.4">
-          重构阶段占位内容，后续接入真实节点数据。
+          按 Enter 选择第一个节点，Esc 关闭菜单
         </n-text>
       </template>
     </n-card>
@@ -83,19 +83,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, type Component } from "vue";
+import { ref, computed, watch, nextTick, markRaw, type Component } from "vue";
 import { onClickOutside } from "@vueuse/core";
 import { NCard, NInput, NIcon, NScrollbar, NText, NEmpty } from "naive-ui";
-import {
-  SearchOutline,
-  PlayCircleOutline,
-  GitNetworkOutline,
-  GitCompareOutline,
-  RefreshCircleOutline,
-  CreateOutline,
-  ConstructOutline,
-  BarChartOutline,
-} from "@vicons/ionicons5";
+import { SearchOutline } from "@vicons/ionicons5";
+import IconCode from "@/icons/IconCode.vue";
+import IconWidget from "@/icons/IconWidget.vue";
+import IconServer from "@/icons/IconServer.vue";
+import IconSettings from "@/icons/IconSettings.vue";
+import { useCanvasStore } from "@/v2/stores/canvas";
+import type { NodeMetadataItem } from "@/v2/features/vueflow/executor/types";
 
 interface NodeInfo {
   id: string;
@@ -120,58 +117,42 @@ const menuRef = ref<HTMLDivElement | null>(null);
 const inputRef = ref<typeof NInput | null>(null);
 const searchKeyword = ref("");
 
-// 节点数据
-const nodeList: NodeInfo[] = [
-  {
-    id: "start",
-    name: "开始节点",
-    description: "工作流的起始节点",
-    icon: PlayCircleOutline,
-    color: "#18a058",
-  },
-  {
-    id: "http",
-    name: "HTTP 请求",
-    description: "发送 HTTP 请求获取数据",
-    icon: GitNetworkOutline,
-    color: "#2080f0",
-  },
-  {
-    id: "condition",
-    name: "条件判断",
-    description: "根据条件分支执行",
-    icon: GitCompareOutline,
-    color: "#f0a020",
-  },
-  {
-    id: "for-loop",
-    name: "For 循环",
-    description: "遍历数组或对象",
-    icon: RefreshCircleOutline,
-    color: "#d03050",
-  },
-  {
-    id: "variable",
-    name: "变量赋值",
-    description: "创建或修改变量",
-    icon: CreateOutline,
-    color: "#7c3aed",
-  },
-  {
-    id: "transform",
-    name: "数据转换",
-    description: "转换数据格式",
-    icon: ConstructOutline,
-    color: "#0ea5e9",
-  },
-  {
-    id: "log",
-    name: "日志输出",
-    description: "输出调试信息",
-    icon: BarChartOutline,
-    color: "#64748b",
-  },
-];
+// Canvas Store
+const canvasStore = useCanvasStore();
+
+// 分类图标和颜色映射
+const categoryIconMap: Record<string, { icon: Component; color: string }> = {
+  网络: { icon: markRaw(IconWidget), color: "#3b82f6" },
+  数据处理: { icon: markRaw(IconCode), color: "#10b981" },
+  文本工具: { icon: markRaw(IconServer), color: "#f59e0b" },
+  工具: { icon: markRaw(IconSettings), color: "#8b5cf6" },
+};
+
+// 默认图标和颜色
+const defaultIcon = markRaw(IconCode);
+const defaultColor = "#6b7280";
+
+// 将 NodeMetadataItem 转换为 NodeInfo
+function convertNodeMetadataToNodeInfo(node: NodeMetadataItem): NodeInfo {
+  const category = node.category || "其他";
+  const categoryInfo = categoryIconMap[category] || {
+    icon: defaultIcon,
+    color: defaultColor,
+  };
+
+  return {
+    id: node.type,
+    name: node.label,
+    description: node.description || "",
+    icon: categoryInfo.icon,
+    color: categoryInfo.color,
+  };
+}
+
+// 节点列表（从 Store 获取）
+const nodeList = computed<NodeInfo[]>(() => {
+  return canvasStore.availableNodes.map(convertNodeMetadataToNodeInfo);
+});
 
 const menuStyle = computed(() => ({
   left: `${props.position.x}px`,
@@ -182,10 +163,10 @@ const menuStyle = computed(() => ({
 // 过滤节点
 const filteredNodes = computed(() => {
   if (!searchKeyword.value.trim()) {
-    return nodeList;
+    return nodeList.value;
   }
   const keyword = searchKeyword.value.toLowerCase();
-  return nodeList.filter(
+  return nodeList.value.filter(
     (node) =>
       node.name.toLowerCase().includes(keyword) ||
       node.description.toLowerCase().includes(keyword)

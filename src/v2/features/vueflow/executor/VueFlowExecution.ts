@@ -606,5 +606,6 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
     getNodeList,
     isInitialized,
     ensureChannel,
+    cleanupChannel,
   };
 }

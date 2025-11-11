@@ -59,7 +59,7 @@
 
     <!-- 节点分类列表 -->
     <div v-else class="p-3">
-      <n-collapse :default-expanded-names="expandedCategories">
+      <n-collapse v-model:expanded-names="expandedCategories">
         <n-collapse-item
           v-for="category in filteredCategories"
           :key="category.id"
@@ -143,17 +143,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, markRaw, onMounted } from "vue";
+import { ref, computed, markRaw, onMounted, watch } from "vue";
 import type { Component } from "vue";
 import IconSearch from "@/icons/IconSearch.vue";
 import IconWidget from "@/icons/IconWidget.vue";
 import IconCode from "@/icons/IconCode.vue";
 import IconServer from "@/icons/IconServer.vue";
 import IconSettings from "@/icons/IconSettings.vue";
-import IconDocument from "@/icons/IconDocument.vue";
-import IconStart from "@/icons/IconStart.vue";
-import IconEnd from "@/icons/IconEnd.vue";
-import { useVueFlowExecution } from "../../../vueflow/executor";
+
+import { useCanvasStore } from "../../../../stores/canvas";
 import type { NodeMetadataItem } from "../../../vueflow/executor/types";
 
 // 节点分类接口
@@ -195,14 +193,14 @@ interface NodeDefinition {
 // 搜索关键词
 const searchQuery = ref("");
 
-// 默认展开的分类
-const expandedCategories = ref(["browser", "data", "control"]);
+// 展开的分类（受控模式，默认全部展开：列表加载后填充为所有分类 ID）
+const expandedCategories = ref<string[]>([]);
 
-// 执行器实例
-const executionManager = useVueFlowExecution();
+// Canvas Store（在此从 Store 加载并复用节点列表）
+const canvasStore = useCanvasStore();
 
 // 是否正在加载
-const loading = ref(true);
+const loading = computed(() => canvasStore.isLoadingNodeList);
 
 // 节点分类数据
 const nodeCategories = ref<NodeCategory[]>([]);
@@ -221,11 +219,10 @@ const categoryIconMap: Record<string, { icon: Component; color: string }> = {
   工具: { icon: markRaw(IconSettings), color: "#8b5cf6" },
 };
 
-// 从执行器获取节点列表
-async function loadNodeList() {
+// 从 Canvas Store 获取节点列表并构建分类（节点列表已在 CanvasView 中初始化）
+function buildNodeCategories() {
   try {
-    loading.value = true;
-    const nodes = await executionManager.getNodeList();
+    const nodes = canvasStore.availableNodes;
 
     // 按分类分组节点
     const categoryMap = new Map<string, NodeMetadataItem[]>();
@@ -265,54 +262,27 @@ async function loadNodeList() {
       }
     );
 
-    // 添加工具分类和特殊节点
-    const toolsCategory: NodeCategory = {
-      id: "tools",
-      name: "工具",
-      icon: markRaw(IconSettings),
-      color: "#8b5cf6",
-      nodes: [
-        {
-          id: "start",
-          name: "开始",
-          description: "工作流程的起点，没有输入端口",
-          category: "工具",
-          icon: markRaw(IconStart),
-        },
-        {
-          id: "end",
-          name: "结束",
-          description: "工作流程的终点，没有输出端口",
-          category: "工具",
-          icon: markRaw(IconEnd),
-        },
-        {
-          id: "note",
-          name: "笔记",
-          description: "用于记录备注和说明的笔记节点",
-          category: "工具",
-          icon: markRaw(IconDocument),
-        },
-      ],
-    };
-
-    // 将工具分类添加到列表开头
-    // nodeCategories.value.unshift(toolsCategory);
-
     // 默认展开所有分类
     expandedCategories.value = nodeCategories.value.map((cat) => cat.id);
 
-    console.log("节点列表加载成功:", nodes.length, "个节点");
+    console.log("节点分类构建成功:", nodes.length, "个节点");
   } catch (error) {
-    console.error("加载节点列表失败:", error);
-  } finally {
-    loading.value = false;
+    console.error("构建节点分类失败:", error);
   }
 }
 
-// 组件挂载时加载节点列表
+// 监听节点列表变化，自动重新构建分类
+watch(
+  () => canvasStore.nodeListLoadedAt,
+  () => {
+    buildNodeCategories();
+  },
+  { immediate: true }
+);
+
+// 组件挂载时构建节点分类（节点列表已在 CanvasView 中初始化）
 onMounted(() => {
-  loadNodeList();
+  buildNodeCategories();
 
   // 初始化拖拽预览的默认值
   dragNodeName.value = "节点";

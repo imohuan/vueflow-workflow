@@ -640,11 +640,13 @@ import IconGlobe from "@/icons/IconGlobe.vue";
 import IconBolt from "@/icons/IconBolt.vue";
 import IconCheckCircle from "@/icons/IconCheckCircle.vue";
 import IconXCircle from "@/icons/IconXCircle.vue";
+import { useCanvasStore } from "@/v2/stores/canvas";
 
 const message = useMessage();
 const editorConfigStore = useEditorConfigStore();
 const { config } = storeToRefs(editorConfigStore);
-const execution = useVueFlowExecution();
+
+const canvasStore = useCanvasStore();
 
 // 当前激活的标签页
 const activeTab = ref("general");
@@ -659,7 +661,8 @@ watch(
   () => config.value.executionMode,
   async (newMode, oldMode) => {
     if (newMode && newMode !== oldMode) {
-      await execution.switchMode(newMode as any);
+      canvasStore.vueFlowExecution.cleanupChannel();
+      canvasStore.loadNodeList();
     }
   }
 );

@@ -54,7 +54,7 @@
   </n-layout>
 </template>
 <script setup lang="ts">
-import { reactive, ref, nextTick, watch } from "vue";
+import { reactive, ref, nextTick, watch, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
 import { useMessage } from "naive-ui";
@@ -75,7 +75,6 @@ import { useEditorConfigStore } from "../../stores/editorConfig";
 import { useUiStore } from "../../stores/ui";
 import { useWorkflowStore } from "../../stores/workflow";
 import { VueFlowCanvas, useVueFlowEvents } from "../vueflow";
-import { useVueFlowExecution } from "../vueflow/executor";
 import type { Workflow } from "workflow-flow-nodes";
 
 const canvasStore = useCanvasStore();
@@ -96,8 +95,8 @@ const message = useMessage();
 // 事件系统
 const events = useVueFlowEvents();
 
-// 执行系统
-const executionManager = useVueFlowExecution();
+// 执行系统（使用 canvas store 中的实例）
+const executionManager = canvasStore.vueFlowExecution;
 
 // 快速菜单
 const quickMenu = reactive({
@@ -109,6 +108,13 @@ const quickMenuRef = ref<HTMLDivElement | null>(null);
 const canvasContainerRef = ref<HTMLElement | null>(null);
 
 uiStore.activeTab = "node-library";
+
+// 初始化节点列表
+onMounted(() => {
+  setTimeout(() => {
+    canvasStore.loadNodeList();
+  }, 400);
+});
 
 /**
  * 将浏览器窗口坐标转换为相对于画布容器的坐标
@@ -528,7 +534,7 @@ events.on("execution:result:preview", (payload: any) => {
 // ========== 键盘快捷键处理 ==========
 
 // 全局快捷键可用性（来自 UI Store）
-const { enableShortcut, hasFoucsInput, hasModalOpen } = storeToRefs(uiStore);
+const { enableShortcut, hasFoucsInput } = storeToRefs(uiStore);
 
 // Tab 键切换左侧浮动面板
 onKeyStroke(

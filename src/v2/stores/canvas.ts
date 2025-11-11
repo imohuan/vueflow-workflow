@@ -1,6 +1,8 @@
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, ref, markRaw } from "vue";
 import { useWorkflowStore } from "./workflow";
+import { useVueFlowExecution } from "../features/vueflow/executor/VueFlowExecution";
+import type { NodeMetadataItem } from "../features/vueflow/executor/types";
 
 /**
  * Canvas Store
@@ -11,6 +13,10 @@ import { useWorkflowStore } from "./workflow";
  */
 export const useCanvasStore = defineStore("newCanvas", () => {
   const workflowStore = useWorkflowStore();
+
+  // ===== 执行系统实例 =====
+  // 使用 markRaw 避免 Pinia 自动解包，保持原始类型
+  const vueFlowExecution = markRaw(useVueFlowExecution());
 
   // ===== 视图状态 =====
   /** 是否正在执行工作流 */
@@ -23,6 +29,16 @@ export const useCanvasStore = defineStore("newCanvas", () => {
 
   /** 画布 FPS（性能监控） */
   const fps = ref(0);
+
+  // ===== 节点库（可用节点列表） =====
+  /** 可用节点列表 */
+  const availableNodes = ref<NodeMetadataItem[]>([]);
+
+  /** 是否正在加载节点列表 */
+  const isLoadingNodeList = ref(false);
+
+  /** 节点列表加载时间戳 */
+  const nodeListLoadedAt = ref<number | null>(null);
 
   // ===== 计算属性：从 workflow store 读取数据 =====
   /** 当前工作流的节点列表 */
@@ -300,6 +316,28 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     });
   }
 
+  // ===== 节点列表管理 =====
+
+  /**
+   * 加载可用节点列表（从执行系统获取，缓存到 Canvas Store）
+   */
+  async function loadNodeList(force = false): Promise<void> {
+    if (isLoadingNodeList.value) return;
+    if (!force && availableNodes.value.length > 0) return;
+
+    isLoadingNodeList.value = true;
+    try {
+      const nodes = await vueFlowExecution.getNodeList();
+      availableNodes.value = nodes;
+      nodeListLoadedAt.value = Date.now();
+    } catch (error) {
+      console.error("[Canvas] 加载节点列表失败:", error);
+      availableNodes.value = [];
+    } finally {
+      isLoadingNodeList.value = false;
+    }
+  }
+
   return {
     // ===== 计算属性（从 workflow store 读取）=====
     nodes,
@@ -339,6 +377,15 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     appendNodeIterationHistory,
     setNodeIterationPage,
     clearNodeIterationHistory,
+
+    // ===== 节点列表管理 =====
+    availableNodes,
+    isLoadingNodeList,
+    nodeListLoadedAt,
+    loadNodeList,
+
+    // ===== 执行系统实例 =====
+    vueFlowExecution,
 
     // ===== 其他 =====
     stopFPSCalculation,
