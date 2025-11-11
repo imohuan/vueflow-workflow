@@ -146,10 +146,12 @@ import {
   MINIMAP_CONFIG,
 } from "../core/vueflowConfig";
 import { useEditorConfigStore } from "../../../stores/editorConfig";
+import { useCanvasStore } from "../../../stores/canvas";
 import { NODE_SIZE } from "../../../config";
 import { eventBusUtils } from "../events/eventBus";
 import { generateUniqueLabel } from "../utils/labelUtils";
 import { useUiStore } from "../../../stores/ui";
+import type { NodeMetadataItem } from "../executor/types";
 import CustomNode from "./nodes/CustomNode.vue";
 import NoteNode from "./nodes/NoteNode.vue";
 import StartNode from "./nodes/StartNode.vue";
@@ -179,6 +181,7 @@ import {
 
 // 配置 Store
 const editorConfigStore = useEditorConfigStore();
+const canvasStore = useCanvasStore();
 const { config: editorConfig } = storeToRefs(editorConfigStore);
 
 interface Props {
@@ -337,6 +340,165 @@ function getMiniMapNodeStroke(node: Node) {
 }
 
 /**
+ * 通用的节点添加函数
+ * @param nodeMetadata 节点元数据
+ * @param position 节点位置（画布坐标）
+ * @returns 创建的节点对象
+ */
+function addNodeAtPosition(
+  nodeMetadata:
+    | NodeMetadataItem
+    | {
+        id: string;
+        name: string;
+        description?: string;
+        inputs?: any[];
+        outputs?: any[];
+      },
+  position: { x: number; y: number }
+): Node {
+  const nodeId = "type" in nodeMetadata ? nodeMetadata.type : nodeMetadata.id;
+  const nodeName =
+    "label" in nodeMetadata ? nodeMetadata.label : nodeMetadata.name;
+  const nodeDescription = nodeMetadata.description || "";
+
+  // 调整位置：使鼠标释放点对应节点顶部标题的中心
+  const adjustedPosition = {
+    x: position.x - NODE_SIZE.defaultWidth / 2, // 水平居中
+    y: position.y - NODE_SIZE.headerHeight / 2, // 垂直对齐到标题中心
+  };
+
+  // 确定节点类型（note、start、end、connector、if 使用对应类型，其他使用 custom）
+  const nodeType = [
+    "note",
+    "start",
+    "end",
+    "connector",
+    "if",
+    "for",
+    "forLoopContainer",
+    "code",
+  ].includes(nodeId)
+    ? nodeId
+    : "custom";
+
+  // 获取节点类型特定数据
+  const specificData = NODE_TYPE_SPECIFIC_DATA[nodeId] || {};
+
+  // 生成唯一标签
+  const uniqueLabel = generateUniqueLabel(nodeName, coreNodes.value);
+
+  // 创建新的节点对象
+  const newNode: Node = {
+    id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    type: nodeType,
+    position: adjustedPosition,
+    data: {
+      nodeType: nodeId,
+      // 通用字段：从 nodeMetadata 获取
+      label: uniqueLabel,
+      description: nodeDescription,
+      // 对于 custom 类型，添加 type 字段
+      ...(nodeType === "custom" && { type: nodeId }),
+      // 节点类型特定字段
+      ...specificData,
+      // 保存节点的 inputs/outputs 配置（用于配置面板）
+      inputs: nodeMetadata.inputs || [],
+      outputs: nodeMetadata.outputs || [],
+    },
+  };
+
+  // 添加到节点数组
+  coreNodes.value.push(newNode);
+
+  // 如果是 for 节点，自动创建容器节点并连接
+  if (nodeType === "for") {
+    const containerId = `for-container-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
+
+    // 生成容器节点的唯一标签（需要考虑刚添加的 for 节点）
+    const containerLabel = generateUniqueLabel("批处理体", [
+      ...coreNodes.value,
+      newNode,
+    ]);
+
+    // 创建容器节点（放在 for 节点下方）
+    const containerNode: Node = {
+      id: containerId,
+      type: "forLoopContainer",
+      position: {
+        x: adjustedPosition.x - NODE_SIZE.defaultWidth / 2,
+        y: adjustedPosition.y + 100 + editorConfig.value.autoLayoutRankSpacing,
+      },
+      data: {
+        label: containerLabel,
+        type: "forLoopContainer",
+        config: {
+          forNodeId: newNode.id,
+        },
+      },
+      width: 400,
+      height: 200,
+    };
+
+    // 添加容器节点
+    coreNodes.value.push(containerNode);
+
+    // 创建连接边（for 节点的 loop 端口 -> 容器的 loop-in 端口）
+    const edgeId = `edge-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
+
+    const connectionEdge: Edge = {
+      id: edgeId,
+      source: newNode.id,
+      sourceHandle: "loop",
+      target: containerId,
+      targetHandle: "loop-in",
+      type: "custom",
+      updatable: false, // 禁止编辑装饰性边
+    };
+
+    coreEdges.value.push(connectionEdge);
+
+    // 更新 for 节点的 config，保存 containerId
+    newNode.data = {
+      ...newNode.data,
+      config: {
+        ...(newNode.data.config || {}),
+        containerId: containerId,
+        mode: "variable",
+        variable: "",
+        itemName: "item",
+        indexName: "index",
+      },
+    };
+
+    console.log(
+      "[VueFlowCanvas] 自动创建 For 容器节点:",
+      containerNode,
+      "连接边:",
+      connectionEdge
+    );
+  }
+
+  console.log(
+    "[VueFlowCanvas] 添加新节点:",
+    newNode,
+    "位置:",
+    adjustedPosition
+  );
+
+  // 通过事件系统通知外部
+  if (events) {
+    events.emit("node:added", { node: newNode });
+  }
+
+  return newNode;
+}
+
+/**
  * 处理拖放
  */
 function handleDrop(event: DragEvent) {
@@ -357,143 +519,83 @@ function handleDrop(event: DragEvent) {
       y: event.clientY,
     });
 
-    // 调整位置：使鼠标释放点对应节点顶部标题的中心
-    const adjustedPosition = {
-      x: position.x - NODE_SIZE.defaultWidth / 2, // 水平居中
-      y: position.y - NODE_SIZE.headerHeight / 2, // 垂直对齐到标题中心
-    };
-
-    // 确定节点类型（note、start、end、connector、if 使用对应类型，其他使用 custom）
-    const nodeType = [
-      "note",
-      "start",
-      "end",
-      "connector",
-      "if",
-      "for",
-      "forLoopContainer",
-      "code",
-    ].includes(draggedNode.id)
-      ? draggedNode.id
-      : "custom";
-
-    // 获取节点类型特定数据
-    const specificData = NODE_TYPE_SPECIFIC_DATA[draggedNode.id] || {};
-
-    // 生成唯一标签
-    const uniqueLabel = generateUniqueLabel(draggedNode.name, coreNodes.value);
-
-    // 创建新的节点对象
-    const newNode: Node = {
-      id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      type: nodeType,
-      position: adjustedPosition,
-      data: {
-        nodeType: draggedNode.id,
-        // 通用字段：从 draggedNode 获取
-        label: uniqueLabel,
-        description: draggedNode.description,
-        // 对于 custom 类型，添加 type 字段
-        ...(nodeType === "custom" && { type: draggedNode.id }),
-        // 节点类型特定字段
-        ...specificData,
-        // 保存节点的 inputs/outputs 配置（用于配置面板）
-        inputs: draggedNode.inputs,
-        outputs: draggedNode.outputs,
-      },
-    };
-
-    // 添加到节点数组
-    coreNodes.value.push(newNode);
-
-    // 如果是 for 节点，自动创建容器节点并连接
-    if (nodeType === "for") {
-      const containerId = `for-container-${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2, 9)}`;
-
-      // 生成容器节点的唯一标签（需要考虑刚添加的 for 节点）
-      const containerLabel = generateUniqueLabel("批处理体", [
-        ...coreNodes.value,
-        newNode,
-      ]);
-
-      // 创建容器节点（放在 for 节点下方）
-      const containerNode: Node = {
-        id: containerId,
-        type: "forLoopContainer",
-        position: {
-          x: adjustedPosition.x - NODE_SIZE.defaultWidth / 2,
-          y:
-            adjustedPosition.y + 100 + editorConfig.value.autoLayoutRankSpacing, // 放在 for 节点下方 150px
-        },
-        data: {
-          label: containerLabel,
-          type: "forLoopContainer",
-          config: {
-            forNodeId: newNode.id,
-          },
-        },
-        width: 400,
-        height: 200,
-      };
-
-      // 添加容器节点
-      coreNodes.value.push(containerNode);
-
-      // 创建连接边（for 节点的 loop 端口 -> 容器的 loop-in 端口）
-      const edgeId = `edge-${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2, 9)}`;
-
-      const connectionEdge: Edge = {
-        id: edgeId,
-        source: newNode.id,
-        sourceHandle: "loop",
-        target: containerId,
-        targetHandle: "loop-in",
-        type: "custom",
-        updatable: false, // 禁止编辑装饰性边
-      };
-
-      coreEdges.value.push(connectionEdge);
-
-      // 更新 for 节点的 config，保存 containerId
-      newNode.data = {
-        ...newNode.data,
-        config: {
-          ...(newNode.data.config || {}),
-          containerId: containerId,
-          mode: "variable",
-          variable: "",
-          itemName: "item",
-          indexName: "index",
-        },
-      };
-
-      console.log(
-        "[VueFlowCanvas] 自动创建 For 容器节点:",
-        containerNode,
-        "连接边:",
-        connectionEdge
-      );
-    }
-
-    console.log(
-      "[VueFlowCanvas] 添加新节点:",
-      newNode,
-      "原始坐标:",
-      position,
-      "调整后坐标:",
-      adjustedPosition
-    );
-
-    // 通过事件系统通知外部
-    if (events) {
-      events.emit("node:added", { node: newNode });
-    }
+    // 使用通用函数添加节点
+    addNodeAtPosition(draggedNode, position);
   } catch (error) {
     console.error("[VueFlowCanvas] 解析拖放数据失败:", error);
+  }
+}
+
+/**
+ * 处理快捷菜单节点选择
+ */
+function handleQuickMenuSelectNode({
+  nodeId,
+  screenPosition,
+  startHandle,
+}: {
+  nodeId: string;
+  screenPosition: { x: number; y: number };
+  startHandle?: { nodeId: string; handleId?: string | null };
+}) {
+  console.log(
+    "[VueFlowCanvas] 快捷菜单选择节点:",
+    nodeId,
+    screenPosition,
+    "startHandle:",
+    startHandle
+  );
+
+  // 从可用节点列表中查找节点元数据
+  const nodeMetadata = canvasStore.availableNodes.find(
+    (node) => node.type === nodeId
+  );
+
+  if (!nodeMetadata) {
+    console.warn("[VueFlowCanvas] 未找到节点元数据:", nodeId);
+    return;
+  }
+
+  // 将屏幕坐标转换为画布坐标（考虑缩放和平移）
+  const flowPosition = vueFlowApi.project(screenPosition);
+
+  // 使用通用函数添加节点
+  const newNode = addNodeAtPosition(nodeMetadata, flowPosition);
+
+  // 如果存在连接开始端口信息，则自动创建从起点到新节点的连接
+  if (startHandle && startHandle.nodeId) {
+    // 选择目标端口：优先使用新节点的第一个输入名称
+    let targetHandle: string | undefined = undefined;
+    if (Array.isArray(nodeMetadata.inputs) && nodeMetadata.inputs.length > 0) {
+      targetHandle = nodeMetadata.inputs[0]?.name || undefined;
+    }
+
+    const edgeId = `edge-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
+
+    const newEdge = {
+      id: edgeId,
+      source: startHandle.nodeId,
+      sourceHandle: startHandle.handleId ?? undefined,
+      target: newNode.id,
+      targetHandle,
+      ...defaultEdgeOptions.value,
+    } as Edge;
+
+    coreEdges.value.push(newEdge);
+
+    if (events) {
+      events.emit("edge:connected", {
+        connection: {
+          source: newEdge.source,
+          target: newEdge.target,
+          sourceHandle: newEdge.sourceHandle,
+          targetHandle: newEdge.targetHandle,
+        },
+      });
+      events.emit("edge:added", { edge: newEdge });
+    }
   }
 }
 
@@ -863,6 +965,11 @@ onMounted(() => {
   eventBusUtils.on("node:duplicate-request", handleNodeDuplicate);
   eventBusUtils.on("node:detach-from-container", handleNodeDetachFromContainer);
 
+  // 监听快捷菜单节点选择事件
+  if (events) {
+    events.on("quick-menu:select-node", handleQuickMenuSelectNode);
+  }
+
   // 注册并启用插件
   const configSyncPlugin = createConfigSyncPlugin();
   pluginManager.register(configSyncPlugin);
@@ -939,6 +1046,11 @@ onUnmounted(() => {
     "node:detach-from-container",
     handleNodeDetachFromContainer
   );
+
+  // 清理快捷菜单节点选择事件监听器
+  if (events) {
+    events.off("quick-menu:select-node", handleQuickMenuSelectNode);
+  }
 
   // 清理所有插件
   pluginManager.getEnabledPlugins().forEach((plugin) => {

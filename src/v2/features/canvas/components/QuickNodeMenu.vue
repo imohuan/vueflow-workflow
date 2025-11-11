@@ -5,10 +5,13 @@
       ref="menuRef"
       tabindex="-1"
       @keydown.esc="handleEscape"
+      @keydown.down.prevent="handleArrowDown"
+      @keydown.up.prevent="handleArrowUp"
+      @keydown.enter.prevent="handleEnterSelect"
       class="absolute outline-none shadow-2xl quick-node-menu"
       :style="menuStyle"
       size="small"
-      :bordered="true"
+      :bordered="false"
       :content-style="{ padding: 0 }"
       :header-style="{ padding: '8px 12px' }"
       :footer-style="{ padding: '8px 12px' }"
@@ -22,7 +25,9 @@
           placeholder="搜索节点..."
           clearable
           size="small"
-          @keydown.enter="handleEnterSelect"
+          @keydown.enter.stop.prevent="handleEnterSelect"
+          @keydown.down.stop.prevent="handleArrowDown"
+          @keydown.up.stop.prevent="handleArrowUp"
         >
           <template #prefix>
             <n-icon :component="SearchOutline" :size="16" />
@@ -31,8 +36,8 @@
       </template>
 
       <!-- 可滚动节点列表区 -->
-      <n-scrollbar style="max-height: 280px">
-        <div style="padding: 8px 4px">
+      <n-scrollbar ref="scrollbarRef" style="max-height: 280px">
+        <div ref="nodeListContainerRef" style="padding: 8px 4px">
           <n-text
             depth="3"
             style="
@@ -49,9 +54,11 @@
           <template v-if="filteredNodes.length > 0">
             <div class="node-list">
               <div
-                v-for="node in filteredNodes"
+                v-for="(node, index) in filteredNodes"
                 :key="node.id"
+                :ref="(el) => setItemRef(el, index)"
                 class="node-item"
+                :class="{ 'node-item-selected': selectedIndex === index }"
                 @click="handleNodeSelect(node)"
               >
                 <n-icon :component="node.icon" :color="node.color" :size="16" />
@@ -75,7 +82,7 @@
       <!-- 底部提示 -->
       <template #footer>
         <n-text depth="3" style="font-size: 10px; line-height: 1.4">
-          按 Enter 选择第一个节点，Esc 关闭菜单
+          按 ↑↓ 切换，Enter 选择，Esc 关闭
         </n-text>
       </template>
     </n-card>
@@ -83,7 +90,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, markRaw, type Component } from "vue";
+import {
+  ref,
+  computed,
+  watch,
+  nextTick,
+  markRaw,
+  type Component,
+  onBeforeUpdate,
+} from "vue";
 import { onClickOutside } from "@vueuse/core";
 import { NCard, NInput, NIcon, NScrollbar, NText, NEmpty } from "naive-ui";
 import { SearchOutline } from "@vicons/ionicons5";
@@ -105,20 +120,44 @@ interface NodeInfo {
 interface Props {
   visible: boolean;
   position: { x: number; y: number };
+  /** 拖拽连接线的开始端口（由外部传入，用于在选择节点时回传） */
+  startHandle?: { nodeId: string; handleId?: string | null };
 }
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "selectNode", nodeId: string): void;
+  (
+    e: "selectNode",
+    payload: {
+      nodeId: string;
+      startHandle?: { nodeId: string; handleId?: string | null };
+    }
+  ): void;
 }>();
 
 const menuRef = ref<HTMLDivElement | null>(null);
 const inputRef = ref<typeof NInput | null>(null);
+const scrollbarRef = ref<InstanceType<typeof NScrollbar> | null>(null);
+const nodeListContainerRef = ref<HTMLDivElement | null>(null);
 const searchKeyword = ref("");
+const selectedIndex = ref(0);
+const itemRefs = ref<(HTMLDivElement | null)[]>([]);
 
 // Canvas Store
 const canvasStore = useCanvasStore();
+
+// 设置节点项 ref
+function setItemRef(el: any, index: number) {
+  if (el && el instanceof HTMLElement) {
+    itemRefs.value[index] = el as HTMLDivElement;
+  }
+}
+
+// 在更新前清空 refs
+onBeforeUpdate(() => {
+  itemRefs.value = [];
+});
 
 // 分类图标和颜色映射
 const categoryIconMap: Record<string, { icon: Component; color: string }> = {
@@ -179,10 +218,23 @@ watch(
   (newVisible) => {
     if (newVisible) {
       searchKeyword.value = "";
+      selectedIndex.value = 0;
       nextTick(() => {
         inputRef.value?.focus();
+        scrollToSelectedItem();
       });
     }
+  }
+);
+
+// 监听过滤后的节点列表变化，重置选中索引
+watch(
+  () => filteredNodes.value,
+  () => {
+    selectedIndex.value = 0;
+    nextTick(() => {
+      scrollToSelectedItem();
+    });
   }
 );
 
@@ -198,15 +250,83 @@ function handleEscape() {
 }
 
 function handleNodeSelect(node: NodeInfo) {
-  emit("selectNode", node.id);
+  emit("selectNode", { nodeId: node.id, startHandle: props.startHandle });
   emit("close");
 }
 
 function handleEnterSelect() {
-  const firstNode = filteredNodes.value[0];
-  if (firstNode) {
-    handleNodeSelect(firstNode);
+  const selectedNode = filteredNodes.value[selectedIndex.value];
+  if (selectedNode) {
+    handleNodeSelect(selectedNode);
   }
+}
+
+function handleArrowDown() {
+  if (filteredNodes.value.length === 0) return;
+  selectedIndex.value = (selectedIndex.value + 1) % filteredNodes.value.length;
+  scrollToSelectedItem();
+}
+
+function handleArrowUp() {
+  if (filteredNodes.value.length === 0) return;
+  selectedIndex.value =
+    selectedIndex.value === 0
+      ? filteredNodes.value.length - 1
+      : selectedIndex.value - 1;
+  scrollToSelectedItem();
+}
+
+// 滚动到选中的项目
+function scrollToSelectedItem() {
+  nextTick(() => {
+    const selectedItem = itemRefs.value[selectedIndex.value];
+    if (!selectedItem || !scrollbarRef.value || !nodeListContainerRef.value)
+      return;
+
+    try {
+      // 获取滚动容器的 DOM 元素
+      // naive-ui 的 n-scrollbar 组件结构：.n-scrollbar > .n-scrollbar-container
+      const scrollbarEl = (scrollbarRef.value as any).$el as HTMLElement;
+      if (!scrollbarEl) return;
+
+      const scrollContainer = scrollbarEl.querySelector(
+        ".n-scrollbar-container"
+      ) as HTMLElement;
+      if (!scrollContainer) return;
+
+      // 获取选中项相对于滚动容器的位置
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const itemRect = selectedItem.getBoundingClientRect();
+
+      const itemTop =
+        itemRect.top - containerRect.top + scrollContainer.scrollTop;
+      const itemHeight = itemRect.height;
+      const containerHeight = containerRect.height;
+      const scrollTop = scrollContainer.scrollTop;
+
+      // 如果选中的项目在可视区域上方，滚动到项目顶部
+      if (itemTop < scrollTop) {
+        scrollContainer.scrollTo({
+          top: Math.max(0, itemTop - 8), // 留一点间距，确保不小于 0
+          behavior: "auto",
+        });
+      }
+      // 如果选中的项目在可视区域下方，滚动到项目底部可见
+      else if (itemTop + itemHeight > scrollTop + containerHeight) {
+        scrollContainer.scrollTo({
+          top: itemTop + itemHeight - containerHeight + 8, // 留一点间距
+          behavior: "auto",
+        });
+      }
+    } catch (error) {
+      // 如果滚动失败，使用 scrollIntoView 作为后备方案
+      console.warn("[QuickNodeMenu] 滚动失败，使用 scrollIntoView:", error);
+      selectedItem.scrollIntoView({
+        behavior: "auto",
+        block: "nearest",
+      });
+    }
+  });
 }
 
 defineExpose({
@@ -236,6 +356,10 @@ defineExpose({
 
 .node-item:hover {
   background-color: rgba(24, 160, 88, 0.08);
+}
+
+.node-item-selected {
+  background-color: rgba(24, 160, 88, 0.12) !important;
 }
 
 .node-content {

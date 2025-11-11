@@ -40,8 +40,10 @@
       <QuickNodeMenu
         ref="quickMenuRef"
         @close="quickMenu.visible = false"
+        @selectNode="handleQuickMenuSelectNode"
         :visible="quickMenu.visible"
         :position="quickMenu.position"
+        :start-handle="quickMenu.startHandle"
       />
     </n-layout-content>
 
@@ -102,6 +104,9 @@ const executionManager = canvasStore.vueFlowExecution;
 const quickMenu = reactive({
   visible: false,
   position: { x: 320, y: 220 },
+  startHandle: undefined as
+    | undefined
+    | { nodeId: string; handleId?: string | null },
 });
 
 const quickMenuRef = ref<HTMLDivElement | null>(null);
@@ -356,6 +361,23 @@ events.on("canvas:clicked", () => {
   uiStore.clearNodePreview();
 });
 
+// 最近一次连接开始信息（由 edge:connect-start 提供）
+let lastConnectStart: { nodeId: string; handleId?: string | null } | undefined =
+  undefined;
+
+// 监听连接开始，记录来源端口
+events.on("edge:connect-start", (params: any) => {
+  // 期望包含 { nodeId, handleId, handleType, event }
+  if (params && params.handleType === "source") {
+    lastConnectStart = {
+      nodeId: params.nodeId,
+      handleId: params.handleId,
+    };
+  } else {
+    lastConnectStart = undefined;
+  }
+});
+
 // 监听连接失败事件，显示快捷菜单
 events.on("edge:connection-failed", ({ position }) => {
   console.log("[CanvasView] 连接失败，显示快捷菜单（原始坐标）", position);
@@ -366,11 +388,47 @@ events.on("edge:connection-failed", ({ position }) => {
 
   quickMenu.visible = true;
   quickMenu.position = canvasPosition;
+  // 记录此次失败对应的开始端口（用于后续选择节点后自动连线）
+  quickMenu.startHandle = lastConnectStart || undefined;
 
   nextTick(() => {
     quickMenuRef.value?.focus();
   });
 });
+
+/**
+ * 处理快捷菜单节点选择
+ */
+function handleQuickMenuSelectNode(payload: {
+  nodeId: string;
+  startHandle?: { nodeId: string; handleId?: string | null };
+}) {
+  const { nodeId, startHandle } = payload || ({} as any);
+  console.log(
+    "[CanvasView] 快捷菜单选择节点:",
+    nodeId,
+    "startHandle:",
+    startHandle
+  );
+
+  // 将容器坐标转换为屏幕坐标
+  if (!canvasContainerRef.value) {
+    console.warn("[CanvasView] 画布容器引用不存在");
+    message.warning("画布容器未就绪");
+    return;
+  }
+
+  const containerRect = canvasContainerRef.value.getBoundingClientRect();
+  const screenX = containerRect.left + quickMenu.position.x;
+  const screenY = containerRect.top + quickMenu.position.y;
+
+  // 通过事件系统通知 VueFlowCanvas 添加节点
+  events.emit("quick-menu:select-node", {
+    nodeId,
+    screenPosition: { x: screenX, y: screenY },
+    startHandle: startHandle ?? quickMenu.startHandle ?? undefined,
+  });
+}
 
 // ========== 执行事件监听 ==========
 

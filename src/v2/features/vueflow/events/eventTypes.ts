@@ -115,6 +115,13 @@ export interface CanvasEvents {
   "canvas:request-auto-layout": any;
   /** 画布自动布局完成 */
   "canvas:auto-layout": { nodeCount: number; direction: string };
+  /** 快捷菜单选择节点 */
+  "quick-menu:select-node": {
+    nodeId: string;
+    screenPosition: { x: number; y: number };
+    /** 拖拽连接线的开始端口（来源节点与端口） */
+    startHandle?: { nodeId: string; handleId?: string | null };
+  };
 }
 
 /**
