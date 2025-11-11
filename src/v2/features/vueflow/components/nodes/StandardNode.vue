@@ -145,6 +145,8 @@
             {{ data.description }}
           </div>
           <div v-else class="text-xs text-gray-400 italic">暂无配置</div>
+
+          <StandardNodeContent :data="data" />
         </slot>
       </div>
     </div>
@@ -196,6 +198,7 @@ import IconCog from "@/icons/IconCog.vue";
 import IconExternalLink from "@/icons/IconExternalLink.vue";
 import IconCopy from "@/icons/IconCopy.vue";
 import { eventBusUtils } from "../../events";
+import StandardNodeContent from "./StandardNodeContent.vue";
 import "../ports/portStyles.css";
 
 interface Props {

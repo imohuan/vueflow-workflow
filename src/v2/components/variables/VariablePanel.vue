@@ -4,11 +4,15 @@
     <div class="shrink-0 border-b border-slate-200 px-4 py-3">
       <div class="flex items-center justify-between gap-3">
         <!-- 左侧标题 -->
-        <h3
-          class="text-sm font-semibold text-slate-900 uppercase tracking-wide truncate"
-        >
-          {{ title }}
-        </h3>
+        <div class="flex items-center gap-2">
+          <h3
+            class="text-sm font-semibold text-slate-900 uppercase tracking-wide truncate"
+          >
+            {{ title }}
+          </h3>
+          <!-- 标题后插槽 -->
+          <slot name="title-suffix"></slot>
+        </div>
         <!-- 右侧操作区 -->
         <div class="flex items-center gap-2">
           <!-- 自定义标题右侧内容插槽 -->

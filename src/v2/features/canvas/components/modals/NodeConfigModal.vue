@@ -119,26 +119,21 @@
           empty-hint="执行节点后显示结果"
           @update:view-mode="(mode) => (rightViewMode = mode)"
         >
-          <!-- 标题右侧：编辑按钮 -->
+          <!-- 标题后：执行状态 -->
+          <template #title-suffix>
+            <NodeExecutionStatus
+              :status="executionStatus"
+              :is-executing="isExecuting"
+            />
+          </template>
+          <!-- 右侧操作：编辑按钮 -->
           <template #header-actions>
             <button
               class="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
               @click="handleEdit"
               title="编辑"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
+              <IconEdit class="h-4 w-4" />
             </button>
           </template>
         </VariablePanel>
@@ -207,6 +202,8 @@ import IconPlay from "@/icons/IconPlay.vue";
 import IconLoading from "@/icons/IconLoading.vue";
 import IconErrorCircle from "@/icons/IconErrorCircle.vue";
 import IconNodeEditor from "@/icons/IconNodeEditor.vue";
+import IconEdit from "@/icons/IconEdit.vue";
+import NodeExecutionStatus from "../status/NodeExecutionStatus.vue";
 import CodeEditor from "@/v2/components/code/CodeEditor.vue";
 import { useUiStore } from "@/v2/stores/ui";
 import { useCanvasStore } from "@/v2/stores/canvas";

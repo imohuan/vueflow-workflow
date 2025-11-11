@@ -155,19 +155,22 @@ export class CodeNode extends BaseFlowNode {
       const key = (item?.key ?? "").trim();
 
       if (!key) {
-        throw new Error(`第 ${index + 1} 项的键名不能为空`);
+        console.error(`第 ${index + 1} 项的键名不能为空`);
+        return;
       }
 
       if (!KEY_PATTERN.test(key)) {
-        throw new Error(
+        console.error(
           `第 ${
             index + 1
           } 项的键名 "${key}" 无效：仅支持以字母开头，由字母、数字或下划线组成`
         );
+        return;
       }
 
       if (seenKeys.has(key)) {
-        throw new Error(`检测到重复的键名 "${key}"，请确保唯一`);
+        console.error(`检测到重复的键名 "${key}"，请确保唯一`);
+        return;
       }
 
       seenKeys.add(key);

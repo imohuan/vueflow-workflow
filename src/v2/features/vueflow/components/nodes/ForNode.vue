@@ -1,7 +1,9 @@
 <template>
   <StandardNode :id="id" :data="standardNodeData" :selected="selected">
     <template #default>
-      <div class="flex flex-col gap-2 py-1.5">
+      <StandardNodeContent :data="data" />
+
+      <div class="hidden flex flex-col gap-2 py-1.5">
         <!-- 配置预览 -->
         <div class="p-2 bg-slate-50 border border-slate-200 rounded-md">
           <div class="flex items-center justify-between gap-2 mb-1.5">
@@ -102,6 +104,7 @@ import { PortHandle } from "../ports";
 import type { NodeStyleConfig } from "workflow-flow-nodes";
 import VariableBadge from "@/v1/components/common/VariableBadge.vue";
 import IconRepeat from "@/icons/IconRepeat.vue";
+import StandardNodeContent from "./StandardNodeContent.vue";
 
 interface ForConfig {
   /** 数据来源模式 */

@@ -39,10 +39,11 @@
     </div>
 
     <!-- 工作流树 -->
-    <div class="p-3">
+    <div class="p-3 workflow-tree">
       <n-tree
         :data="filteredTreeData"
         :expanded-keys="expandedKeys"
+        :selected-keys="selectedKeys"
         :node-props="nodeProps"
         :render-label="renderLabel"
         :render-prefix="renderPrefix"
@@ -109,6 +110,9 @@ const searchQuery = ref("");
 // 展开的节点
 const expandedKeys = ref<string[]>([]);
 
+// 选中的节点
+const selectedKeys = ref<string[]>([]);
+
 // 从 workflow store 获取树数据
 const treeData = computed(() => workflowStore.treeData);
 
@@ -119,6 +123,19 @@ watch(
     const firstFolder = nodes.find((node) => !node.isLeaf);
     if (firstFolder) {
       expandedKeys.value = [String(firstFolder.key)];
+    }
+  },
+  { immediate: true }
+);
+
+// 监听当前工作流变化，自动更新选中状态
+watch(
+  () => canvasStore.currentWorkflowId,
+  (workflowId) => {
+    if (workflowId) {
+      selectedKeys.value = [workflowId];
+    } else {
+      selectedKeys.value = [];
     }
   },
   { immediate: true }
@@ -339,6 +356,9 @@ function expandFolderPath(folderId: string) {
  * 处理节点选择 - 加载工作流到画布
  */
 function handleSelect(keys: string[]) {
+  // 更新选中状态
+  selectedKeys.value = keys;
+
   if (keys.length === 0) return;
 
   const selectedKey = keys[0];
@@ -498,6 +518,9 @@ function createWorkflow() {
       if (workflow.folderId) {
         expandFolderPath(workflow.folderId);
       }
+
+      // 选中新创建的工作流
+      selectedKeys.value = [workflow.workflow_id];
     },
   });
 }
@@ -594,4 +617,8 @@ function handleDeleteFolder(folderId: string, folderName: string) {
 }
 </script>
 
-<style scoped></style>
+<style>
+/* .workflow-tree .n-tree.n-tree--block-line .n-tree-node.n-tree-node--selected {
+  background-color: rgba(22, 137, 245, 0.2);
+} */
+</style>
