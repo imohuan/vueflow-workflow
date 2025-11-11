@@ -350,6 +350,7 @@ interface DraggedKeyData {
   key: string;
   path: string;
   value: unknown;
+  reference: string; // 添加 reference 字段以兼容 VariableTextInput
 }
 
 const {
@@ -372,10 +373,14 @@ const handleKeyMouseDown = (event: MouseEvent) => {
 
   event.stopPropagation();
 
+  // 创建符合变量引用格式的 reference: {{ path }}
+  const reference = props.path ? `{{ ${props.path} }}` : "";
+
   const draggedKeyData: DraggedKeyData = {
     key: props.keyName,
     path: props.path,
     value: props.data,
+    reference: reference,
   };
 
   startDrag(event, draggedKeyData);
