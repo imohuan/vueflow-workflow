@@ -33,7 +33,8 @@
 </template>
 
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
+import { ref, watch, onMounted } from "vue";
+import { getContext } from "@/v2/context";
 
 interface Tab {
   path: string;
@@ -47,14 +48,31 @@ const tabs: Tab[] = [
   { path: "#/preview/split-layout", title: "Split Layout" },
 ];
 
-// 使用 localStorage 持久化当前 tab
-const currentPath = useLocalStorage<string>(
-  "preview-current-tab",
-  "#/preview/ui-shell"
-);
+// 使用全局缓存持久化当前 tab（异步水合）
+const STORAGE_KEY = "preview-current-tab";
+const NAMESPACE = "v2";
+const currentPath = ref<string>("#/preview/ui-shell");
+
+onMounted(async () => {
+  const ctx = getContext();
+  const saved = await ctx.cache.read<string>(STORAGE_KEY, {
+    namespace: NAMESPACE,
+  });
+  if (saved) currentPath.value = saved;
+});
 
 // 选择 tab
 const selectTab = (tab: Tab) => {
   currentPath.value = tab.path;
 };
+
+// 变更时写入缓存（防抖可选，这里频率较低直接写）
+watch(
+  currentPath,
+  async (val) => {
+    const ctx = getContext();
+    await ctx.cache.save(STORAGE_KEY, val, { namespace: NAMESPACE });
+  },
+  { flush: "post" }
+);
 </script>

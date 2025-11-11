@@ -2,11 +2,13 @@ import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import type { TreeOption } from "naive-ui";
 import type { Workflow } from "workflow-flow-nodes";
+import { getContext } from "@/v2/context";
 
-const STORAGE_KEY = "ai-browser-tools:workflows";
-const CURRENT_WORKFLOW_KEY = "ai-browser-tools:current-workflow-id";
-const GLOBAL_VARIABLES_KEY = "ai-browser-tools:global-variables";
+const STORAGE_KEY = "workflows";
+const CURRENT_WORKFLOW_KEY = "current-workflow-id";
+const GLOBAL_VARIABLES_KEY = "global-variables";
 const STORAGE_VERSION = 2;
+const NAMESPACE = "v2";
 
 export interface WorkflowFolder {
   id: string;
@@ -80,41 +82,53 @@ function generateId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}-${Date.now()}`;
 }
 
-function loadCurrentWorkflowId(): string | null {
+async function loadCurrentWorkflowIdAsync(): Promise<string | null> {
   try {
-    return localStorage.getItem(CURRENT_WORKFLOW_KEY);
+    const ctx = getContext();
+    const id = await ctx.cache.read<string>(CURRENT_WORKFLOW_KEY, {
+      namespace: NAMESPACE,
+    });
+    return id ?? null;
   } catch (error) {
     console.error("加载当前工作流 ID 失败:", error);
     return null;
   }
 }
 
-function saveCurrentWorkflowId(workflowId: string | null) {
+async function saveCurrentWorkflowIdAsync(workflowId: string | null) {
   try {
+    const ctx = getContext();
     if (workflowId) {
-      localStorage.setItem(CURRENT_WORKFLOW_KEY, workflowId);
+      await ctx.cache.save<string>(CURRENT_WORKFLOW_KEY, workflowId, {
+        namespace: NAMESPACE,
+      });
     } else {
-      localStorage.removeItem(CURRENT_WORKFLOW_KEY);
+      await ctx.cache.remove(CURRENT_WORKFLOW_KEY, { namespace: NAMESPACE });
     }
   } catch (error) {
     console.error("保存当前工作流 ID 失败:", error);
   }
 }
 
-function loadGlobalVariables(): GlobalVariable[] {
+async function loadGlobalVariablesAsync(): Promise<GlobalVariable[]> {
   try {
-    const raw = localStorage.getItem(GLOBAL_VARIABLES_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as GlobalVariable[];
+    const ctx = getContext();
+    const list = await ctx.cache.read<GlobalVariable[]>(GLOBAL_VARIABLES_KEY, {
+      namespace: NAMESPACE,
+    });
+    return Array.isArray(list) ? list : [];
   } catch (error) {
     console.error("加载全局变量失败:", error);
     return [];
   }
 }
 
-function saveGlobalVariables(variables: GlobalVariable[]) {
+async function saveGlobalVariablesAsync(variables: GlobalVariable[]) {
   try {
-    localStorage.setItem(GLOBAL_VARIABLES_KEY, JSON.stringify(variables));
+    const ctx = getContext();
+    await ctx.cache.save(GLOBAL_VARIABLES_KEY, variables, {
+      namespace: NAMESPACE,
+    });
   } catch (error) {
     console.error("保存全局变量失败:", error);
   }
@@ -220,14 +234,16 @@ function migrateLegacyWorkflows(
   };
 }
 
-function loadWorkflowState(): WorkflowStorageState {
+async function loadWorkflowStateAsync(): Promise<WorkflowStorageState> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
+    const ctx = getContext();
+    const parsed = await ctx.cache.read<
+      WorkflowStorageState | LegacyWorkflow[]
+    >(STORAGE_KEY, { namespace: NAMESPACE });
+
+    if (!parsed) {
       return createDefaultState();
     }
-
-    const parsed = JSON.parse(raw) as WorkflowStorageState | LegacyWorkflow[];
 
     if (Array.isArray(parsed)) {
       return migrateLegacyWorkflows(parsed);
@@ -249,9 +265,10 @@ function loadWorkflowState(): WorkflowStorageState {
   }
 }
 
-function saveWorkflowState(state: WorkflowStorageState) {
+async function saveWorkflowStateAsync(state: WorkflowStorageState) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const ctx = getContext();
+    await ctx.cache.save(STORAGE_KEY, state, { namespace: NAMESPACE });
   } catch (error) {
     console.error("保存工作流失败:", error);
   }
@@ -366,11 +383,20 @@ function buildTreeOptions(
 }
 
 export const useWorkflowStore = defineStore("workflow", () => {
-  const initialState = loadWorkflowState();
-  const workflows = ref<WorkflowEntity[]>(initialState.workflows);
-  const folders = ref<WorkflowFolder[]>(initialState.folders);
-  const currentWorkflowId = ref<string | null>(loadCurrentWorkflowId());
-  const globalVariables = ref<GlobalVariable[]>(loadGlobalVariables());
+  // 初始使用默认值，随后异步从缓存水合
+  const defaultState = createDefaultState();
+  const workflows = ref<WorkflowEntity[]>(defaultState.workflows);
+  const folders = ref<WorkflowFolder[]>(defaultState.folders);
+  const currentWorkflowId = ref<string | null>(null);
+  const globalVariables = ref<GlobalVariable[]>([]);
+
+  (async () => {
+    const state = await loadWorkflowStateAsync();
+    workflows.value = state.workflows;
+    folders.value = state.folders;
+    currentWorkflowId.value = await loadCurrentWorkflowIdAsync();
+    globalVariables.value = await loadGlobalVariablesAsync();
+  })();
 
   // 防抖计时器
   let persistTimer: number | null = null;
@@ -395,8 +421,8 @@ export const useWorkflowStore = defineStore("workflow", () => {
     computeFolderPathsList(folders.value)
   );
 
-  function persistState() {
-    saveWorkflowState({
+  async function persistState() {
+    await saveWorkflowStateAsync({
       version: STORAGE_VERSION,
       workflows: workflows.value,
       folders: folders.value,
@@ -411,7 +437,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
         clearTimeout(persistTimer);
       }
       persistTimer = window.setTimeout(() => {
-        persistState();
+        void persistState();
         persistTimer = null;
       }, PERSIST_DEBOUNCE_MS);
     },
@@ -419,13 +445,13 @@ export const useWorkflowStore = defineStore("workflow", () => {
   );
 
   watch(currentWorkflowId, (newId) => {
-    saveCurrentWorkflowId(newId);
+    void saveCurrentWorkflowIdAsync(newId);
   });
 
   watch(
     globalVariables,
     () => {
-      saveGlobalVariables(globalVariables.value);
+      void saveGlobalVariablesAsync(globalVariables.value);
     },
     { deep: true }
   );

@@ -5,6 +5,7 @@
 
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
+import { getContext } from "@/v2/context";
 
 /**
  * 编辑器配置接口
@@ -122,19 +123,22 @@ export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
 };
 
 /**
- * LocalStorage Key
+ * Storage Key & Namespace
  */
 const STORAGE_KEY = "editorConfig";
+const NAMESPACE = "v2";
 
 /**
- * 从 localStorage 加载配置
+ * 从缓存加载配置（异步）
  */
-function loadConfigFromStorage(): EditorConfig {
+async function loadConfigFromStorageAsync(): Promise<EditorConfig> {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const ctx = getContext();
+    const saved = await ctx.cache.read<EditorConfig>(STORAGE_KEY, {
+      namespace: NAMESPACE,
+    });
     if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...DEFAULT_EDITOR_CONFIG, ...parsed };
+      return { ...DEFAULT_EDITOR_CONFIG, ...saved };
     }
   } catch (error) {
     console.error("[EditorConfig Store] 加载配置失败:", error);
@@ -143,11 +147,12 @@ function loadConfigFromStorage(): EditorConfig {
 }
 
 /**
- * 保存配置到 localStorage
+ * 保存配置到缓存（异步）
  */
-function saveConfigToStorage(config: EditorConfig): void {
+async function saveConfigToStorageAsync(config: EditorConfig): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    const ctx = getContext();
+    await ctx.cache.save(STORAGE_KEY, config, { namespace: NAMESPACE });
   } catch (error) {
     console.error("[EditorConfig Store] 保存配置失败:", error);
   }
@@ -158,8 +163,12 @@ function saveConfigToStorage(config: EditorConfig): void {
  */
 export const useEditorConfigStore = defineStore("editorConfig", () => {
   // 配置状态
-  const config = ref<EditorConfig>(loadConfigFromStorage());
-  
+  const config = ref<EditorConfig>({ ...DEFAULT_EDITOR_CONFIG });
+  // 异步水合
+  (async () => {
+    config.value = await loadConfigFromStorageAsync();
+  })();
+
   // 防抖计时器
   let saveTimer: number | null = null;
   const SAVE_DEBOUNCE_MS = 500; // 防抖延迟 500ms
@@ -207,11 +216,11 @@ export const useEditorConfigStore = defineStore("editorConfig", () => {
         clearTimeout(saveTimer);
       }
       saveTimer = window.setTimeout(() => {
-        saveConfigToStorage(newConfig);
+        void saveConfigToStorageAsync(newConfig);
         saveTimer = null;
       }, SAVE_DEBOUNCE_MS);
     },
-    { deep: true, flush: 'post' }
+    { deep: true, flush: "post" }
   );
 
   return {

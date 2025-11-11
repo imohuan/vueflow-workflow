@@ -6,9 +6,11 @@
 import { watch } from "vue";
 import type { VueFlowPlugin, PluginContext } from "./types";
 import { useCanvasStore } from "../../../stores/canvas";
+import { getContext } from "@/v2/context";
 
-/** localStorage 存储键 */
+/** 缓存键与命名空间 */
 const STORAGE_KEY = "canvas-view-state";
+const NAMESPACE = "v2";
 
 /**
  * 画布视图状态
@@ -32,16 +34,16 @@ export function createCanvasPersistencePlugin(): VueFlowPlugin {
   let beforeUnloadHandler: ((e: BeforeUnloadEvent) => void) | null = null;
 
   /**
-   * 保存画布视图状态到 localStorage
+   * 保存画布视图状态到缓存
    */
-  function saveToLocalStorage(canvasStore: ReturnType<typeof useCanvasStore>) {
+  async function saveToCache(canvasStore: ReturnType<typeof useCanvasStore>) {
     try {
       const state: CanvasViewState = {
         lastNodeResults: canvasStore.lastNodeResults,
         timestamp: Date.now(),
       };
-
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      const ctx = getContext();
+      await ctx.cache.save(STORAGE_KEY, state, { namespace: NAMESPACE });
       console.log("[CanvasPersistence Plugin] 画布视图状态已保存");
     } catch (error) {
       console.error("[CanvasPersistence Plugin] 保存失败:", error);
@@ -49,25 +51,24 @@ export function createCanvasPersistencePlugin(): VueFlowPlugin {
   }
 
   /**
-   * 从 localStorage 加载画布视图状态
+   * 从缓存加载画布视图状态
    */
-  function loadFromLocalStorage(
+  async function loadFromCache(
     canvasStore: ReturnType<typeof useCanvasStore>
-  ): boolean {
+  ): Promise<boolean> {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) {
+      const ctx = getContext();
+      const state = await ctx.cache.read<CanvasViewState>(STORAGE_KEY, {
+        namespace: NAMESPACE,
+      });
+      if (!state) {
         console.log("[CanvasPersistence Plugin] 没有找到已保存的画布视图状态");
         return false;
       }
-
-      const state: CanvasViewState = JSON.parse(stored);
-
       // 恢复执行结果预览
       if (state.lastNodeResults && Array.isArray(state.lastNodeResults)) {
         canvasStore.lastNodeResults = state.lastNodeResults;
       }
-
       console.log(
         `[CanvasPersistence Plugin] 画布视图状态已恢复 (${
           state.lastNodeResults?.length || 0
@@ -91,7 +92,7 @@ export function createCanvasPersistencePlugin(): VueFlowPlugin {
 
     // 设置新的定时器（500ms 延迟）
     saveTimer = window.setTimeout(() => {
-      saveToLocalStorage(canvasStore);
+      void saveToCache(canvasStore);
       saveTimer = null;
     }, 500);
   }
@@ -113,13 +114,19 @@ export function createCanvasPersistencePlugin(): VueFlowPlugin {
 
       // 清理旧的存储键（如果存在）
       const oldStorageKey = "canvas-state";
-      if (localStorage.getItem(oldStorageKey)) {
-        console.log("[CanvasPersistence Plugin] 检测到旧的存储格式，已清理");
-        localStorage.removeItem(oldStorageKey);
-      }
+      (async () => {
+        const ctx = getContext();
+        const legacy = await ctx.cache.read(oldStorageKey, {
+          namespace: NAMESPACE,
+        });
+        if (legacy !== undefined) {
+          console.log("[CanvasPersistence Plugin] 检测到旧的存储格式，已清理");
+          await ctx.cache.remove(oldStorageKey, { namespace: NAMESPACE });
+        }
+      })();
 
       // 启动时加载已保存的视图状态
-      loadFromLocalStorage(canvasStore);
+      void loadFromCache(canvasStore);
 
       // 监听执行结果变化，使用防抖保存（只监听长度，避免 deep watch）
       const stopResultsWatcher = watch(
@@ -139,7 +146,7 @@ export function createCanvasPersistencePlugin(): VueFlowPlugin {
           saveTimer = null;
         }
         // 立即保存当前状态
-        saveToLocalStorage(canvasStore);
+        void saveToCache(canvasStore);
         console.log("[CanvasPersistence Plugin] 页面卸载前已保存状态");
       };
 
@@ -176,7 +183,7 @@ export function createCanvasPersistencePlugin(): VueFlowPlugin {
 
         // 卸载时执行最后一次保存
         const canvasStore = useCanvasStore();
-        saveToLocalStorage(canvasStore);
+        void saveToCache(canvasStore);
       },
     },
   };
