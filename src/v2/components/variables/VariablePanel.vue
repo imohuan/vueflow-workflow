@@ -82,14 +82,46 @@
                 }}</span>
               </div>
             </div>
-            <div v-else class="space-y-1">
-              <VariableTreeItem
-                v-for="node in filteredVariables"
-                :key="node.id"
-                :node="node"
-                :level="0"
-                :enable-drag="props.enableDrag"
-              />
+            <div v-else>
+              <!-- Header 栏 -->
+              <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200">
+                <span class="text-xs text-slate-500 font-medium">变量列表</span>
+                <div class="flex items-center gap-2">
+                  <button
+                    @click="expandFirst"
+                    class="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors"
+                    title="展开数组第一项链路"
+                  >
+                    <span>▸ 展开首项</span>
+                  </button>
+                  <button
+                    @click="expandAll"
+                    class="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors"
+                    title="展开所有层级"
+                  >
+                    <span>▾ 展开全部</span>
+                  </button>
+                  <button
+                    @click="collapseAll"
+                    class="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors"
+                    title="折叠所有节点"
+                  >
+                    <span>◂ 全部折叠</span>
+                  </button>
+                </div>
+              </div>
+              <!-- 树列表 -->
+              <div class="space-y-1">
+                <VariableTreeItem
+                  v-for="node in filteredVariables"
+                  :key="node.id"
+                  :node="node"
+                  :level="0"
+                  :enable-drag="props.enableDrag"
+                  :expanded-node-ids="expandedNodeIds ?? undefined"
+                  @toggle="handleToggle"
+                />
+              </div>
             </div>
           </template>
 
@@ -200,6 +232,91 @@ const emit = defineEmits<Emits>();
 
 // 视图模式：使用 props.defaultViewMode 初始化，但支持外部更新
 const viewMode = ref<"schema" | "json">(props.defaultViewMode);
+
+// 展开控制相关
+// 使用 null 表示未激活外部控制，让节点使用内部状态
+const expandedNodeIds = ref<Set<string> | null>(null);
+
+/** 递归收集所有节点的 ID */
+function collectAllNodeIds(nodes: VariableTreeNode[]): string[] {
+  const ids: string[] = [];
+  const traverse = (node: VariableTreeNode) => {
+    ids.push(node.id);
+    if (node.children) {
+      node.children.forEach(traverse);
+    }
+  };
+  nodes.forEach(traverse);
+  return ids;
+}
+
+/**
+ * 递归收集首项节点 ID
+ * 和 collectAllNodeIds 类似，但对于数组只收集第一个元素
+ */
+function collectFirstBranchIds(nodes: VariableTreeNode[]): string[] {
+  const ids: string[] = [];
+  
+  const traverse = (node: VariableTreeNode) => {
+    // 展开当前节点
+    ids.push(node.id);
+    
+    // 递归处理子节点
+    if (node.children && node.children.length > 0) {
+      if (node.valueType === 'array') {
+        // 对于数组，只处理第一个元素
+        const firstChild = node.children[0];
+        if (firstChild) {
+          traverse(firstChild);
+        }
+      } else {
+        // 对于对象和其他类型，处理所有子节点
+        node.children.forEach(traverse);
+      }
+    }
+  };
+  
+  nodes.forEach(traverse);
+  return ids;
+}
+
+/** 展开全部 */
+function expandAll() {
+  const allIds = collectAllNodeIds(props.variables);
+  expandedNodeIds.value = new Set(allIds);
+}
+
+/** 展开首项（展开首项链路上的所有节点） */
+function expandFirst() {
+  const firstBranchIds = collectFirstBranchIds(props.variables);
+  expandedNodeIds.value = new Set(firstBranchIds);
+}
+
+/** 全部折叠 */
+function collapseAll() {
+  // 设置为空 Set 而不是 null，这样所有节点都会被折叠
+  expandedNodeIds.value = new Set();
+}
+
+/** 处理节点展开/收起事件 */
+function handleToggle(nodeId: string, expanded: boolean) {
+  // 如果当前是 null（使用内部状态），需要先初始化为包含所有当前展开节点的 Set
+  if (expandedNodeIds.value === null) {
+    // 收集当前所有第一层节点的 ID（它们默认是展开的）
+    const firstLevelIds = props.variables.map(node => node.id);
+    expandedNodeIds.value = new Set(firstLevelIds);
+  }
+  
+  // 现在 expandedNodeIds.value 一定不是 null
+  const currentSet = expandedNodeIds.value;
+  if (expanded) {
+    currentSet.add(nodeId);
+  } else {
+    currentSet.delete(nodeId);
+  }
+  // 触发响应式更新
+  expandedNodeIds.value = new Set(currentSet);
+}
 
 // 监听 defaultViewMode 变化，同步到内部状态
 watch(

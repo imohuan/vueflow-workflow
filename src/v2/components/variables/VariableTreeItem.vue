@@ -119,6 +119,8 @@
         :node="child"
         :level="level + 1"
         :enable-drag="props.enableDrag"
+        :expanded-node-ids="props.expandedNodeIds"
+        @toggle="(id, exp) => emit('toggle', id, exp)"
       />
     </div>
   </div>
@@ -133,11 +135,19 @@ import { useEditableDrag } from "@/v2/composables/useEditableDrag";
 
 defineOptions({ name: "VariableTreeItem" });
 
+interface Emits {
+  (e: 'toggle', nodeId: string, expanded: boolean): void;
+}
+
+const emit = defineEmits<Emits>();
+
 interface Props {
   node: VariableTreeNode;
   level?: number;
   /** 是否启用拖拽 */
   enableDrag?: boolean;
+  /** 展开的节点 ID 集合（可选，用于外部控制展开状态） */
+  expandedNodeIds?: Set<string>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -145,7 +155,16 @@ const props = withDefaults(defineProps<Props>(), {
   enableDrag: true,
 });
 
-const expanded = ref(props.level < 1);
+// 如果提供了 expandedNodeIds，使用它来决定展开状态；否则使用默认逻辑
+const expanded = computed(() => {
+  if (props.expandedNodeIds) {
+    return props.expandedNodeIds.has(props.node.id);
+  }
+  // 使用内部状态
+  return internalExpanded.value;
+});
+
+const internalExpanded = ref(props.level < 1);
 
 // 拖拽相关
 interface DraggedVariableData {
@@ -196,7 +215,14 @@ const valueClass = computed(() => {
 });
 
 function toggle() {
-  expanded.value = !expanded.value;
+  if (props.expandedNodeIds) {
+    // 如果使用外部状态，触发事件让父组件更新
+    const newExpanded = !expanded.value;
+    emit('toggle', props.node.id, newExpanded);
+  } else {
+    // 使用内部状态
+    internalExpanded.value = !internalExpanded.value;
+  }
 }
 
 function handleRowClick() {
