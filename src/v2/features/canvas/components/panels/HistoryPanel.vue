@@ -370,7 +370,9 @@ async function loadHistory() {
     executionHistory.value = history.map((record: ExecutionHistoryRecord) => ({
       id: record.executionId,
       workflowId: record.workflowId,
-      workflowName: record.workflowId, // TODO: 从 workflowStore 获取工作流名称
+      workflowName:
+        workflowStore.getWorkflowById(record.workflowId)?.name ||
+        record.workflowId, // TODO: 从 workflowStore 获取工作流名称
       status: record.success ? "success" : "failed",
       startTime: record.startTime,
       endTime: record.endTime,
