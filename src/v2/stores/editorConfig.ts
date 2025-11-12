@@ -82,7 +82,7 @@ export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
   // 常规设置
   autoSave: true,
   gridSize: 20,
-  snapToGrid: true,
+  snapToGrid: false,
 
   // 执行模式
   executionMode: "worker",
@@ -99,7 +99,7 @@ export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
   edgeWidth: 2,
   edgeColor: "#94a3b8",
   edgeActiveColor: "#3b82f6",
-  edgeAnimation: true,
+  edgeAnimation: false,
   edgeShowArrow: true,
 
   // 画布设置 - 背景
@@ -114,8 +114,8 @@ export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
 
   // 自动布局配置
   autoLayoutDirection: "LR",
-  autoLayoutNodeSpacing: 160,
-  autoLayoutRankSpacing: 240,
+  autoLayoutNodeSpacing: 50,
+  autoLayoutRankSpacing: 80,
   autoLayoutPadding: 120,
   autoLayoutFitView: true,
   autoLayoutFitViewPadding: 0.2,

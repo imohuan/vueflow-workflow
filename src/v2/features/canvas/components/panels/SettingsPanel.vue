@@ -372,7 +372,7 @@
                 <div class="flex items-center gap-2">
                   <n-input-number
                     v-model:value="config.autoLayoutNodeSpacing"
-                    :min="50"
+                    :min="20"
                     :max="400"
                     :step="10"
                     class="w-24"
@@ -382,7 +382,7 @@
               </div>
               <n-slider
                 v-model:value="config.autoLayoutNodeSpacing"
-                :min="50"
+                :min="20"
                 :max="400"
                 :step="10"
               />
@@ -398,7 +398,7 @@
                 <div class="flex items-center gap-2">
                   <n-input-number
                     v-model:value="config.autoLayoutRankSpacing"
-                    :min="100"
+                    :min="20"
                     :max="600"
                     :step="10"
                     class="w-24"
@@ -408,7 +408,7 @@
               </div>
               <n-slider
                 v-model:value="config.autoLayoutRankSpacing"
-                :min="100"
+                :min="20"
                 :max="600"
                 :step="10"
               />

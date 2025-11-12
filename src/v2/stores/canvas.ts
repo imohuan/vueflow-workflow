@@ -419,6 +419,8 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     vueFlowExecution.state.completeExecution(executionResult);
 
     // 如果历史记录包含工作流结构，恢复到画布
+    // 注意：此函数会更新当前选中的工作流
+    // 在查看历史记录时，应该先创建临时工作流并选中，然后再调用此函数
     if (historyRecord?.nodes && historyRecord?.edges) {
       console.log("[Canvas] 恢复工作流结构:", {
         nodes: historyRecord.nodes.length,

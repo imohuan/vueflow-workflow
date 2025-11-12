@@ -73,13 +73,13 @@ export const mainTabs: TabItem[] = [
  * 底部 Tab 配置（设置、测试等）
  */
 export const bottomTabs: TabItem[] = [
-  {
-    id: "test-menu",
-    label: "测试菜单",
-    icon: IconWidget,
-    description: "开发调试工具",
-    testOnly: true,
-  },
+  // {
+  //   id: "test-menu",
+  //   label: "测试菜单",
+  //   icon: IconWidget,
+  //   description: "开发调试工具",
+  //   testOnly: true,
+  // },
   {
     id: "settings",
     label: "设置",

@@ -92,6 +92,7 @@ import { useMessage, useDialog } from "naive-ui";
 import IconDelete from "@/icons/IconDelete.vue";
 import IconPlay from "@/icons/IconPlay.vue";
 import { useCanvasStore } from "@/v2/stores/canvas";
+import { useWorkflowStore } from "@/v2/stores/workflow";
 import { useVueFlowEvents } from "@/v2/features/vueflow/events";
 import type {
   ExecutionHistoryRecord,
@@ -118,6 +119,7 @@ interface ExecutionRecord {
 const message = useMessage();
 const dialog = useDialog();
 const canvasStore = useCanvasStore();
+const workflowStore = useWorkflowStore();
 const vueflowEvents = useVueFlowEvents();
 
 // 状态过滤器
@@ -241,6 +243,7 @@ function calculateDuration(record: ExecutionRecord): string {
 /**
  * 查看详情
  * 将历史记录的执行结果数据加载到画布中，包括工作流结构（nodes 和 edges）
+ * 创建一个临时工作流来显示历史记录，避免修改当前工作流
  */
 async function viewDetails(record: ExecutionRecord) {
   try {
@@ -259,14 +262,45 @@ async function viewDetails(record: ExecutionRecord) {
       return;
     }
 
+    // 查找或创建临时工作流用于显示历史记录
+    // 临时工作流名称固定为"临时工作流"，如果已存在则删除后重新创建
+    const TEMP_WORKFLOW_NAME = "临时工作流";
+    const HISTORY_FOLDER_PATH = "历史记录";
+
+    // 先确保"历史记录"文件夹存在（通过 ensureFolderPath）
+    // 注意：这里不直接调用，因为 createWorkflow 内部会调用 ensureFolderPath
+    // 但我们需要先找到文件夹ID来查找临时工作流
+    const historyFolderId = workflowStore.ensureFolderPath(HISTORY_FOLDER_PATH);
+
+    // 查找"历史记录"文件夹中的"临时工作流"
+    const existingTempWorkflow = workflowStore.workflows.find(
+      (w) => w.name === TEMP_WORKFLOW_NAME && w.folderId === historyFolderId
+    );
+
+    // 如果已存在临时工作流，先删除
+    if (existingTempWorkflow) {
+      workflowStore.deleteWorkflow(existingTempWorkflow.workflow_id);
+    }
+
+    // 创建新的临时工作流
+    const tempWorkflow = workflowStore.createWorkflow(
+      TEMP_WORKFLOW_NAME,
+      HISTORY_FOLDER_PATH,
+      `执行ID: ${record.id}\n执行时间: ${new Date(
+        record.startTime
+      ).toLocaleString("zh-CN")}\n原始工作流: ${record.workflowName}`
+    );
+
+    // 选中临时工作流（loadExecutionStatus 会更新当前工作流的结构）
+    workflowStore.setCurrentWorkflow(tempWorkflow.workflow_id);
+
     // 构造 ExecutionResult 对象用于恢复状态
     const executionResult: ExecutionResult = {
       ...historyRecord,
       nodeResults: new Map(Object.entries(historyRecord.nodeResults || {})),
     };
 
-    // 加载执行状态和工作流结构
-    // 传递完整的 historyRecord，包含 nodes 和 edges
+    // 加载执行状态到画布（会自动更新当前选中的临时工作流的结构）
     canvasStore.loadExecutionStatus(executionResult, historyRecord);
 
     message?.success(`已加载执行状态和工作流结构到画布`);

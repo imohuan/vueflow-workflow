@@ -3,5 +3,4 @@
  */
 
 export * from "./tabs";
-export * from "./editorConfig";
 export * from "./nodeConfig";
