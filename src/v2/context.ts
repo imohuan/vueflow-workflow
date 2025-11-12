@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mitt from "mitt";
+import { injectPocketBase } from "./cache-handler";
+injectPocketBase();
 
 // 全局通用上下文，提供可覆盖的异步缓存读写接口与事件订阅能力
 // 其他模块可通过覆盖 handler，将数据保存到任意介质（本地、IndexedDB、服务端、数据库等）
@@ -70,6 +72,7 @@ declare global {
   // 将 __CONTEXT__ 暴露到 globalThis，便于任意位置覆盖或调用
   // eslint-disable-next-line no-var
   var __CONTEXT__: GlobalContext | undefined;
+  var __CONTEXT__HANDLER__: CacheHandler | undefined;
 }
 
 // ---------- 默认本地存储实现（localStorage，带可选 namespace 与 ttl） ----------
@@ -214,6 +217,11 @@ function createGlobalContext(): GlobalContext {
 // 只在未初始化时创建，避免被重复覆盖
 if (!globalThis.__CONTEXT__) {
   globalThis.__CONTEXT__ = createGlobalContext();
+
+  if (globalThis.__CONTEXT__HANDLER__) {
+    console.log("🚀 ~ 加载上下文处理器:", globalThis.__CONTEXT__HANDLER__);
+    globalThis.__CONTEXT__.cache.setHandler(globalThis.__CONTEXT__HANDLER__);
+  }
 }
 
 export const getContext = () => {

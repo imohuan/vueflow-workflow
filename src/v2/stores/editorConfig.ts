@@ -163,6 +163,7 @@ async function saveConfigToStorageAsync(config: EditorConfig): Promise<void> {
  */
 export const useEditorConfigStore = defineStore("editorConfig", () => {
   // 配置状态
+  const init = ref(false);
   const config = ref<EditorConfig>({ ...DEFAULT_EDITOR_CONFIG });
   // 异步水合
   (async () => {
@@ -177,6 +178,7 @@ export const useEditorConfigStore = defineStore("editorConfig", () => {
       config.value.executionMode = "server";
       config.value.serverUrl = serverUrlFromQuery;
     }
+    init.value = true;
   })();
 
   // 防抖计时器
@@ -233,11 +235,23 @@ export const useEditorConfigStore = defineStore("editorConfig", () => {
     { deep: true, flush: "post" }
   );
 
+  /**
+   * 检查是否已初始化完成
+   */
+  async function ready(): Promise<boolean> {
+    while (!init.value) {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    return true;
+  }
+
   return {
+    init,
     config,
     updateConfig,
     resetConfig,
     exportConfig,
     importConfig,
+    ready,
   };
 });

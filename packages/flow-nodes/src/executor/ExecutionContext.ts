@@ -12,6 +12,7 @@ import type {
   CachedNodeResult,
   CacheStats,
   ExecutionState,
+  ExecutionOptions,
   IterationResultData,
   IterationHistory,
 } from "./types";
@@ -57,14 +58,19 @@ export class ExecutionContext {
   /** 节点迭代历史存储（用于循环容器内的节点） */
   private nodeIterationHistories: Map<string, IterationHistory> = new Map();
 
+  /** 执行选项 */
+  private options: ExecutionOptions;
+
   constructor(
     workflow: Workflow,
     executionId: string,
-    cacheStore: Map<string, CachedNodeResult>
+    cacheStore: Map<string, CachedNodeResult>,
+    options: ExecutionOptions = {}
   ) {
     this.workflow = workflow;
     this.executionId = executionId;
     this.workflowCache = cacheStore;
+    this.options = options;
   }
 
   /**
@@ -86,6 +92,13 @@ export class ExecutionContext {
    */
   getWorkflow(): Workflow {
     return this.workflow;
+  }
+
+  /**
+   * 获取执行选项
+   */
+  getOptions(): ExecutionOptions {
+    return this.options;
   }
 
   /**
@@ -262,17 +275,35 @@ export class ExecutionContext {
 
     // 找到所有指向该节点的边
     const incomingEdges = edges.filter((edge) => edge.target === nodeId);
+    debugger;
 
     for (const edge of incomingEdges) {
       const sourceOutput = this.nodeOutputs.get(edge.source);
       if (sourceOutput) {
-        // 如果指定了端口，使用端口名称
         const portName = edge.targetHandle || "default";
-        const sourcePortName = edge.sourceHandle || "default";
+        let selected: any = undefined;
+        
+        // 根据当前连接线来获取
+        if (edge.sourceHandle) selected = sourceOutput[edge.sourceHandle];
 
-        // 获取源节点的输出数据
-        const value = sourceOutput[sourcePortName] ?? sourceOutput;
-        inputs[portName] = value;
+        if (selected === undefined) {
+          const definedKeys = Object.keys(sourceOutput).filter(
+            (k) => sourceOutput[k] !== undefined
+          );
+          if (definedKeys.length === 1) {
+            selected = sourceOutput[definedKeys[0]];
+          } else if (sourceOutput["result"] !== undefined) {
+            selected = sourceOutput["result"];
+          } else if (sourceOutput["default"] !== undefined) {
+            selected = sourceOutput["default"];
+          }
+        }
+
+        if (selected !== undefined && selected !== null) {
+          if (inputs[portName] === undefined) {
+            inputs[portName] = selected;
+          }
+        }
       }
     }
 

@@ -658,11 +658,12 @@ const connectionMessage = ref("");
 
 // 监听执行模式变化并调用执行系统的切换函数
 watch(
-  () => config.value.executionMode,
+  () => config.value.executionMode + config.value.serverUrl,
   async (newMode, oldMode) => {
     if (newMode && newMode !== oldMode) {
       canvasStore.vueFlowExecution.cleanupChannel();
-      canvasStore.loadNodeList();
+      canvasStore.loadNodeList(true);
+      console.log("刷新模式");
     }
   }
 );

@@ -15,13 +15,23 @@
           </template>
         </n-input>
 
-        <!-- 添加变量按钮 -->
-        <n-button block secondary size="small" @click="addVariable">
-          <template #icon>
-            <n-icon :component="IconAdd" />
-          </template>
-          添加变量
-        </n-button>
+        <!-- 按钮组 -->
+        <div class="flex gap-2">
+          <!-- 添加变量按钮 -->
+          <n-button secondary size="small" @click="addVariable" class="flex-1">
+            <template #icon>
+              <n-icon :component="IconAdd" />
+            </template>
+            添加变量
+          </n-button>
+          <!-- JSON 编辑器按钮 -->
+          <n-button secondary size="small" @click="openJsonEditor">
+            <template #icon>
+              <n-icon :component="IconCode" />
+            </template>
+            JSON 编辑器
+          </n-button>
+        </div>
       </n-space>
     </div>
 
@@ -45,63 +55,6 @@
                 <n-tag :type="getVariableTypeColor(variable.type)" size="small">
                   {{ variable.type }}
                 </n-tag>
-              </div>
-
-              <!-- 变量描述 -->
-              <div
-                v-if="variable.description"
-                class="mt-1 text-xs text-slate-500"
-              >
-                {{ variable.description }}
-              </div>
-
-              <!-- 变量值 -->
-              <div class="mt-2">
-                <!-- 字符串类型 -->
-                <n-input
-                  v-if="variable.type === 'string'"
-                  v-model:value="variable.value"
-                  size="small"
-                  placeholder="输入字符串值..."
-                  @update:value="handleVariableChange(variable)"
-                />
-
-                <!-- 数字类型 -->
-                <n-input-number
-                  v-else-if="variable.type === 'number'"
-                  v-model:value="variable.value"
-                  size="small"
-                  class="w-full"
-                  @update:value="handleVariableChange(variable)"
-                >
-                  <template #minus-icon>
-                    <n-icon :component="IconMinus" />
-                  </template>
-                  <template #add-icon>
-                    <n-icon :component="IconAdd" />
-                  </template>
-                </n-input-number>
-
-                <!-- 布尔类型 -->
-                <n-switch
-                  v-else-if="variable.type === 'boolean'"
-                  v-model:value="variable.value"
-                  @update:value="handleVariableChange(variable)"
-                />
-
-                <!-- 对象类型 - 可折叠编辑器 -->
-                <ObjectEditor
-                  v-else-if="variable.type === 'object'"
-                  v-model:value="variable.value"
-                  @update:value="handleVariableChange(variable)"
-                />
-
-                <!-- 数组类型 - 可折叠编辑器 -->
-                <ArrayEditor
-                  v-else-if="variable.type === 'array'"
-                  v-model:value="variable.value"
-                  @update:value="handleVariableChange(variable)"
-                />
               </div>
             </div>
 
@@ -131,6 +84,60 @@
                 </template>
               </n-button>
             </n-space>
+          </div>
+
+          <!-- 变量描述 -->
+          <div v-if="variable.description" class="mt-1 text-xs text-slate-500">
+            {{ variable.description }}
+          </div>
+
+          <!-- 变量值 -->
+          <div class="mt-2">
+            <!-- 字符串类型 -->
+            <n-input
+              v-if="variable.type === 'string'"
+              v-model:value="variable.value"
+              size="small"
+              placeholder="输入字符串值..."
+              @update:value="debounceHandleVariableChange(variable)"
+            />
+
+            <!-- 数字类型 -->
+            <n-input-number
+              v-else-if="variable.type === 'number'"
+              v-model:value="variable.value"
+              size="small"
+              class="w-full"
+              @update:value="debounceHandleVariableChange(variable)"
+            >
+              <template #minus-icon>
+                <n-icon :component="IconMinus" />
+              </template>
+              <template #add-icon>
+                <n-icon :component="IconAdd" />
+              </template>
+            </n-input-number>
+
+            <!-- 布尔类型 -->
+            <n-switch
+              v-else-if="variable.type === 'boolean'"
+              v-model:value="variable.value"
+              @update:value="debounceHandleVariableChange(variable)"
+            />
+
+            <!-- 对象类型 - 可折叠编辑器 -->
+            <ObjectEditor
+              v-else-if="variable.type === 'object'"
+              v-model:value="variable.value"
+              @update:value="debounceHandleVariableChange(variable)"
+            />
+
+            <!-- 数组类型 - 可折叠编辑器 -->
+            <ArrayEditor
+              v-else-if="variable.type === 'array'"
+              v-model:value="variable.value"
+              @update:value="debounceHandleVariableChange(variable)"
+            />
           </div>
         </div>
       </div>
@@ -235,6 +242,7 @@ import IconAdd from "@/icons/IconAdd.vue";
 import IconEdit from "@/icons/IconEdit.vue";
 import IconDelete from "@/icons/IconDelete.vue";
 import IconMinus from "@/icons/IconMinus.vue";
+import IconCode from "@/icons/IconCode.vue";
 import ObjectEditor from "./components/ObjectEditor.vue";
 import ArrayEditor from "./components/ArrayEditor.vue";
 import {
@@ -242,10 +250,13 @@ import {
   type GlobalVariable,
   type GlobalVariableType,
 } from "@/v2/stores/workflow";
+import { useUiStore } from "@/v2/stores/ui";
+import { debounce } from "lodash-es";
 
 const message = useMessage();
 const dialog = useDialog();
 const workflowStore = useWorkflowStore();
+const uiStore = useUiStore();
 const { globalVariables } = storeToRefs(workflowStore);
 
 // 搜索关键词
@@ -295,6 +306,12 @@ function handleVariableChange(variable: GlobalVariable) {
   console.log("变量已更新:", variable.key, variable.value);
   workflowStore.updateGlobalVariable(variable.key, variable);
   message?.success(`变量 ${variable.key} 已更新`);
+}
+
+function debounceHandleVariableChange(variable: GlobalVariable) {
+  debounce(() => {
+    handleVariableChange(variable);
+  }, 1000);
 }
 
 /**
@@ -476,6 +493,74 @@ function deleteVariable(variable: GlobalVariable) {
       message?.success(`变量 ${variable.key} 已删除`);
     },
   });
+}
+
+/**
+ * 打开 JSON 编辑器
+ */
+function openJsonEditor() {
+  // 将所有变量转换为 JSON 格式
+  const variablesJson = JSON.stringify(globalVariables.value, null, 2);
+
+  // 打开编辑器模态框
+  uiStore.openEditorPanelModal(
+    "变量 JSON 编辑器",
+    variablesJson,
+    "json",
+    (jsonContent: string) => {
+      try {
+        // 解析 JSON
+        const parsed = JSON.parse(jsonContent);
+
+        // 验证是否为数组
+        if (!Array.isArray(parsed)) {
+          message?.error("JSON 格式错误：必须是一个数组");
+          return;
+        }
+
+        // 验证每个变量的结构
+        for (const variable of parsed) {
+          if (
+            !variable ||
+            typeof variable !== "object" ||
+            !variable.key ||
+            !variable.type ||
+            !("value" in variable)
+          ) {
+            message?.error(
+              `变量格式错误：每个变量必须包含 key、type 和 value 字段`
+            );
+            return;
+          }
+
+          // 验证类型
+          const validTypes: GlobalVariableType[] = [
+            "string",
+            "number",
+            "boolean",
+            "object",
+            "array",
+          ];
+          if (!validTypes.includes(variable.type)) {
+            message?.error(
+              `变量 "${variable.key}" 的类型无效：${variable.type}`
+            );
+            return;
+          }
+        }
+
+        // 更新所有变量
+        workflowStore.setGlobalVariables(parsed);
+        message?.success("变量已更新");
+      } catch (error) {
+        message?.error(
+          `JSON 解析失败：${
+            error instanceof Error ? error.message : "未知错误"
+          }`
+        );
+      }
+    }
+  );
 }
 </script>
 

@@ -30,12 +30,17 @@ export class WorkflowExecutor {
   /** 节点解析器 */
   private nodeResolver: INodeResolver;
 
+  /** 日志记录器 */
+  private logger: { log: (...args: any[]) => void; error: (...args: any[]) => void; warn: (...args: any[]) => void };
+
   /** 默认执行选项 */
   private defaultOptions: ExecutionOptions = {
     timeout: 60000,
     maxRetries: 3,
     useCache: true,
     clearCache: false,
+    log: console.log,
+    error: console.error,
   };
 
   /** 当前执行上下文 */
@@ -56,6 +61,13 @@ export class WorkflowExecutor {
     if (options) {
       this.defaultOptions = { ...this.defaultOptions, ...options };
     }
+    
+    // 初始化日志记录器
+    this.logger = {
+      log: this.defaultOptions.log || console.log,
+      error: this.defaultOptions.error || console.error,
+      warn: console.warn,
+    };
   }
 
   /**
@@ -83,6 +95,13 @@ export class WorkflowExecutor {
     }
 
     try {
+      this.logger.log(
+        `[WorkflowExecutor] 开始执行工作流: ${workflow.workflow_id}, 执行ID: ${executionId}`
+      );
+      this.logger.log(
+        `[WorkflowExecutor] 工作流配置: 节点数=${workflow.nodes.length}, 边数=${workflow.edges.length}, 选中节点数=${workflow.selectedNodeIds?.length || 0}`
+      );
+      
       // 开始执行
       context.start();
       opts.onProgress?.(0);
@@ -93,9 +112,11 @@ export class WorkflowExecutor {
 
       // 确定执行策略
       const strategy = this.determineStrategy(workflow);
+      this.logger.log(`[WorkflowExecutor] 执行策略: ${strategy}`);
 
       // 确定要执行的节点
       const nodesToExecute = this.determineNodesToExecute(workflow, strategy);
+      this.logger.log(`[WorkflowExecutor] 需要执行的节点数量: ${nodesToExecute.size}`);
 
       // 识别容器节点（有子节点的节点）
       const containerNodeIds = this.identifyContainerNodes(workflow.nodes);
@@ -124,35 +145,45 @@ export class WorkflowExecutor {
         return isSourceTopLevel && isTargetTopLevel;
       });
 
-      console.log(
+      this.logger.log(
         `[WorkflowExecutor] 排除 ${containerNodeIds.size} 个容器节点和 ${childNodeIds.size} 个子节点后，对 ${topLevelNodes.length} 个顶层节点进行拓扑排序`
       );
 
       // 拓扑排序（只对顶层节点）
       const sortedNodes = this.topologicalSort(topLevelNodes, topLevelEdges);
+      this.logger.log(`[WorkflowExecutor] 拓扑排序完成，执行顺序: ${sortedNodes.map(n => n.id).join(' -> ')}`);
 
       // 过滤出需要执行的节点（保持拓扑顺序）
       const executionOrder = sortedNodes.filter((node) =>
         nodesToExecute.has(node.id)
       );
 
+      this.logger.log(`[WorkflowExecutor] 最终执行顺序: ${executionOrder.map(n => n.id).join(' -> ')}`);
+
       // 初始化所有节点状态
       for (const node of workflow.nodes) {
         const status = nodesToExecute.has(node.id) ? "pending" : "skipped";
         context.setNodeState(node.id, status);
         if (status === "skipped") {
+          this.logger.log(`[WorkflowExecutor] 跳过节点: ${node.id} (未选中执行)`);
           opts.onNodeSkipped?.(node.id, "not-selected");
         }
       }
 
       // 按顺序执行节点
+      this.logger.log(`[WorkflowExecutor] 开始按顺序执行 ${executionOrder.length} 个节点`);
       for (const node of executionOrder) {
+        this.logger.log(`[WorkflowExecutor] 准备执行节点: ${node.id} (${node.data?.nodeType || node.type})`);
+        
         // 检查是否暂停或取消
         if (context.isPaused()) {
+          this.logger.log(`[WorkflowExecutor] 执行已暂停，等待恢复...`);
           await this.waitForResume(context);
+          this.logger.log(`[WorkflowExecutor] 执行已恢复`);
         }
 
         if (context.isCancelled()) {
+          this.logger.log(`[WorkflowExecutor] 执行已取消，停止后续节点执行`);
           break;
         }
 
@@ -161,14 +192,17 @@ export class WorkflowExecutor {
 
         // 更新进度
         const progress = context.getProgress();
+        this.logger.log(`[WorkflowExecutor] 节点 ${node.id} 执行完成，当前进度: ${progress}%`);
         opts.onProgress?.(progress);
       }
 
       // 完成执行
       context.complete();
+      this.logger.log(`[WorkflowExecutor] 工作流执行完成，执行ID: ${executionId}`);
 
       // 构建执行结果
       const result = this.buildExecutionResult(context, strategy);
+      this.logger.log(`[WorkflowExecutor] 执行结果: 成功=${result.success}, 执行节点数=${result.executedNodeIds.length}, 跳过节点数=${result.skippedNodeIds.length}, 缓存节点数=${result.cachedNodeIds.length}`);
       this.emitExecutionComplete(opts, result);
       return result;
     } catch (error) {
@@ -176,6 +210,8 @@ export class WorkflowExecutor {
       context.error();
       const errorMessage =
         error instanceof Error ? error.message : String(error);
+      this.logger.error(`[WorkflowExecutor] 工作流执行失败，执行ID: ${executionId}, 错误: ${errorMessage}`);
+      this.logger.error(error);
       const strategy = this.determineStrategy(workflow);
       const result = this.buildExecutionResult(context, strategy, errorMessage);
       this.emitExecutionError(opts, {
@@ -326,7 +362,7 @@ export class WorkflowExecutor {
 
     // 如果没有开始节点，返回空集合（不执行任何节点）
     if (startNodes.length === 0) {
-      console.warn(
+      this.logger.warn(
         "[WorkflowExecutor] 工作流中没有找到开始节点，将不执行任何节点"
       );
       return new Set<string>();
@@ -334,7 +370,7 @@ export class WorkflowExecutor {
 
     // 如果有多个开始节点，发出警告
     if (startNodes.length > 1) {
-      console.warn(
+      this.logger.warn(
         `[WorkflowExecutor] 工作流中发现多个开始节点（${startNodes.length}个），将从所有开始节点出发`
       );
     }
@@ -361,7 +397,7 @@ export class WorkflowExecutor {
       }
     }
 
-    console.log(
+    this.logger.log(
       `[WorkflowExecutor] 从开始节点出发，找到 ${reachable.size} 个可达节点`
     );
     return reachable;
@@ -414,9 +450,9 @@ export class WorkflowExecutor {
       return false;
     }
 
-    // 检查是否有来自条件分支节点的输入
     let hasConditionalBranchInput = false;
     let hasValidInputFromConditionalBranch = false;
+    let hasNonConditionalValidInput = false;
 
     for (const edge of incomingEdges) {
       // 查找源节点
@@ -427,36 +463,38 @@ export class WorkflowExecutor {
 
       // 获取源节点类型
       const sourceNodeType = sourceNode.data?.nodeType || sourceNode.type;
-
-      // 检查源节点是否是条件分支节点（IF 节点等）
       const isConditionalBranch = sourceNodeType === "if";
-
-      if (!isConditionalBranch) {
-        // 如果源节点不是条件分支节点，不检查输入有效性
-        continue;
-      }
-
-      hasConditionalBranchInput = true;
 
       const sourceOutput = context.getNodeOutput(edge.source);
       if (!sourceOutput) {
-        // 源节点还没有执行，不跳过
+        // 源节点尚无输出，继续检查其他入边
         continue;
       }
 
-      // 获取源节点指定输出端口的值
       const sourceHandle = edge.sourceHandle || "default";
-      const outputValue = sourceOutput[sourceHandle];
+      const handleValue = sourceOutput[sourceHandle];
 
-      // 如果输出值不是 undefined 或 null，说明有有效输入
-      if (outputValue !== undefined && outputValue !== null) {
-        hasValidInputFromConditionalBranch = true;
-        break;
+      if (isConditionalBranch) {
+        hasConditionalBranchInput = true;
+        if (handleValue !== undefined && handleValue !== null) {
+          hasValidInputFromConditionalBranch = true;
+        }
+      } else {
+        const value =
+          handleValue !== undefined && handleValue !== null
+            ? handleValue
+            : sourceOutput;
+        if (value !== undefined && value !== null) {
+          hasNonConditionalValidInput = true;
+        }
       }
     }
 
-    // 只有当存在来自条件分支节点的输入，且所有这些输入都无效时，才跳过节点
-    return hasConditionalBranchInput && !hasValidInputFromConditionalBranch;
+    if (hasConditionalBranchInput) {
+      return !hasValidInputFromConditionalBranch;
+    }
+
+    return !hasNonConditionalValidInput;
   }
 
   /**
@@ -512,7 +550,11 @@ export class WorkflowExecutor {
 
     // 检查是否有环
     if (result.length !== nodes.length) {
-      throw new Error("工作流中存在循环依赖");
+      const error = new Error("工作流中存在循环依赖");
+      this.logger.error(`[WorkflowExecutor] 拓扑排序失败: ${error.message}`);
+      this.logger.error(`[WorkflowExecutor] 节点总数: ${nodes.length}, 排序后: ${result.length}`);
+      this.logger.error(`[WorkflowExecutor] 未排序的节点: ${nodes.filter(n => !result.includes(n.id)).map(n => n.id).join(', ')}`);
+      throw error;
     }
 
     // 返回排序后的节点数组
@@ -535,7 +577,7 @@ export class WorkflowExecutor {
 
       // 检查节点是否应该被跳过（基于输入有效性）
       if (this.shouldSkipNodeDueToInvalidInputs(nodeId, context)) {
-        console.log(
+        this.logger.log(
           `[WorkflowExecutor] 跳过节点 ${nodeId}: 所有输入端口都没有有效数据`
         );
         context.setNodeState(nodeId, "skipped");
@@ -546,14 +588,14 @@ export class WorkflowExecutor {
       // 获取节点输入（从前驱节点的输出）
       const inputs = context.getNodeInputs(nodeId);
 
-      console.log(`[WorkflowExecutor] 节点 ${nodeId} (${nodeType}) 初始输入:`, {
+      this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} (${nodeType}) 初始输入:`, {
         inputs: Object.keys(inputs),
         hasParams: !!node.data?.params,
       });
 
       // 合并节点配置参数（node.data.params）到输入中，并进行变量替换
       if (node.data?.params) {
-        console.log(
+        this.logger.log(
           `[WorkflowExecutor] 节点 ${nodeId} 的 params:`,
           node.data.params
         );
@@ -567,13 +609,17 @@ export class WorkflowExecutor {
           options.globalVariables
         );
 
+        this.logger.log(
+          `[WorkflowExecutor] 节点 ${nodeId} 变量上下文包含 ${contextMap.size} 个变量`
+        );
+
         // 对参数进行变量替换
         const resolvedParams = resolveConfigWithVariables(
           node.data.params,
           contextMap
         );
 
-        console.log(
+        this.logger.log(
           `[WorkflowExecutor] 节点 ${nodeId} 解析后的 params:`,
           resolvedParams
         );
@@ -581,7 +627,7 @@ export class WorkflowExecutor {
         // 合并解析后的参数到输入中
         Object.assign(inputs, resolvedParams);
 
-        console.log(
+        this.logger.log(
           `[WorkflowExecutor] 节点 ${nodeId} 合并后的 inputs:`,
           Object.keys(inputs)
         );
@@ -593,6 +639,8 @@ export class WorkflowExecutor {
 
       // 1. 首先判断全局缓存开关
       if (options.useCache) {
+        this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} 缓存功能已启用`);
+        
         // 2. 获取节点实例以进行节点级缓存判断
         const nodeInstance = this.nodeResolver.resolveInstance(nodeType);
 
@@ -601,14 +649,18 @@ export class WorkflowExecutor {
           nodeId,
           workflowId: context.getWorkflowId(),
         });
+        
+        this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} 缓存判断结果: ${shouldUseCache}`);
 
         // 4. 如果节点允许使用缓存，计算配置哈希并检查缓存
         if (shouldUseCache) {
           configHash = nodeInstance.computeConfigHash(inputs, node.data || {});
+          this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} 配置哈希: ${configHash}`);
 
           // 检查是否有有效缓存
           if (context.hasValidCache(nodeId, configHash)) {
             // 使用缓存
+            this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} 使用缓存结果`);
             const cached = context.getCachedResult(nodeId)!;
             context.setNodeState(nodeId, "cached", {
               outputs: cached.outputs,
@@ -620,11 +672,16 @@ export class WorkflowExecutor {
 
             options.onCacheHit?.(nodeId, cached);
             return;
+          } else {
+            this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} 无有效缓存，将重新执行`);
           }
         }
+      } else {
+        this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} 缓存功能已禁用`);
       }
 
       // 开始执行节点
+      this.logger.log(`[WorkflowExecutor] 开始执行节点 ${nodeId} (${nodeType})`);
       context.setNodeState(nodeId, "running");
       options.onNodeStart?.(nodeId);
 
@@ -654,10 +711,12 @@ export class WorkflowExecutor {
       }
 
       // 执行节点
+      this.logger.log(`[WorkflowExecutor] 正在调用节点 ${nodeId} 的执行函数`);
       const result = await this.executeWithTimeout(
         () => executeFunc(inputs, nodeContext),
         options.timeout
       );
+      this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} 执行函数调用完成`);
 
       // 检查执行结果
       // NodeResolver 现在返回完整的 NodeExecutionResult 对象
@@ -665,6 +724,7 @@ export class WorkflowExecutor {
       if (result && typeof result === "object" && "success" in result) {
         if (result.success === false) {
           const errorMessage = result.error || "节点执行失败";
+          this.logger.error(`[WorkflowExecutor] 节点 ${nodeId} 执行失败: ${errorMessage}`);
           throw new Error(errorMessage);
         }
       }
@@ -672,6 +732,10 @@ export class WorkflowExecutor {
       // 提取输出数据
       // result 应该是 NodeExecutionResult 类型，提取 outputs 字段
       const outputs = result?.outputs ?? {};
+      this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} 输出数据:`, {
+        outputKeys: Object.keys(outputs),
+        hasOutput: Object.keys(outputs).length > 0,
+      });
 
       // 保存输出
       context.setNodeOutput(nodeId, outputs);
@@ -684,6 +748,7 @@ export class WorkflowExecutor {
 
       // 缓存结果（只有在允许缓存且已计算配置哈希的情况下）
       if (shouldUseCache && configHash) {
+        this.logger.log(`[WorkflowExecutor] 缓存节点 ${nodeId} 的执行结果`);
         const nodeState = context.getNodeState(nodeId)!;
 
         context.setCachedResult(nodeId, {
@@ -697,10 +762,13 @@ export class WorkflowExecutor {
         });
       }
 
+      this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} 执行成功完成`);
       options.onNodeComplete?.(nodeId, outputs);
     } catch (error) {
       // 执行失败
       const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`[WorkflowExecutor] 节点 ${nodeId} 执行失败: ${errorMsg}`);
+      this.logger.error(error);
       context.setNodeState(nodeId, "error", {
         error: errorMsg,
       });
@@ -722,18 +790,23 @@ export class WorkflowExecutor {
     fn: () => Promise<T>,
     timeout: number = 60000
   ): Promise<T> {
+    this.logger.log(`[WorkflowExecutor] 设置执行超时: ${timeout}ms`);
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
-        reject(new Error("执行超时"));
+        const timeoutError = new Error("执行超时");
+        this.logger.error(`[WorkflowExecutor] 执行超时: ${timeout}ms`);
+        reject(timeoutError);
       }, timeout);
 
       fn()
         .then((value) => {
           clearTimeout(timer);
+          this.logger.log(`[WorkflowExecutor] 执行在超时前完成`);
           resolve(value);
         })
         .catch((error) => {
           clearTimeout(timer);
+          this.logger.error(`[WorkflowExecutor] 执行过程中发生错误:`, error);
           reject(error);
         });
     });
@@ -844,13 +917,13 @@ export class WorkflowExecutor {
       const parentId = node.parentNode || node.data?.parentNode;
       if (parentId && typeof parentId === "string") {
         containerIds.add(parentId);
-        console.log(
+        this.logger.log(
           `[WorkflowExecutor] 节点 ${node.id} 的父节点是 ${parentId}（容器节点）`
         );
       }
     }
 
-    console.log(
+    this.logger.log(
       `[WorkflowExecutor] 识别到 ${containerIds.size} 个容器节点:`,
       Array.from(containerIds)
     );
@@ -878,14 +951,14 @@ export class WorkflowExecutor {
     );
 
     if (containerNodes.length === 0) {
-      console.warn(`[WorkflowExecutor] 容器 ${containerId} 内没有找到任何节点`);
+      this.logger.warn(`[WorkflowExecutor] 容器 ${containerId} 内没有找到任何节点`);
       return null;
     }
 
     // 获取当前迭代索引
     const iterationIndex = iterationVars.index ?? 0;
 
-    console.log(
+    this.logger.log(
       `[WorkflowExecutor] 容器 ${containerId} 第 ${
         iterationIndex + 1
       } 次迭代，内有 ${containerNodes.length} 个节点`
@@ -893,7 +966,7 @@ export class WorkflowExecutor {
 
     // 如果是第一次迭代，清空容器内所有节点的迭代历史
     if (iterationIndex === 0) {
-      console.log(
+      this.logger.log(
         `[WorkflowExecutor] 清空容器 ${containerId} 内 ${containerNodes.length} 个节点的迭代历史`
       );
       for (const node of containerNodes) {
@@ -919,19 +992,25 @@ export class WorkflowExecutor {
         edge.target !== containerId
     );
 
-    console.log(`[WorkflowExecutor] 容器内有 ${containerEdges.length} 条边`);
+    this.logger.log(`[WorkflowExecutor] 容器内有 ${containerEdges.length} 条边`);
 
     const sortedNodes = this.topologicalSort(containerNodes, containerEdges);
+    this.logger.log(`[WorkflowExecutor] 容器内节点执行顺序: ${sortedNodes.map(n => n.id).join(' -> ')}`);
 
     // 将迭代变量注入到执行上下文中（临时）
     context.loopVariables = iterationVars;
+    this.logger.log(`[WorkflowExecutor] 注入迭代变量:`, Object.keys(iterationVars));
 
     let containerOutput: any = null;
 
     // 按顺序执行容器内的节点
+    this.logger.log(`[WorkflowExecutor] 开始执行容器 ${containerId} 内的节点`);
     for (const node of sortedNodes) {
+      this.logger.log(`[WorkflowExecutor] 容器内执行节点: ${node.id}`);
+      
       // 检查是否取消
       if (context.isCancelled()) {
+        this.logger.log(`[WorkflowExecutor] 容器执行已取消`);
         break;
       }
 
@@ -959,13 +1038,14 @@ export class WorkflowExecutor {
         // 通知前端更新迭代历史
         options.onIterationUpdate?.(node.id, iterationData);
 
-        console.log(
+        this.logger.log(
           `[WorkflowExecutor] 保存节点 ${node.id} 第 ${
             iterationIndex + 1
           } 次迭代结果:`,
           {
             status: nodeState.status,
             hasOutput: !!nodeOutput,
+            duration: nodeState.duration,
           }
         );
       }
@@ -978,6 +1058,7 @@ export class WorkflowExecutor {
 
     // 恢复原始上下文
     context.loopVariables = undefined;
+    this.logger.log(`[WorkflowExecutor] 容器 ${containerId} 执行完成，恢复原始上下文`);
 
     return containerOutput;
   }

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc -b && vite build",
+    "check": "vue-tsc -b",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
     "monaco-editor": "^0.54.0",
     "naive-ui": "^2.43.1",
     "pinia": "^3.0.3",
+    "pocketbase": "^0.26.3",
     "primevue": "^4.4.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-primeui": "^0.6.1",

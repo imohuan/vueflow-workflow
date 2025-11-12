@@ -13,7 +13,7 @@
     </div>
 
     <!-- 属性列表 -->
-    <div v-show="expanded" class="space-y-1 pl-4">
+    <div v-show="expanded" class="space-y-1">
       <!-- 属性项 -->
       <div
         v-for="(prop, index) in objectProperties"
@@ -23,92 +23,100 @@
         <!-- 属性行 -->
         <div class="flex items-center gap-1">
           <!-- Key 输入 -->
-          <n-input
-            v-model:value="prop.key"
-            size="small"
-            placeholder="属性名"
-            class="flex-1"
-            @update:value="handleUpdate"
-          />
+          <div class="w-12">
+            <n-input
+              v-model:value="prop.key"
+              size="tiny"
+              placeholder="属性名"
+              class="flex-1"
+              @update:value="handleUpdate"
+            />
+          </div>
 
           <!-- 类型选择 -->
-          <n-select
-            v-model:value="prop.type"
-            size="small"
-            :options="typeOptions"
-            :consistent-menu-width="false"
-            class="w-28"
-            @update:value="handleTypeChange(prop)"
-          />
+          <div class="w-16">
+            <n-select
+              v-model:value="prop.type"
+              size="tiny"
+              :options="typeOptions"
+              :consistent-menu-width="false"
+              class="w-28"
+              @update:value="handleTypeChange(prop)"
+            />
+          </div>
+
+          <!-- 值输入区域 -->
+          <div
+            v-if="prop.type !== 'object' && prop.type !== 'array'"
+            class="flex-1"
+          >
+            <!-- 字符串 -->
+            <n-input
+              v-if="prop.type === 'string'"
+              v-model:value="prop.value"
+              size="tiny"
+              placeholder="输入字符串值"
+              @update:value="handleUpdate"
+            />
+
+            <!-- 数字 -->
+            <n-input-number
+              v-else-if="prop.type === 'number'"
+              v-model:value="prop.value"
+              size="tiny"
+              class="w-full"
+              placeholder="输入数字"
+              @update:value="handleUpdate"
+            >
+              <template #minus-icon>
+                <n-icon :component="IconMinus" />
+              </template>
+              <template #add-icon>
+                <n-icon :component="IconAdd" />
+              </template>
+            </n-input-number>
+
+            <!-- 布尔 -->
+            <n-switch
+              v-else-if="prop.type === 'boolean'"
+              v-model:value="prop.value"
+              @update:value="handleUpdate"
+            />
+          </div>
 
           <!-- 展开按钮（对象/数组） -->
-          <n-button
-            v-if="prop.type === 'object' || prop.type === 'array'"
-            size="tiny"
-            circle
-            secondary
-            @click="togglePropertyExpanded(index)"
-            :title="prop.expanded ? '收起' : '展开'"
-          >
-            <template #icon>
-              <n-icon
-                :component="prop.expanded ? IconChevronDown : IconChevronRight"
-              />
-            </template>
-          </n-button>
+          <div>
+            <n-button
+              v-if="prop.type === 'object' || prop.type === 'array'"
+              size="tiny"
+              circle
+              secondary
+              @click="togglePropertyExpanded(index)"
+              :title="prop.expanded ? '收起' : '展开'"
+            >
+              <template #icon>
+                <n-icon
+                  :component="
+                    prop.expanded ? IconChevronDown : IconChevronRight
+                  "
+                />
+              </template>
+            </n-button>
 
-          <!-- 删除按钮 -->
-          <n-button
-            size="tiny"
-            circle
-            secondary
-            type="error"
-            @click="removeProperty(index)"
-            title="删除属性"
-          >
-            <template #icon>
-              <n-icon :component="IconDelete" />
-            </template>
-          </n-button>
-        </div>
-
-        <!-- 值输入区域 -->
-        <div
-          v-if="prop.type !== 'object' && prop.type !== 'array'"
-          class="pl-4"
-        >
-          <!-- 字符串 -->
-          <n-input
-            v-if="prop.type === 'string'"
-            v-model:value="prop.value"
-            size="small"
-            placeholder="输入字符串值"
-            @update:value="handleUpdate"
-          />
-
-          <!-- 数字 -->
-          <n-input-number
-            v-else-if="prop.type === 'number'"
-            v-model:value="prop.value"
-            size="small"
-            class="w-full"
-            placeholder="输入数字"
-            @update:value="handleUpdate"
-          >
-            <template #minus-icon>
-              <n-icon :component="IconMinus" />
-            </template>
-            <template #add-icon>
-              <n-icon :component="IconAdd" />
-            </template>
-          </n-input-number>
-
-          <!-- 布尔 -->
-          <n-switch
-            v-else-if="prop.type === 'boolean'"
-            v-model:value="prop.value"
-            @update:value="handleUpdate"
-          />
+            <!-- 删除按钮 -->
+            <n-button
+              size="tiny"
+              circle
+              secondary
+              type="error"
+              @click="removeProperty(index)"
+              title="删除属性"
+            >
+              <template #icon>
+                <n-icon :component="IconDelete" />
+              </template>
+            </n-button>
+          </div>
         </div>
 
         <!-- 嵌套对象 -->

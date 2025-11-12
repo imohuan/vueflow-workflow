@@ -35,14 +35,8 @@ import type {
 
 import { WebSocketExecutorClient } from "./websocket-client";
 
-/**
- * 默认配置
- */
-const DEFAULT_WORKER_URL = new URL("./worker.ts", import.meta.url);
-
 const DEFAULT_CONFIG: ExecutionConfig = {
   mode: "worker",
-  workerUrl: DEFAULT_WORKER_URL,
   serverUrl: "ws://localhost:3001",
   timeout: 60000,
   useCache: true,
@@ -74,7 +68,7 @@ interface PendingHistoryRequest {
   timer: ReturnType<typeof setTimeout>;
 }
 
-function createWorkerChannel(workerUrl: string | URL): ExecutionChannel {
+function createWorkerChannel(workerUrl?: string | URL): ExecutionChannel {
   let worker: Worker | null = null;
   const handlers = new Set<(message: ExecutionEventMessage) => void>();
 
@@ -87,7 +81,14 @@ function createWorkerChannel(workerUrl: string | URL): ExecutionChannel {
       if (worker) {
         return;
       }
-      worker = new Worker(workerUrl, { type: "module" });
+      if (workerUrl) {
+        worker = new Worker(workerUrl, { type: "module" });
+      } else {
+        // 默认使用本地打包后的 worker 脚本，确保 Vite 正确处理构建产物
+        worker = new Worker(new URL("./worker.ts", import.meta.url), {
+          type: "module",
+        });
+      }
       worker.onmessage = (event: MessageEvent<ExecutionEventMessage>) => {
         notify(event.data);
       };
@@ -122,7 +123,6 @@ function createWorkerChannel(workerUrl: string | URL): ExecutionChannel {
 export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
   const finalConfig: ExecutionConfig = {
     ...DEFAULT_CONFIG,
-    workerUrl: config?.workerUrl ?? DEFAULT_WORKER_URL,
     ...config,
   };
 
@@ -159,9 +159,11 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
       cleanupChannel();
     }
 
+    await editorConfigStore.ready()
+
     // 根据模式创建通道
     if (mode.value === "worker") {
-      const workerChannel = createWorkerChannel(finalConfig.workerUrl!);
+      const workerChannel = createWorkerChannel(finalConfig.workerUrl);
       channelHandler = handleChannelMessage;
       workerChannel.onMessage(handleChannelMessage);
       await workerChannel.init();

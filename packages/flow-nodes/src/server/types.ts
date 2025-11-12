@@ -212,4 +212,8 @@ export interface ServerConfig {
   enableLogging?: boolean;
   /** 历史记录处理器（可选） */
   historyHandlers?: HistoryHandlers;
+  /** 日志函数（可选） */
+  log?: (...args: any[]) => void;
+  /** 错误日志函数（可选） */
+  error?: (...args: any[]) => void;
 }

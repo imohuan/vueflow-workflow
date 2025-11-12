@@ -6,7 +6,6 @@ import { WebSocketServer, WebSocket } from "ws";
 import { WorkflowExecutor, createNodeResolver } from "../executor";
 import { createNodeUtils } from "../index";
 import type { ServerConfig, ClientMessage, ServerMessage } from "./types";
-import type { BaseFlowNode } from "../BaseFlowNode";
 
 const loggerPrefix = "[FlowServer]";
 
@@ -22,17 +21,19 @@ export function createWorkflowServer(config: ServerConfig) {
     nodeRegistry,
     enableLogging = true,
     historyHandlers,
+    log = console.log,
+    error = console.error,
   } = config;
 
-  const log = (...args: any[]) => {
+  const logMessage = (...args: any[]) => {
     if (enableLogging) {
-      console.log(loggerPrefix, ...args);
+      log(loggerPrefix, ...args);
     }
   };
 
-  const error = (...args: any[]) => {
+  const errorMessage = (...args: any[]) => {
     if (enableLogging) {
-      console.error(loggerPrefix, ...args);
+      error(loggerPrefix, ...args);
     }
   };
 
@@ -42,12 +43,12 @@ export function createWorkflowServer(config: ServerConfig) {
   // 创建 WebSocket 服务器
   const wss = new WebSocketServer({ port, host });
 
-  log(`启动服务器 ws://${host}:${port}`);
-  log(`已加载 ${nodeUtils.getAllNodeTypes().length} 个节点类型`);
+  logMessage(`启动服务器 ws://${host}:${port}`);
+  logMessage(`已加载 ${nodeUtils.getAllNodeTypes().length} 个节点类型`);
 
   // 处理客户端连接
   wss.on("connection", (ws: WebSocket) => {
-    log("客户端已连接");
+    logMessage("客户端已连接");
 
     // 为每个连接创建独立的执行器和状态
     let executor: WorkflowExecutor | null = null;
@@ -120,7 +121,7 @@ export function createWorkflowServer(config: ServerConfig) {
               edges: currentWorkflow.edges,
             })
             .catch((err) => {
-              error("保存历史记录失败:", err);
+              errorMessage("保存历史记录失败:", err);
             });
         }
         options?.onExecutionComplete?.(result);
@@ -142,7 +143,7 @@ export function createWorkflowServer(config: ServerConfig) {
               edges: currentWorkflow.edges,
             })
             .catch((err) => {
-              error("保存历史记录失败:", err);
+              errorMessage("保存历史记录失败:", err);
             });
         }
         options?.onExecutionError?.(payload);
@@ -197,14 +198,17 @@ export function createWorkflowServer(config: ServerConfig) {
     // 初始化执行器
     const handleInit = () => {
       try {
-        log("初始化执行器");
+        logMessage("初始化执行器");
         const nodeResolver = createNodeResolver(nodeRegistry);
-        executor = new WorkflowExecutor(nodeResolver);
+        executor = new WorkflowExecutor(nodeResolver, {
+          log: logMessage,
+          error: errorMessage,
+        });
         initialized = true;
         sendMessage({ type: "INITIALIZED" });
-        log("执行器初始化完成");
+        logMessage("执行器初始化完成");
       } catch (err) {
-        error("初始化失败:", err);
+        errorMessage("初始化失败:", err);
         sendMessage({
           type: "ERROR",
           payload: {
@@ -226,14 +230,14 @@ export function createWorkflowServer(config: ServerConfig) {
       }
 
       try {
-        log("开始执行工作流:", payload.workflow.workflow_id);
+        logMessage("开始执行工作流:", payload.workflow.workflow_id);
         // 保存当前工作流信息
         currentWorkflow = payload.workflow;
         const options = wrapExecutionOptions(payload.options);
         await executor.execute(payload.workflow, options);
-        log("工作流执行完成");
+        logMessage("工作流执行完成");
       } catch (err) {
-        error("工作流执行失败:", err);
+        errorMessage("工作流执行失败:", err);
       }
     };
 
@@ -258,7 +262,7 @@ export function createWorkflowServer(config: ServerConfig) {
                 type: "STATE_CHANGE",
                 payload: { ...getOptionalContext(), state: "paused" },
               });
-              log("执行已暂停");
+              logMessage("执行已暂停");
             }
             break;
 
@@ -269,7 +273,7 @@ export function createWorkflowServer(config: ServerConfig) {
                 type: "STATE_CHANGE",
                 payload: { ...getOptionalContext(), state: "running" },
               });
-              log("执行已恢复");
+              logMessage("执行已恢复");
             }
             break;
 
@@ -281,7 +285,7 @@ export function createWorkflowServer(config: ServerConfig) {
                 payload: { ...getOptionalContext(), state: "cancelled" },
               });
               resetContext();
-              log("执行已停止");
+              logMessage("执行已停止");
             }
             break;
 
@@ -301,14 +305,14 @@ export function createWorkflowServer(config: ServerConfig) {
           case "CLEAR_CACHE":
             if (executor) {
               executor.clearCache(message.payload.workflowId);
-              log("已清空缓存:", message.payload.workflowId);
+              logMessage("已清空缓存:", message.payload.workflowId);
             }
             break;
 
           case "CLEAR_ALL_CACHE":
             if (executor) {
               executor.clearAllCache();
-              log("已清空所有缓存");
+              logMessage("已清空所有缓存");
             }
             break;
 
@@ -343,7 +347,7 @@ export function createWorkflowServer(config: ServerConfig) {
                 nodes,
               },
             });
-            log(`已返回节点列表，共 ${nodes.length} 个节点`);
+            logMessage(`已返回节点列表，共 ${nodes.length} 个节点`);
             break;
 
           case "GET_HISTORY":
@@ -360,9 +364,9 @@ export function createWorkflowServer(config: ServerConfig) {
                     history,
                   },
                 });
-                log(`已返回历史记录，共 ${history.length} 条`);
+                logMessage(`已返回历史记录，共 ${history.length} 条`);
               } catch (err) {
-                error("获取历史记录失败:", err);
+                errorMessage("获取历史记录失败:", err);
                 sendMessage({
                   type: "ERROR",
                   payload: {
@@ -385,13 +389,13 @@ export function createWorkflowServer(config: ServerConfig) {
             if (historyHandlers) {
               try {
                 await historyHandlers.clearHistory(message.payload.workflowId);
-                log(
+                logMessage(
                   message.payload.workflowId
                     ? `已清空工作流历史: ${message.payload.workflowId}`
                     : "已清空所有历史记录"
                 );
               } catch (err) {
-                error("清空历史记录失败:", err);
+                errorMessage("清空历史记录失败:", err);
               }
             }
             break;
@@ -402,9 +406,9 @@ export function createWorkflowServer(config: ServerConfig) {
                 await historyHandlers.deleteHistory(
                   message.payload.executionId
                 );
-                log(`已删除执行历史: ${message.payload.executionId}`);
+                logMessage(`已删除执行历史: ${message.payload.executionId}`);
               } catch (err) {
-                error("删除历史记录失败:", err);
+                errorMessage("删除历史记录失败:", err);
                 sendMessage({
                   type: "ERROR",
                   payload: {
@@ -416,10 +420,10 @@ export function createWorkflowServer(config: ServerConfig) {
             break;
 
           default:
-            log("未知消息类型:", message);
+            logMessage("未知消息类型:", message);
         }
       } catch (err) {
-        error("处理消息失败:", err);
+        errorMessage("处理消息失败:", err);
         sendMessage({
           type: "ERROR",
           payload: {
@@ -431,11 +435,11 @@ export function createWorkflowServer(config: ServerConfig) {
     });
 
     ws.on("close", () => {
-      log("客户端已断开连接");
+      logMessage("客户端已断开连接");
     });
 
     ws.on("error", (err) => {
-      error("WebSocket 错误:", err);
+      errorMessage("WebSocket 错误:", err);
     });
   });
 
@@ -447,7 +451,7 @@ export function createWorkflowServer(config: ServerConfig) {
     close: () => {
       return new Promise<void>((resolve) => {
         wss.close(() => {
-          log("服务器已关闭");
+          logMessage("服务器已关闭");
           resolve();
         });
       });

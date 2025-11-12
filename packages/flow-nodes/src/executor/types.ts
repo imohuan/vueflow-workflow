@@ -103,6 +103,12 @@ export interface ExecutionOptions {
   /** 全局变量（可在所有节点中访问） */
   globalVariables?: Record<string, any>;
 
+  /** 日志函数（可选） */
+  log?: (...args: any[]) => void;
+
+  /** 错误日志函数（可选） */
+  error?: (...args: any[]) => void;
+
   /** 执行生命周期回调 */
   onExecutionStart?: (payload: ExecutionLifecycleEvent) => void;
   onExecutionComplete?: (result: ExecutionResult) => void;
