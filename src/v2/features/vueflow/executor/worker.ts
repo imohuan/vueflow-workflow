@@ -181,6 +181,22 @@ function clearExecutionHistory(workflowId?: string): void {
   }
 }
 
+/**
+ * 删除单个执行历史记录
+ */
+function deleteExecutionHistory(executionId: string): void {
+  try {
+    const history = getHistoryFromStorage();
+    const filtered = history.filter(
+      (record) => record.executionId !== executionId
+    );
+    saveHistoryToStorage(filtered);
+    console.log(`${loggerPrefix} 已删除执行历史:`, executionId);
+  } catch (error) {
+    console.error(`${loggerPrefix} 删除执行历史失败:`, error);
+  }
+}
+
 const requireContextIds = () => {
   if (!executionContext.executionId || !executionContext.workflowId) {
     throw new Error("执行上下文未初始化");
@@ -414,7 +430,11 @@ async function executeWorkflow(workflow: Workflow, options?: ExecutionOptions) {
   try {
     console.log(`${loggerPrefix} 开始执行工作流:`, workflow.workflow_id);
     const executionOptions = wrapExecutionOptions(options);
-    const result = await executor.execute(workflow, executionOptions);
+    const result = await executor
+      .execute(workflow, executionOptions)
+      .catch((e) => {
+        throw e;
+      });
     console.log(`${loggerPrefix} 工作流执行完成:`, result);
 
     // 保存执行历史，包含工作流结构
@@ -588,6 +608,10 @@ self.addEventListener(
 
         case "CLEAR_HISTORY":
           clearExecutionHistory(message.payload.workflowId);
+          break;
+
+        case "DELETE_HISTORY":
+          deleteExecutionHistory(message.payload.executionId);
           break;
 
         default:

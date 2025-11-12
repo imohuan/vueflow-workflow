@@ -279,17 +279,24 @@ async function viewDetails(record: ExecutionRecord) {
 /**
  * 删除记录
  */
-function deleteRecord(record: ExecutionRecord) {
+async function deleteRecord(record: ExecutionRecord) {
   dialog?.warning({
     title: "删除记录",
     content: `确定要删除执行记录 "${record.workflowName}" 吗？`,
     positiveText: "删除",
     negativeText: "取消",
-    onPositiveClick: () => {
-      const index = executionHistory.value.indexOf(record);
-      if (index > -1) {
-        executionHistory.value.splice(index, 1);
+    onPositiveClick: async () => {
+      try {
+        await canvasStore.vueFlowExecution.deleteHistory(record.id);
+        // 从本地列表中移除
+        const index = executionHistory.value.indexOf(record);
+        if (index > -1) {
+          executionHistory.value.splice(index, 1);
+        }
         message?.success("记录已删除");
+      } catch (error) {
+        console.error("删除记录失败:", error);
+        message?.error("删除记录失败");
       }
     },
   });
@@ -353,6 +360,10 @@ onMounted(() => {
   // 监听工作流执行完成事件（成功或失败）
   vueflowEvents.on("workflow:execution-completed", (data) => {
     console.log("[HistoryPanel] 工作流执行完成，重新加载历史记录", data);
+    loadHistory();
+  });
+  vueflowEvents.on("execution:error", (data) => {
+    console.log("[HistoryPanel] 工作流执行失败，重新加载历史记录", data);
     loadHistory();
   });
 });

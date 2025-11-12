@@ -114,7 +114,9 @@ export class WebSocketExecutorClient {
     }
 
     this.reconnectAttempts++;
-    this.log(`尝试重连 (${this.reconnectAttempts}/${this.config.maxReconnectAttempts})`);
+    this.log(
+      `尝试重连 (${this.reconnectAttempts}/${this.config.maxReconnectAttempts})`
+    );
 
     this.reconnectTimer = window.setTimeout(() => {
       this.connect().catch(() => {
@@ -265,6 +267,36 @@ export class WebSocketExecutorClient {
     this.sendCommand({
       type: "GET_NODE_LIST",
       payload: { requestId },
+    });
+  }
+
+  /**
+   * 获取执行历史
+   */
+  getHistory(requestId: string, workflowId?: string, limit?: number): void {
+    this.sendCommand({
+      type: "GET_HISTORY",
+      payload: { requestId, workflowId, limit },
+    });
+  }
+
+  /**
+   * 清空执行历史
+   */
+  clearHistory(workflowId?: string): void {
+    this.sendCommand({
+      type: "CLEAR_HISTORY",
+      payload: { workflowId },
+    });
+  }
+
+  /**
+   * 删除单个执行历史记录
+   */
+  deleteHistory(executionId: string): void {
+    this.sendCommand({
+      type: "DELETE_HISTORY",
+      payload: { executionId },
     });
   }
 

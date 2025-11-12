@@ -232,12 +232,17 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
               wsClient.getNodeList(command.payload.requestId);
               break;
             case "GET_HISTORY":
-              // WebSocket 暂不支持，需要在服务端实现
-              console.warn("[VueFlowExecution] WebSocket 模式暂不支持 GET_HISTORY");
+              wsClient.getHistory(
+                command.payload.requestId,
+                command.payload.workflowId,
+                command.payload.limit
+              );
               break;
             case "CLEAR_HISTORY":
-              // WebSocket 暂不支持，需要在服务端实现
-              console.warn("[VueFlowExecution] WebSocket 模式暂不支持 CLEAR_HISTORY");
+              wsClient.clearHistory(command.payload.workflowId);
+              break;
+            case "DELETE_HISTORY":
+              wsClient.deleteHistory(command.payload.executionId);
               break;
             default:
               console.warn("[VueFlowExecution] 未知的命令类型:", command);
@@ -401,6 +406,11 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
   async function clearHistory(workflowId?: string): Promise<void> {
     await ensureChannel();
     channel!.send({ type: "CLEAR_HISTORY", payload: { workflowId } });
+  }
+
+  async function deleteHistory(executionId: string): Promise<void> {
+    await ensureChannel();
+    channel!.send({ type: "DELETE_HISTORY", payload: { executionId } });
   }
 
   async function switchMode(newMode: ExecutionMode): Promise<void> {
@@ -675,6 +685,7 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
     getNodeList,
     getHistory,
     clearHistory,
+    deleteHistory,
     isInitialized,
     ensureChannel,
     cleanupChannel,

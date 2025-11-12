@@ -143,6 +143,12 @@ export type ExecutionCommand =
       payload: {
         workflowId?: string;
       };
+    }
+  | {
+      type: "DELETE_HISTORY";
+      payload: {
+        executionId: string;
+      };
     };
 
 /**

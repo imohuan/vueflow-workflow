@@ -21,6 +21,7 @@ export function createWorkflowServer(config: ServerConfig) {
     host = "localhost",
     nodeRegistry,
     enableLogging = true,
+    historyHandlers,
   } = config;
 
   const log = (...args: any[]) => {
@@ -51,6 +52,7 @@ export function createWorkflowServer(config: ServerConfig) {
     // 为每个连接创建独立的执行器和状态
     let executor: WorkflowExecutor | null = null;
     let initialized = false;
+    let currentWorkflow: any = null; // 保存当前执行的工作流
 
     const executionContext: {
       executionId: string | null;
@@ -110,6 +112,17 @@ export function createWorkflowServer(config: ServerConfig) {
           type: "STATE_CHANGE",
           payload: { ...getOptionalContext(), state: "completed" },
         });
+        // 保存历史记录，包含工作流结构
+        if (historyHandlers && currentWorkflow) {
+          historyHandlers
+            .saveHistory(result, {
+              nodes: currentWorkflow.nodes,
+              edges: currentWorkflow.edges,
+            })
+            .catch((err) => {
+              error("保存历史记录失败:", err);
+            });
+        }
         options?.onExecutionComplete?.(result);
         resetContext();
       },
@@ -121,6 +134,17 @@ export function createWorkflowServer(config: ServerConfig) {
           type: "STATE_CHANGE",
           payload: { ...getOptionalContext(), state: "error" },
         });
+        // 保存错误的历史记录，包含工作流结构
+        if (historyHandlers && payload.result && currentWorkflow) {
+          historyHandlers
+            .saveHistory(payload.result, {
+              nodes: currentWorkflow.nodes,
+              edges: currentWorkflow.edges,
+            })
+            .catch((err) => {
+              error("保存历史记录失败:", err);
+            });
+        }
         options?.onExecutionError?.(payload);
         resetContext();
       },
@@ -203,6 +227,8 @@ export function createWorkflowServer(config: ServerConfig) {
 
       try {
         log("开始执行工作流:", payload.workflow.workflow_id);
+        // 保存当前工作流信息
+        currentWorkflow = payload.workflow;
         const options = wrapExecutionOptions(payload.options);
         await executor.execute(payload.workflow, options);
         log("工作流执行完成");
@@ -318,6 +344,75 @@ export function createWorkflowServer(config: ServerConfig) {
               },
             });
             log(`已返回节点列表，共 ${nodes.length} 个节点`);
+            break;
+
+          case "GET_HISTORY":
+            if (historyHandlers) {
+              try {
+                const history = await historyHandlers.getHistory(
+                  message.payload.workflowId,
+                  message.payload.limit
+                );
+                sendMessage({
+                  type: "HISTORY_DATA",
+                  payload: {
+                    requestId: message.payload.requestId,
+                    history,
+                  },
+                });
+                log(`已返回历史记录，共 ${history.length} 条`);
+              } catch (err) {
+                error("获取历史记录失败:", err);
+                sendMessage({
+                  type: "ERROR",
+                  payload: {
+                    message: err instanceof Error ? err.message : String(err),
+                  },
+                });
+              }
+            } else {
+              sendMessage({
+                type: "HISTORY_DATA",
+                payload: {
+                  requestId: message.payload.requestId,
+                  history: [],
+                },
+              });
+            }
+            break;
+
+          case "CLEAR_HISTORY":
+            if (historyHandlers) {
+              try {
+                await historyHandlers.clearHistory(message.payload.workflowId);
+                log(
+                  message.payload.workflowId
+                    ? `已清空工作流历史: ${message.payload.workflowId}`
+                    : "已清空所有历史记录"
+                );
+              } catch (err) {
+                error("清空历史记录失败:", err);
+              }
+            }
+            break;
+
+          case "DELETE_HISTORY":
+            if (historyHandlers) {
+              try {
+                await historyHandlers.deleteHistory(
+                  message.payload.executionId
+                );
+                log(`已删除执行历史: ${message.payload.executionId}`);
+              } catch (err) {
+                error("删除历史记录失败:", err);
+                sendMessage({
+                  type: "ERROR",
+                  payload: {
+                    message: err instanceof Error ? err.message : String(err),
+                  },
+                });
+              }
+            }
             break;
 
           default:

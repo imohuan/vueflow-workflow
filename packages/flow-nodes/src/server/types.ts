@@ -48,6 +48,26 @@ export type ClientMessage =
       payload: {
         requestId?: string;
       };
+    }
+  | {
+      type: "GET_HISTORY";
+      payload: {
+        requestId: string;
+        workflowId?: string;
+        limit?: number;
+      };
+    }
+  | {
+      type: "CLEAR_HISTORY";
+      payload: {
+        workflowId?: string;
+      };
+    }
+  | {
+      type: "DELETE_HISTORY";
+      payload: {
+        executionId: string;
+      };
     };
 
 /**
@@ -147,12 +167,36 @@ export type ServerMessage =
       };
     }
   | {
+      type: "HISTORY_DATA";
+      payload: {
+        requestId: string;
+        history: any[];
+      };
+    }
+  | {
       type: "ERROR";
       payload: {
         message: string;
         stack?: string;
       };
     };
+
+/**
+ * 历史记录处理器
+ */
+export interface HistoryHandlers {
+  /** 获取历史记录 */
+  getHistory: (workflowId?: string, limit?: number) => Promise<any[]>;
+  /** 保存历史记录 */
+  saveHistory: (
+    result: any,
+    workflow?: { nodes?: any[]; edges?: any[] }
+  ) => Promise<void>;
+  /** 清空历史记录 */
+  clearHistory: (workflowId?: string) => Promise<void>;
+  /** 删除单个历史记录 */
+  deleteHistory: (executionId: string) => Promise<void>;
+}
 
 /**
  * 服务器配置
@@ -166,4 +210,6 @@ export interface ServerConfig {
   nodeRegistry: Record<string, any>;
   /** 是否启用日志 */
   enableLogging?: boolean;
+  /** 历史记录处理器（可选） */
+  historyHandlers?: HistoryHandlers;
 }
