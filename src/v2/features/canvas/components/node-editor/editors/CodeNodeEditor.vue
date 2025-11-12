@@ -78,6 +78,7 @@
           :options="{
             minimap: { enabled: false },
             lineNumbers: 'off',
+            wordWrap: 'on',
             fontSize: 13,
           }"
           class="code-editor-container"

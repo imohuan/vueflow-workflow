@@ -1,6 +1,6 @@
 <template>
   <div
-    class="relative bg-white shadow-sm min-h-24 h-full"
+    class="relative bg-white shadow-sm min-h-24 h-full max-w-[280px]"
     :class="{
       'animate-pulse': data.status === 'running',
     }"

@@ -51,14 +51,14 @@ async function initEditor() {
     props.language === "typescript"
       ? "ts"
       : props.language === "javascript"
-      ? "js"
-      : props.language === "json"
-      ? "json"
-      : props.language === "html"
-      ? "html"
-      : props.language === "css"
-      ? "css"
-      : "txt";
+        ? "js"
+        : props.language === "json"
+          ? "json"
+          : props.language === "html"
+            ? "html"
+            : props.language === "css"
+              ? "css"
+              : "txt";
 
   const modelUri = monaco.Uri.parse(
     `file:///editor-${Date.now()}.${fileExtension}`
@@ -73,6 +73,7 @@ async function initEditor() {
     `✅ 创建编辑器模型: ${modelUri.toString()}, 语言: ${props.language}`
   );
 
+  let currentWordWrapState: any = "off"
   const defaultOptions: Monaco.editor.IStandaloneEditorConstructionOptions = {
     model: model, // 使用预创建的模型，而不是 value
     theme: props.theme,
@@ -93,7 +94,7 @@ async function initEditor() {
       horizontalScrollbarSize: 10,
     },
     tabSize: 2,
-    wordWrap: "off",
+    wordWrap: currentWordWrapState,
     // 启用完整的代码提示功能
     quickSuggestions: {
       other: "on",
@@ -125,6 +126,14 @@ async function initEditor() {
     ...defaultOptions,
     ...props.options,
   });
+
+
+  editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyZ, function () {
+    // 切换状态： off <-> on
+    currentWordWrapState = currentWordWrapState === 'off' ? 'on' : "off"
+    // 执行切换自动换行的操作
+    editor!.updateOptions({ wordWrap: currentWordWrapState });
+  }, 'editorTextFocus');
 
   console.log("✅ 编辑器实例创建成功");
 
