@@ -275,8 +275,6 @@ export class ExecutionContext {
 
     // 找到所有指向该节点的边
     const incomingEdges = edges.filter((edge) => edge.target === nodeId);
-    debugger;
-
     for (const edge of incomingEdges) {
       const sourceOutput = this.nodeOutputs.get(edge.source);
       if (sourceOutput) {

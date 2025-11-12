@@ -548,8 +548,10 @@ export class WorkflowExecutor {
       }
     }
 
+    
     // 检查是否有环
     if (result.length !== nodes.length) {
+      debugger
       const error = new Error("工作流中存在循环依赖");
       this.logger.error(`[WorkflowExecutor] 拓扑排序失败: ${error.message}`);
       this.logger.error(`[WorkflowExecutor] 节点总数: ${nodes.length}, 排序后: ${result.length}`);

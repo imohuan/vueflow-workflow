@@ -409,8 +409,6 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     historyRecord?: any
   ) {
     console.log("[Canvas] 加载执行状态:", executionResult);
-    debugger;
-
     // 清空旧状态
     clearNodeExecutionStatuses();
     currentExecutionId.value = executionResult.executionId;

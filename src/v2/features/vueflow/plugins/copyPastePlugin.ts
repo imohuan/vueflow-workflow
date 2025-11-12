@@ -37,6 +37,52 @@ export function createCopyPastePlugin(
   // 保存清理函数
   const cleanupFns: Array<() => void> = [];
 
+  const CLIPBOARD_TEXT_PREFIX = "VUEFLOW_CLIPBOARD::";
+  const LOCAL_STORAGE_KEY = "vueflow-clipboard";
+
+  function writeLocalClipboard(data: ClipboardData) {
+    try {
+      localStorage.setItem(
+        LOCAL_STORAGE_KEY,
+        CLIPBOARD_TEXT_PREFIX + JSON.stringify(data)
+      );
+    } catch {}
+  }
+
+  function readLocalClipboard(): ClipboardData | null {
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (!raw || !raw.startsWith(CLIPBOARD_TEXT_PREFIX)) return null;
+      const json = raw.slice(CLIPBOARD_TEXT_PREFIX.length);
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  }
+
+  async function writeSystemClipboard(data: ClipboardData) {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(
+          CLIPBOARD_TEXT_PREFIX + JSON.stringify(data)
+        );
+      }
+    } catch {}
+  }
+
+  async function readSystemClipboard(): Promise<ClipboardData | null> {
+    try {
+      if (navigator?.clipboard?.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text && text.startsWith(CLIPBOARD_TEXT_PREFIX)) {
+          const json = text.slice(CLIPBOARD_TEXT_PREFIX.length);
+          return JSON.parse(json);
+        }
+      }
+    } catch {}
+    return null;
+  }
+
   /**
    * 计算节点的中心点
    */
@@ -92,6 +138,9 @@ export function createCopyPastePlugin(
     // 重置粘贴偏移量
     pasteOffset = 0;
 
+    writeLocalClipboard(clipboard);
+    writeSystemClipboard(clipboard).catch(() => {});
+
     console.log(
       `[CopyPaste Plugin] 已复制 ${selectedNodes.length} 个节点和 ${relatedEdges.length} 条连接线`
     );
@@ -101,93 +150,109 @@ export function createCopyPastePlugin(
    * 粘贴节点
    */
   function pasteNodes(context: PluginContext) {
-    if (!clipboard || clipboard.nodes.length === 0) {
-      console.log("[CopyPaste Plugin] 剪贴板为空");
+    const proceed = (clip: ClipboardData) => {
+      pasteOffset += 30;
+      const baseOffset = pasteOffset;
+
+      const pastedNodeIds: string[] = [];
+      const nodeIdMap = new Map<string, string>();
+
+      clip.nodes.forEach((node) => {
+        const newId = `node-${Date.now()}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+        nodeIdMap.set(node.id, newId);
+
+        const baseLabel = node.data?.label || "节点";
+        const uniqueLabel = generateUniqueLabel(
+          baseLabel,
+          context.core.nodes.value
+        );
+
+        const newNode: Node = {
+          ...node,
+          id: newId,
+          position: {
+            x: node.position.x + baseOffset,
+            y: node.position.y + baseOffset,
+          },
+          data: {
+            ...node.data,
+            label: uniqueLabel,
+          },
+        } as Node;
+
+        context.core.addNode(newNode);
+        pastedNodeIds.push(newId);
+      });
+
+      const pastedEdgeIds: string[] = [];
+      clip.edges.forEach((edge: any) => {
+        const newEdgeId = `edge-${Date.now()}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+
+        const newEdge = {
+          ...edge,
+          id: newEdgeId,
+          source: nodeIdMap.get(edge.source) || edge.source,
+          target: nodeIdMap.get(edge.target) || edge.target,
+        };
+
+        context.core.addEdge(newEdge);
+        pastedEdgeIds.push(newEdgeId);
+      });
+
+      const { removeSelectedElements, addSelectedNodes, nodesSelectionActive } =
+        context.vueflow;
+
+      removeSelectedElements?.();
+
+      nextTick(() => {
+        const nodesToSelect = context.core.nodes.value.filter((node) =>
+          pastedNodeIds.includes(node.id)
+        ) as GraphNode[];
+
+        if (nodesToSelect.length > 0) {
+          addSelectedNodes?.(nodesToSelect);
+
+          if (nodesToSelect.length > 1 && nodesSelectionActive) {
+            nodesSelectionActive.value = true;
+          }
+        }
+      });
+
+      console.log(
+        `[CopyPaste Plugin] 已粘贴 ${pastedNodeIds.length} 个节点和 ${pastedEdgeIds.length} 条连接线 (偏移: ${baseOffset}px)`
+      );
+    };
+
+    let data = clipboard;
+    if (!data || data.nodes.length === 0) {
+      const fromLocal = readLocalClipboard();
+      if (fromLocal && fromLocal.nodes && fromLocal.nodes.length) {
+        data = fromLocal;
+      }
+    }
+
+    if (!data || data.nodes.length === 0) {
+      readSystemClipboard()
+        .then((fromSys) => {
+          if (fromSys && fromSys.nodes && fromSys.nodes.length) {
+            clipboard = fromSys;
+            proceed(fromSys);
+          } else {
+            console.log("[CopyPaste Plugin] 剪贴板为空");
+          }
+        })
+        .catch(() => {
+          console.log("[CopyPaste Plugin] 剪贴板为空");
+        });
       return;
     }
 
-    // 每次粘贴增加偏移量，避免完全重叠
-    pasteOffset += 30;
-    const baseOffset = pasteOffset;
-
-    const pastedNodeIds: string[] = [];
-    const nodeIdMap = new Map<string, string>(); // 旧 ID -> 新 ID 映射
-
-    // 1. 粘贴节点
-    clipboard.nodes.forEach((node) => {
-      const newId = `node-${Date.now()}-${Math.random()
-        .toString(36)
-        .substr(2, 9)}`;
-      nodeIdMap.set(node.id, newId);
-
-      // 生成唯一标签
-      const baseLabel = node.data?.label || "节点";
-      const uniqueLabel = generateUniqueLabel(
-        baseLabel,
-        context.core.nodes.value
-      );
-
-      const newNode: Node = {
-        ...node,
-        id: newId,
-        position: {
-          x: node.position.x + baseOffset,
-          y: node.position.y + baseOffset,
-        },
-        data: {
-          ...node.data,
-          label: uniqueLabel,
-        },
-      } as Node;
-
-      context.core.addNode(newNode);
-      pastedNodeIds.push(newId);
-    });
-
-    // 2. 粘贴连接线（更新 source 和 target 为新的节点 ID）
-    const pastedEdgeIds: string[] = [];
-    clipboard.edges.forEach((edge: any) => {
-      const newEdgeId = `edge-${Date.now()}-${Math.random()
-        .toString(36)
-        .substr(2, 9)}`;
-
-      const newEdge = {
-        ...edge,
-        id: newEdgeId,
-        source: nodeIdMap.get(edge.source) || edge.source,
-        target: nodeIdMap.get(edge.target) || edge.target,
-      };
-
-      context.core.addEdge(newEdge);
-      pastedEdgeIds.push(newEdgeId);
-    });
-
-    // 使用 VueFlow API 选中新粘贴的节点（带蓝色背景）
-    const { removeSelectedElements, addSelectedNodes, nodesSelectionActive } =
-      context.vueflow;
-
-    // 先清空所有选中
-    removeSelectedElements?.();
-
-    // 等待下一帧再选中
-    nextTick(() => {
-      const nodesToSelect = context.core.nodes.value.filter((node) =>
-        pastedNodeIds.includes(node.id)
-      ) as GraphNode[];
-
-      if (nodesToSelect.length > 0) {
-        addSelectedNodes?.(nodesToSelect);
-
-        // 多个节点选中时启用蓝色背景
-        if (nodesToSelect.length > 1 && nodesSelectionActive) {
-          nodesSelectionActive.value = true;
-        }
-      }
-    });
-
-    console.log(
-      `[CopyPaste Plugin] 已粘贴 ${pastedNodeIds.length} 个节点和 ${pastedEdgeIds.length} 条连接线 (偏移: ${baseOffset}px)`
-    );
+    clipboard = data;
+    proceed(data);
   }
 
   /**
