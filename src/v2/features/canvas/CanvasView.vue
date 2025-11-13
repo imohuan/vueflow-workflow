@@ -30,6 +30,7 @@
             @pause-execution="handlePause"
             @resume-execution="handleResume"
             @stop-execution="handleStop"
+            @clear-cache="handleClearCache"
           />
         </div>
       </div>
@@ -217,6 +218,31 @@ function handleStop() {
   executionManager.stop();
   message.warning("已停止执行");
   canvasStore.setExecuting(false);
+}
+
+/**
+ * 清空缓存
+ */
+async function handleClearCache() {
+  const currentWorkflow = workflowStore.currentWorkflow;
+  if (!currentWorkflow) {
+    message.warning("请先创建或选择一个工作流");
+    return;
+  }
+
+  try {
+    message.loading("正在清空缓存...", { duration: 0 });
+    await executionManager.clearCache(currentWorkflow.workflow_id);
+    message.destroyAll();
+    message.success("缓存已清空");
+    console.log("[CanvasView] 工作流缓存已清空:", currentWorkflow.workflow_id);
+    // 清空缓存后，发送缓存状态变化事件（隐藏清空缓存按钮）
+    events.emit("cache:status-changed", { hasCacheData: false });
+  } catch (error) {
+    message.destroyAll();
+    message.error(`清空缓存失败: ${error instanceof Error ? error.message : String(error)}`);
+    console.error("[CanvasView] 清空缓存异常:", error);
+  }
 }
 
 /**
@@ -491,6 +517,8 @@ events.on("execution:complete", (result) => {
   if (result.success) {
     message.success(`执行成功！耗时 ${Math.round(result.duration / 1000)}s`);
   }
+  // 执行完成后，发送缓存状态变化事件（表示有缓存数据可以清空）
+  events.emit("cache:status-changed", { hasCacheData: true });
 });
 
 // 监听执行错误事件

@@ -98,6 +98,22 @@
         停止
       </n-button>
     </template>
+
+    <!-- 分隔线 -->
+    <div class="h-4 w-px bg-slate-300"></div>
+
+    <!-- 清空缓存按钮（仅在有缓存时显示） -->
+    <n-button
+      v-if="hasCacheData"
+      quaternary
+      circle
+      aria-label="清空缓存"
+      @click="emit('clearCache')"
+    >
+      <template #icon>
+        <n-icon><IconTrash /></n-icon>
+      </template>
+    </n-button>
   </div>
 </template>
 
@@ -114,6 +130,7 @@ import IconMap from "@/icons/IconMap.vue";
 import IconPlay from "@/icons/IconPlay.vue";
 import IconPause from "@/icons/IconPause.vue";
 import IconStop from "@/icons/IconStop.vue";
+import IconTrash from "@/icons/IconTrash.vue";
 
 const canvasStore = useCanvasStore();
 const events = useVueFlowEvents();
@@ -140,10 +157,18 @@ const executeButtonText = computed(() => {
 const canUndo = ref(false);
 const canRedo = ref(false);
 
+// 缓存状态
+const hasCacheData = ref(false);
+
 // 监听历史记录插件的状态变化
 const historyStatusHandler = (payload: any) => {
   canUndo.value = payload.canUndo;
   canRedo.value = payload.canRedo;
+};
+
+// 监听缓存状态变化
+const cacheStatusHandler = (payload: any) => {
+  hasCacheData.value = payload.hasCacheData || false;
 };
 
 // 监听执行状态变化
@@ -153,10 +178,12 @@ events.on("execution:state", ({ state }) => {
 
 onMounted(() => {
   events.on("history:status-changed", historyStatusHandler);
+  events.on("cache:status-changed", cacheStatusHandler);
 });
 
 onUnmounted(() => {
   events.off("history:status-changed", historyStatusHandler);
+  events.off("cache:status-changed", cacheStatusHandler);
 });
 
 const emit = defineEmits<{
@@ -169,6 +196,7 @@ const emit = defineEmits<{
   (event: "pauseExecution"): void;
   (event: "resumeExecution"): void;
   (event: "stopExecution"): void;
+  (event: "clearCache"): void;
 }>();
 </script>
 

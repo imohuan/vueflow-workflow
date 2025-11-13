@@ -190,6 +190,16 @@ export interface HistoryEvents {
 }
 
 /**
+ * 缓存相关事件
+ */
+export interface CacheEvents {
+  /** 缓存状态改变 */
+  "cache:status-changed": {
+    hasCacheData: boolean;
+  };
+}
+
+/**
  * 变量拖拽相关事件
  */
 export interface VariableDragEvents {
@@ -219,6 +229,7 @@ export type VueFlowEventMap = NodeEvents &
   WorkflowEvents &
   HistoryEvents &
   ExecutionEvents &
+  CacheEvents &
   VariableDragEvents;
 
 /**
