@@ -477,6 +477,12 @@ export class WorkflowExecutor {
       (edge) => edge.target === nodeId
     );
 
+    // 测试代码
+    const node = workflow.nodes.find((f) => f.id === nodeId);
+    if (node.label === "延迟_1") {
+      debugger;
+    }
+
     console.log(
       `[shouldSkipNodeDueToInvalidInputs] 节点 ${nodeId} 的入边:`,
       incomingEdges
@@ -494,6 +500,7 @@ export class WorkflowExecutor {
     /** 分支存在有效数据 */
     let hasValidInputFromConditionalBranch = false;
     let hasNonConditionalValidInput = false;
+    let hasForContainerInput = false;
 
     for (const edge of incomingEdges) {
       console.log(`[shouldSkipNodeDueToInvalidInputs] 检查边:`, edge);
@@ -509,6 +516,16 @@ export class WorkflowExecutor {
 
       // 获取源节点类型
       const sourceNodeType = sourceNode.data?.nodeType || sourceNode.type;
+
+      const isForContainerBranch = sourceNodeType === "forLoopContainer";
+      console.log(
+        `[shouldSkipNodeDueToInvalidInputs] 源节点 ${edge.source} 类型: ${sourceNodeType}, 是 forLoopContainer: ${isForContainerBranch}`
+      );
+      if (isForContainerBranch) {
+        hasForContainerInput = true;
+        continue
+      }
+
       const isConditionalBranch = sourceNodeType === "if";
       console.log(
         `[shouldSkipNodeDueToInvalidInputs] 源节点 ${edge.source} 类型: ${sourceNodeType}, 是条件分支: ${isConditionalBranch}`
@@ -563,6 +580,10 @@ export class WorkflowExecutor {
       hasValidInputFromConditionalBranch,
       hasNonConditionalValidInput,
     });
+
+    if (hasForContainerInput) {
+      return false
+    }
 
     if (hasConditionalBranchInput) {
       const result = !hasValidInputFromConditionalBranch;
@@ -664,10 +685,6 @@ export class WorkflowExecutor {
       // 获取节点类型
       const nodeType = node.data?.nodeType || node.type;
 
-      // 检查节点是否应该被跳过（基于输入有效性）
-      if (node.label === "代码执行_2") {
-        debugger;
-      }
       if (this.shouldSkipNodeDueToInvalidInputs(nodeId, context)) {
         this.logger.log(
           `[WorkflowExecutor] 跳过节点 ${nodeId}: 所有输入端口都没有有效数据`
