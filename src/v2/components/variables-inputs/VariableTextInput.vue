@@ -427,7 +427,8 @@ function handleVariableDrop(event: CustomEvent) {
   const reference = dragData.reference.trim();
   if (!reference) return;
 
-  const newValue = internalValue.value + reference;
+  // 如果按住 Ctrl，则替换整个内容；否则追加
+  const newValue = dragData.isReplace ? reference : internalValue.value + reference;
   handleEditorUpdate(newValue);
 }
 

@@ -20,7 +20,9 @@
         v-if="showDragFollower"
         class="fixed pointer-events-none z-10000 scale-100 px-3 py-1 text-xs font-medium rounded-lg shadow-lg backdrop-blur"
         :class="[
-          dropTargetState === 'empty'
+          isCtrlPressed
+            ? 'bg-purple-100/95 border-2 border-purple-400 text-purple-700'
+            : dropTargetState === 'empty'
             ? 'bg-emerald-100/95 border-2 border-emerald-400 text-emerald-700'
             : dropTargetState === 'hasContent'
             ? 'bg-blue-100/95 border-2 border-blue-400 text-blue-700'
@@ -31,7 +33,12 @@
         <div class="flex items-center gap-1.5">
           <!-- 状态图标指示器 -->
           <span
-            v-if="dropTargetState === 'empty'"
+            v-if="isCtrlPressed"
+            class="text-purple-600 text-xs"
+            >⟳</span
+          >
+          <span
+            v-else-if="dropTargetState === 'empty'"
             class="text-emerald-600 text-xs"
             >⇱</span
           >
@@ -45,7 +52,12 @@
 
           <!-- 提示文字 -->
           <span
-            v-if="dropTargetState === 'empty'"
+            v-if="isCtrlPressed"
+            class="text-[10px] opacity-70"
+            >替换</span
+          >
+          <span
+            v-else-if="dropTargetState === 'empty'"
             class="text-[10px] opacity-70"
             >吸附左侧</span
           >
@@ -176,6 +188,7 @@ interface DraggedVariableData {
     label: string;
   };
   reference: string;
+  isReplace?: boolean;
 }
 
 const hasChildren = computed(
@@ -187,6 +200,7 @@ const {
   dragPosition,
   dropTargetState,
   dragFollowerStyle,
+  isCtrlPressed,
   startDrag,
 } = useEditableDrag<DraggedVariableData>({
   eventName: "variable-drop",
@@ -252,6 +266,7 @@ function handleMouseDown(event: MouseEvent) {
       label: props.node.label,
     },
     reference: variableRef,
+    isReplace: event.ctrlKey || event.metaKey,
   };
 
   startDrag(event, draggedVariableData);

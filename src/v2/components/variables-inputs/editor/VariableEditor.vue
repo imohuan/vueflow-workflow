@@ -1,10 +1,5 @@
 <template>
-  <div
-    ref="editorContainer"
-    class="variable-editor-container"
-    @focus="handleFocus"
-    @blur="handleBlur"
-  ></div>
+  <div ref="editorContainer" class="variable-editor-container " @focus="handleFocus" @blur="handleBlur"></div>
 </template>
 
 <script setup lang="ts">
@@ -37,6 +32,7 @@ const emit = defineEmits<{
   (e: "update:modelValue", value: string): void;
   (e: "focus"): void;
   (e: "blur"): void;
+  (e: "variable-drop", event: CustomEvent): void;
 }>();
 
 const editorContainer = ref<HTMLDivElement | null>(null);
@@ -68,7 +64,7 @@ function initEditor() {
       }
     },
     attributes: {
-      class: "ProseMirror",
+      class: "ProseMirror variable-scroll-x",
       style: `
         outline: none;
         border: none;
@@ -89,6 +85,9 @@ function initEditor() {
   // 绑定焦点事件
   editorView.dom.addEventListener("focus", handleFocus);
   editorView.dom.addEventListener("blur", handleBlur);
+
+  // 绑定拖放事件
+  editorView.dom.addEventListener("variable-drop", handleVariableDrop as EventListener);
 }
 
 /**
@@ -98,6 +97,7 @@ function destroyEditor() {
   if (editorView) {
     editorView.dom.removeEventListener("focus", handleFocus);
     editorView.dom.removeEventListener("blur", handleBlur);
+    editorView.dom.removeEventListener("variable-drop", handleVariableDrop as EventListener);
     editorView.destroy();
     editorView = null;
   }
@@ -117,6 +117,13 @@ function handleFocus() {
 function handleBlur() {
   isFocused.value = false;
   emit("blur");
+}
+
+/**
+ * 处理拖放事件
+ */
+function handleVariableDrop(event: Event) {
+  emit("variable-drop", event as CustomEvent);
 }
 
 /**

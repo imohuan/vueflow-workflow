@@ -47,6 +47,7 @@ export function useEditableDrag<T = unknown>(
   const dropTargetState = ref<DropTargetState>("default");
   const currentEditableElement = ref<HTMLElement | null>(null);
   const isHighlighted = ref(false);
+  const isCtrlPressed = ref(false);
 
   // 拖拽数据
   let draggedData: T | null = null;
@@ -130,10 +131,33 @@ export function useEditableDrag<T = unknown>(
   });
 
   /**
+   * 处理键盘按下事件 - 更新 Ctrl 键状态
+   */
+  function handleKeyDown(event: KeyboardEvent) {
+    if (!isDragging.value) return;
+    if (event.ctrlKey || event.metaKey) {
+      isCtrlPressed.value = true;
+    }
+  }
+
+  /**
+   * 处理键盘抬起事件 - 更新 Ctrl 键状态
+   */
+  function handleKeyUp(event: KeyboardEvent) {
+    if (!isDragging.value) return;
+    if (!event.ctrlKey && !event.metaKey) {
+      isCtrlPressed.value = false;
+    }
+  }
+
+  /**
    * 处理鼠标移动
    */
   function handleMouseMove(event: MouseEvent) {
     if (!isDragging.value) return;
+
+    // 更新 Ctrl 键状态（鼠标移动时也要更新，以防键盘事件遗漏）
+    isCtrlPressed.value = event.ctrlKey || event.metaKey;
 
     // 更新当前鼠标位置
     dragPosition.value = {
@@ -220,6 +244,11 @@ export function useEditableDrag<T = unknown>(
       y: event.clientY,
     };
 
+    // 更新拖拽数据中的 isReplace 标志（基于当前的 Ctrl 键状态）
+    if (draggedData && typeof draggedData === 'object') {
+      (draggedData as any).isReplace = isCtrlPressed.value;
+    }
+
     // 发送变量拖拽结束事件
     eventBusUtils.emit("variable:drag-end", {
       data: draggedData,
@@ -243,6 +272,8 @@ export function useEditableDrag<T = unknown>(
     // 移除全局事件监听
     document.removeEventListener("mousemove", handleMouseMove);
     document.removeEventListener("mouseup", handleMouseUp);
+    document.removeEventListener("keydown", handleKeyDown);
+    document.removeEventListener("keyup", handleKeyUp);
 
     // 触发 drop 事件到鼠标位置的元素
     const target = document.elementFromPoint(event.clientX, event.clientY);
@@ -303,6 +334,8 @@ export function useEditableDrag<T = unknown>(
     // 绑定全局事件
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
   }
 
   /**
@@ -323,6 +356,8 @@ export function useEditableDrag<T = unknown>(
     document.body.style.cursor = "";
     document.removeEventListener("mousemove", handleMouseMove);
     document.removeEventListener("mouseup", handleMouseUp);
+    document.removeEventListener("keydown", handleKeyDown);
+    document.removeEventListener("keyup", handleKeyUp);
   }
 
   return {
@@ -334,6 +369,7 @@ export function useEditableDrag<T = unknown>(
     currentEditableElement: currentEditableElement as Readonly<
       Ref<HTMLElement | null>
     >,
+    isCtrlPressed: isCtrlPressed as Readonly<Ref<boolean>>,
     isHighlighted: enableHighlight
       ? (isHighlighted as Readonly<Ref<boolean>>)
       : undefined,

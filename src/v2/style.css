@@ -39,6 +39,23 @@ button {
   background: rgba(99, 102, 241, 0.6);
 }
 
+.variable-scroll-x {
+  scrollbar-width: thin;
+}
+
+.variable-scroll-x::-webkit-scrollbar {
+  height: 6px;
+}
+
+.variable-scroll-x::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+
+.variable-scroll-x::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+}
+
 /* Primary and Surface Palettes */
 :root {
   --p-primary-50: #ecfdf5;
