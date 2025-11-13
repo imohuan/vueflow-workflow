@@ -128,8 +128,8 @@
             <span class="json-item-count text-gray-400 ml-2">
               // {{ itemCountLabel }}
             </span>
+            <span v-if="!isLast" class="json-comma">,</span>
           </template>
-          <span v-if="!isLast" class="json-comma">,</span>
         </template>
 
         <!-- 基本类型值 -->
