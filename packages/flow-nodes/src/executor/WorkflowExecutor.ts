@@ -84,6 +84,13 @@ export class WorkflowExecutor {
     const opts = { ...this.defaultOptions, ...options };
     const executionId = this.generateExecutionId();
 
+    // 清除所有节点的 forceCacheUsage 标记（来自上一次执行）
+    for (const node of workflow.nodes) {
+      if (node.data?.forceCacheUsage) {
+        delete node.data.forceCacheUsage;
+      }
+    }
+
     // 创建执行上下文
     const context = new ExecutionContext(
       workflow,
@@ -383,7 +390,7 @@ export class WorkflowExecutor {
    * 从开始节点查找所有可达的节点
    * 使用广度优先搜索（BFS）
    * 支持自定义执行起点（isExecutionStart 标记的节点）
-   * 
+   *
    * 逻辑：
    * 1. 仍然从 start 节点开始执行
    * 2. 如果标记了执行起点，收集该节点前面的所有依赖节点
@@ -445,11 +452,11 @@ export class WorkflowExecutor {
       this.logger.log(
         `[WorkflowExecutor] 发现 ${executionStartNodes.length} 个标记的执行起点`
       );
-      
+
       // 收集执行起点前面的所有依赖节点
       for (const startNode of executionStartNodes) {
         const dependencies = this.findDependencies(startNode.id, nodes, edges);
-        
+
         // 标记这些依赖节点为强制使用缓存
         for (const depId of dependencies) {
           const depNode = nodes.find((n) => n.id === depId);
@@ -761,10 +768,12 @@ export class WorkflowExecutor {
 
         // 3. 判断节点是否允许使用缓存
         // 如果被标记为强制使用缓存，则直接设置为 true
-        shouldUseCache = forceCacheUsage || nodeInstance.shouldUseCache(inputs, {
-          nodeId,
-          workflowId: context.getWorkflowId(),
-        });
+        shouldUseCache =
+          forceCacheUsage ||
+          nodeInstance.shouldUseCache(inputs, {
+            nodeId,
+            workflowId: context.getWorkflowId(),
+          });
 
         this.logger.log(
           `[WorkflowExecutor] 节点 ${nodeId} 缓存判断结果: ${shouldUseCache}`
