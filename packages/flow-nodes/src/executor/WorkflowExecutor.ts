@@ -382,12 +382,19 @@ export class WorkflowExecutor {
   /**
    * 从开始节点查找所有可达的节点
    * 使用广度优先搜索（BFS）
+   * 支持自定义执行起点（isExecutionStart 标记的节点）
+   * 
+   * 逻辑：
+   * 1. 仍然从 start 节点开始执行
+   * 2. 如果标记了执行起点，收集该节点前面的所有依赖节点
+   * 3. 这些依赖节点会被标记为强制使用缓存
+   * 4. 只有从执行起点开始的节点才正常执行
    */
   private findReachableNodesFromStart(
     nodes: WorkflowNode[],
     edges: WorkflowEdge[]
   ): Set<string> {
-    // 查找开始节点
+    // 查找开始节点（type === "start"）
     const startNodes = nodes.filter(
       (node) => node.data?.nodeType === "start" || node.type === "start"
     );
@@ -425,6 +432,37 @@ export class WorkflowExecutor {
         if (!reachable.has(edge.target)) {
           reachable.add(edge.target);
           queue.push(edge.target);
+        }
+      }
+    }
+
+    // 检查是否有标记的执行起点，如果有则收集其前置依赖节点
+    const executionStartNodes = nodes.filter(
+      (node) => node.data?.isExecutionStart === true
+    );
+
+    if (executionStartNodes.length > 0) {
+      this.logger.log(
+        `[WorkflowExecutor] 发现 ${executionStartNodes.length} 个标记的执行起点`
+      );
+      
+      // 收集执行起点前面的所有依赖节点
+      for (const startNode of executionStartNodes) {
+        const dependencies = this.findDependencies(startNode.id, nodes, edges);
+        
+        // 标记这些依赖节点为强制使用缓存
+        for (const depId of dependencies) {
+          const depNode = nodes.find((n) => n.id === depId);
+          if (depNode) {
+            // 在节点数据中标记为强制使用缓存
+            if (!depNode.data) {
+              depNode.data = {};
+            }
+            depNode.data.forceCacheUsage = true;
+            this.logger.log(
+              `[WorkflowExecutor] 节点 ${depId} 标记为强制使用缓存（${startNode.id} 的前置依赖）`
+            );
+          }
         }
       }
     }
@@ -706,15 +744,24 @@ export class WorkflowExecutor {
       let shouldUseCache = false;
       let configHash: string | undefined;
 
+      // 检查是否被标记为强制使用缓存（执行起点前置依赖）
+      const forceCacheUsage = node.data?.forceCacheUsage === true;
+      if (forceCacheUsage) {
+        this.logger.log(
+          `[WorkflowExecutor] 节点 ${nodeId} 被标记为强制使用缓存（执行起点的前置依赖）`
+        );
+      }
+
       // 1. 首先判断全局缓存开关
-      if (options.useCache) {
+      if (options.useCache || forceCacheUsage) {
         this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} 缓存功能已启用`);
 
         // 2. 获取节点实例以进行节点级缓存判断
         const nodeInstance = this.nodeResolver.resolveInstance(nodeType);
 
         // 3. 判断节点是否允许使用缓存
-        shouldUseCache = nodeInstance.shouldUseCache(inputs, {
+        // 如果被标记为强制使用缓存，则直接设置为 true
+        shouldUseCache = forceCacheUsage || nodeInstance.shouldUseCache(inputs, {
           nodeId,
           workflowId: context.getWorkflowId(),
         });

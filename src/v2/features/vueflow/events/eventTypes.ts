@@ -38,6 +38,8 @@ export interface NodeEvents {
   "node:detach-from-container": { nodeId: string; containerId: string };
   /** 节点执行请求 */
   "node:execute": { nodeId: string };
+  /** 节点执行起点切换 */
+  "node:toggle-execution-start": { nodeId: string; isExecutionStart: boolean };
   /** 节点被选中 */
   "node:selected": { node: Node };
   /** 节点被取消选中 */

@@ -5,7 +5,18 @@
       'animate-pulse': data.status === 'running',
     }"
     :style="nodeStyle"
+    @click="handleNodeClick"
   >
+    <!-- 执行起点标记（左上角） -->
+    <div
+      v-if="data.isExecutionStart"
+      class="absolute -top-9 left-2 h-8 px-3 flex items-center rounded-lg text-[11px] font-bold bg-gradient-to-r from-red-500 to-red-600 text-white border-2 border-red-700 shadow-lg z-10 gap-1 whitespace-nowrap"
+      :title="'执行起点'"
+    >
+      <IconExecutionStart class="w-4 h-4" />
+      <span>起点</span>
+    </div>
+
     <!-- 执行状态徽章 -->
     <NodeExecutionBadge :node-id="id" />
 
@@ -197,6 +208,7 @@ import IconEdit from "@/icons/IconEdit.vue";
 import IconCog from "@/icons/IconCog.vue";
 import IconExternalLink from "@/icons/IconExternalLink.vue";
 import IconCopy from "@/icons/IconCopy.vue";
+import IconExecutionStart from "@/icons/IconExecutionStart.vue";
 import { eventBusUtils } from "../../events";
 import StandardNodeContent from "./StandardNodeContent.vue";
 import "../ports/portStyles.css";
@@ -224,6 +236,8 @@ interface Props {
     showExecuteButton?: boolean;
     /** 是否显示删除按钮 */
     showDeleteButton?: boolean;
+    /** 是否为执行起点 */
+    isExecutionStart?: boolean;
     /** 其他自定义数据 */
     [key: string]: any;
   };
@@ -444,6 +458,12 @@ const menuOptions = computed<DropdownOption[]>(() => {
     });
   }
 
+  // 添加执行起点设置选项
+  options.push({
+    label: props.data.isExecutionStart ? "取消执行起点" : "设置为执行起点",
+    key: "toggle-execution-start",
+  });
+
   options.push({
     type: "divider",
     key: "divider",
@@ -470,9 +490,29 @@ function handleMenuSelect(key: string) {
     case "detach":
       handleDetachFromContainer();
       break;
+    case "toggle-execution-start":
+      handleToggleExecutionStart();
+      break;
     case "delete":
       handleDelete();
       break;
+  }
+}
+
+// 处理设置/取消执行起点
+function handleToggleExecutionStart() {
+  eventBusUtils.emit("node:toggle-execution-start", {
+    nodeId: props.id,
+    isExecutionStart: !props.data.isExecutionStart,
+  });
+}
+
+// 处理节点点击（Ctrl + 左键快速设置为起点）
+function handleNodeClick(event: MouseEvent) {
+  // Ctrl + 左键点击快速设置为执行起点
+  if (event.ctrlKey && event.button === 0) {
+    event.stopPropagation();
+    handleToggleExecutionStart();
   }
 }
 

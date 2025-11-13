@@ -364,6 +364,36 @@ events.on("node:execute", async ({ nodeId }) => {
   await handleExecute([nodeId]);
 });
 
+// 监听节点执行起点切换事件
+events.on("node:toggle-execution-start", ({ nodeId, isExecutionStart }) => {
+  console.log("[CanvasView] 节点执行起点切换:", nodeId, isExecutionStart);
+  
+  // 如果设置为执行起点，清除其他节点的该标记
+  if (isExecutionStart) {
+    canvasStore.nodes.forEach((node: any) => {
+      if (node.id !== nodeId && node.data?.isExecutionStart) {
+        canvasStore.updateNode(node.id, {
+          data: {
+            ...node.data,
+            isExecutionStart: false,
+          },
+        });
+      }
+    });
+  }
+  
+  // 更新当前节点
+  const node = canvasStore.nodes.find((n: any) => n.id === nodeId);
+  if (node) {
+    canvasStore.updateNode(nodeId, {
+      data: {
+        ...node.data,
+        isExecutionStart,
+      },
+    });
+  }
+});
+
 // 监听节点添加事件
 events.on("node:added", ({ node }) => {
   console.log("[CanvasView] 节点已添加:", node);
