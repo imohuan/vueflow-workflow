@@ -1,5 +1,9 @@
 <template>
-  <div ref="canvasWrapperRef" class="vueflow-canvas-wrapper" :style="{ backgroundColor: editorConfig.bgColor }">
+  <div
+    ref="canvasWrapperRef"
+    class="vueflow-canvas-wrapper"
+    :style="{ backgroundColor: editorConfig.bgColor }"
+  >
     <VueFlow
       v-model:nodes="coreNodes"
       v-model:edges="coreEdges"
@@ -77,6 +81,11 @@
       <!-- Code 代码执行节点插槽 -->
       <template #node-code="nodeProps">
         <CodeNode v-bind="nodeProps" />
+      </template>
+
+      <!-- Image Preview 图片预览节点插槽 -->
+      <template #node-preview="nodeProps">
+        <PreviewNode v-bind="nodeProps" />
       </template>
 
       <!-- 自定义连接线（拖拽时的临时连接线） -->
@@ -163,6 +172,7 @@ import ForLoopContainerNode from "./nodes/ForLoopContainerNode.vue";
 import CodeNode from "./nodes/CodeNode.vue";
 import CustomConnectionEdge from "./edges/CustomConnectionEdge.vue";
 import CustomEdge from "./edges/CustomEdge.vue";
+import PreviewNode from "./nodes/PreviewNode.vue";
 import {
   PluginManager,
   PLUGIN_MANAGER_KEY,
@@ -261,6 +271,7 @@ const nodeTypes = {
   for: () => ForNode,
   forLoopContainer: () => ForLoopContainerNode,
   code: () => CodeNode,
+  preview: () => PreviewNode,
 };
 
 // 边类型映射
@@ -361,12 +372,12 @@ function addNodeAtPosition(
   nodeMetadata:
     | NodeMetadataItem
     | {
-      id: string;
-      name: string;
-      description?: string;
-      inputs?: any[];
-      outputs?: any[];
-    },
+        id: string;
+        name: string;
+        description?: string;
+        inputs?: any[];
+        outputs?: any[];
+      },
   position: { x: number; y: number }
 ): Node {
   const nodeId = "type" in nodeMetadata ? nodeMetadata.type : nodeMetadata.id;
@@ -381,18 +392,7 @@ function addNodeAtPosition(
   };
 
   // 确定节点类型（note、start、end、connector、if 使用对应类型，其他使用 custom）
-  const nodeType = [
-    "note",
-    "start",
-    "end",
-    "connector",
-    "if",
-    "for",
-    "forLoopContainer",
-    "code",
-  ].includes(nodeId)
-    ? nodeId
-    : "custom";
+  const nodeType = Object.keys(nodeTypes).includes(nodeId) ? nodeId : "custom";
 
   // 获取节点类型特定数据
   const specificData = NODE_TYPE_SPECIFIC_DATA[nodeId] || {};
@@ -677,8 +677,9 @@ function getEdgeKey(edge: Edge): string {
   }
 
   // 生成唯一标识符：source_target_sourceHandle_targetHandle_sourceY_targetY
-  return `${edge.source}_${edge.target}_${edge.sourceHandle || ""}_${edge.targetHandle || ""
-    }_${sourceY}_${targetY}`;
+  return `${edge.source}_${edge.target}_${edge.sourceHandle || ""}_${
+    edge.targetHandle || ""
+  }_${sourceY}_${targetY}`;
 }
 
 /**
@@ -861,12 +862,12 @@ function handleNodeLabelUpdate({
     nodes.map((n) =>
       n.id === nodeId
         ? {
-          ...n,
-          data: {
-            ...n.data,
-            label: uniqueLabel,
-          },
-        }
+            ...n,
+            data: {
+              ...n.data,
+              label: uniqueLabel,
+            },
+          }
         : n
     )
   );
@@ -969,10 +970,10 @@ function handleNodeDetachFromContainer({
     nodes.map((n) =>
       n.id === nodeId
         ? {
-          ...n,
-          parentNode: undefined,
-          position: { x: absoluteX, y: absoluteY },
-        }
+            ...n,
+            parentNode: undefined,
+            position: { x: absoluteX, y: absoluteY },
+          }
         : n
     )
   );

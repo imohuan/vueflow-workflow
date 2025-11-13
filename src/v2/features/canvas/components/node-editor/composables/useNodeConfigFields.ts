@@ -40,19 +40,15 @@ export function useNodeConfigFields(selectedNode: Ref<Node | undefined>) {
     return inputs.map((input) => {
       // 检查是否有选项
       const hasOptions = !!(input.options && input.options.length > 0);
-
+      const label = input.label || input.description;
       const field: ConfigFieldType = {
         key: input.name,
-        label: input.description || input.name,
+        label,
         // 如果有选项，使用 select 类型
         type: hasOptions ? "select" : mapNodeTypeToFieldType(input.type),
         default: input.defaultValue ?? "",
-        placeholder: hasOptions
-          ? ""
-          : input.description
-          ? `输入${input.description}...`
-          : "",
-        description: input.description,
+        placeholder: hasOptions ? "" : "请输入内容...",
+        description: input.description === label ? "" : input.description,
         required: input.required,
         // 如果有选项，添加到字段
         ...(hasOptions && { options: input.options }),

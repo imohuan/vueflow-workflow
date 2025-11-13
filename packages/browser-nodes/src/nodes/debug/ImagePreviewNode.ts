@@ -3,12 +3,13 @@ import type { PortDefinition, WorkflowExecutionContext } from "../base-node.ts";
 
 /**
  * 图片预览节点（调试用）
- * 用于预览图片 URL 或 Base64 数据
+ * 用于预览图片 URL 或通过 baseUrl + path 拼接的图片
+ * 注：禁止使用 basedata 等大数据，仅支持 URL 和 baseUrl+path 方式
  */
 export class ImagePreviewNode extends BaseNode {
   readonly type = "imagePreview";
   readonly label = "图片预览";
-  readonly description = "预览图片，支持 URL 和 Base64";
+  readonly description = "预览图片，支持 URL 和 baseUrl+path 拼接";
   readonly category = "调试工具";
 
   protected defineInputs(): PortDefinition[] {
@@ -18,14 +19,21 @@ export class ImagePreviewNode extends BaseNode {
         name: "图片URL",
         type: "string",
         required: false,
-        description: "图片的 URL 地址",
+        description: "完整的图片 URL 地址",
       },
       {
-        id: "imageData",
-        name: "图片数据",
+        id: "baseUrl",
+        name: "基础URL",
         type: "string",
         required: false,
-        description: "Base64 编码的图片数据或完整的 data URL",
+        description: "基础 URL，如 http://localhost:3000/static/images",
+      },
+      {
+        id: "path",
+        name: "图片路径",
+        type: "string",
+        required: false,
+        description: "相对路径，如 data/1.png。若以 http:// 或 https:// 开头则直接使用",
       },
     ];
   }
@@ -73,28 +81,23 @@ export class ImagePreviewNode extends BaseNode {
     _context: WorkflowExecutionContext
   ): Promise<any> {
     const imageUrl = inputs.imageUrl;
-    const imageData = inputs.imageData;
-
-    if (!imageUrl && !imageData) {
-      throw new Error("请提供图片 URL 或图片数据");
-    }
+    const baseUrl = inputs.baseUrl;
+    const path = inputs.path;
 
     // 确定最终的图片地址
     let finalImageUrl: string;
     let isDataUrl = false;
 
-    if (imageData) {
-      // 如果是 Base64 数据
-      if (imageData.startsWith("data:image/")) {
-        finalImageUrl = imageData;
-        isDataUrl = true;
-      } else {
-        // 如果只是 Base64 编码，需要添加前缀
-        finalImageUrl = `data:image/png;base64,${imageData}`;
-        isDataUrl = true;
-      }
-    } else {
+    if (imageUrl) {
+      // 如果提供了完整的 URL
       finalImageUrl = imageUrl;
+    } else if (baseUrl && path) {
+      // 如果提供了 baseUrl 和 path，进行拼接
+      finalImageUrl = this.concatenateUrl(baseUrl, path);
+    } else {
+      throw new Error(
+        "请提供以下任一选项：1) 完整的图片 URL，或 2) baseUrl + path"
+      );
     }
 
     // 尝试获取图片尺寸（仅在浏览器环境）
@@ -142,6 +145,25 @@ export class ImagePreviewNode extends BaseNode {
         maxHeight: config.maxHeight || 300,
       },
     };
+  }
+
+  /**
+   * 拼接 URL
+   * 如果 path 以 http:// 或 https:// 开头，则直接返回 path
+   * 否则，将 baseUrl 和 path 拼接
+   */
+  private concatenateUrl(baseUrl: string, path: string): string {
+    // 检测 path 是否已经是完整的 URL
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      return path;
+    }
+
+    // 移除 baseUrl 末尾的斜杠
+    const cleanBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+    // 移除 path 开头的斜杠
+    const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+
+    return `${cleanBaseUrl}/${cleanPath}`;
   }
 
   /**
