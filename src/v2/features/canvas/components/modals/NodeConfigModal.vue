@@ -33,6 +33,7 @@
         <VariablePanel
           title="可用变量"
           :variables="availableVariables"
+          :show-pinned="true"
           :show-search="true"
           :show-view-mode-toggle="true"
           :view-mode-options="leftViewModeOptions"

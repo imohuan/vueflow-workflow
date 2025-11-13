@@ -240,7 +240,9 @@ async function handleClearCache() {
     events.emit("cache:status-changed", { hasCacheData: false });
   } catch (error) {
     message.destroyAll();
-    message.error(`清空缓存失败: ${error instanceof Error ? error.message : String(error)}`);
+    message.error(
+      `清空缓存失败: ${error instanceof Error ? error.message : String(error)}`
+    );
     console.error("[CanvasView] 清空缓存异常:", error);
   }
 }
@@ -367,7 +369,7 @@ events.on("node:execute", async ({ nodeId }) => {
 // 监听节点执行起点切换事件
 events.on("node:toggle-execution-start", ({ nodeId, isExecutionStart }) => {
   console.log("[CanvasView] 节点执行起点切换:", nodeId, isExecutionStart);
-  
+
   // 如果设置为执行起点，清除其他节点的该标记
   if (isExecutionStart) {
     canvasStore.nodes.forEach((node: any) => {
@@ -381,7 +383,7 @@ events.on("node:toggle-execution-start", ({ nodeId, isExecutionStart }) => {
       }
     });
   }
-  
+
   // 更新当前节点
   const node = canvasStore.nodes.find((n: any) => n.id === nodeId);
   if (node) {
@@ -436,15 +438,18 @@ events.on("canvas:clicked", () => {
 // 监听画布双击事件
 events.on("canvas:double-clicked", ({ event }) => {
   console.log("[CanvasView] 画布被双击，打开快捷菜单");
-  
+
   // 将浏览器窗口坐标转换为相对于画布容器的坐标
-  const canvasPosition = convertToCanvasCoordinates(event.clientX, event.clientY);
-  
+  const canvasPosition = convertToCanvasCoordinates(
+    event.clientX,
+    event.clientY
+  );
+
   // 打开快捷菜单
   quickMenu.visible = true;
   quickMenu.position = canvasPosition;
   quickMenu.startHandle = undefined; // 双击打开时没有起始端口
-  
+
   nextTick(() => {
     quickMenuRef.value?.focus();
   });
@@ -721,6 +726,12 @@ onKeyStroke(
     if (hasFoucsInput.value && !e.ctrlKey && !e.shiftKey && !e.altKey) {
       e.preventDefault();
 
+      if (variableEditorModalVisible.value) {
+        uiStore.closeVariableEditorModal();
+        console.log("[CanvasView] Escape 键关闭变量编辑器模态框");
+        return;
+      }
+
       if (editorPanelModalVisible.value) {
         uiStore.closeEditorPanelModal();
         console.log("[CanvasView] Escape 键关闭编辑器面板模态框");
@@ -743,12 +754,6 @@ onKeyStroke(
       if (infoModalVisible.value) {
         uiStore.closeInfoModal();
         console.log("[CanvasView] Escape 键关闭信息模态框");
-        return;
-      }
-
-      if (variableEditorModalVisible.value) {
-        uiStore.closeVariableEditorModal();
-        console.log("[CanvasView] Escape 键关闭变量编辑器模态框");
         return;
       }
 

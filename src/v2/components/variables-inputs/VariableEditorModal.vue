@@ -41,16 +41,18 @@
 
           <!-- 编辑器主体 -->
           <div class="flex-1 p-4 overflow-y-auto variable-scroll">
-            <div
-              ref="editorRef"
-              contenteditable="true"
-              class="w-full h-full min-h-[200px] p-3 font-mono text-sm text-slate-700 bg-white border border-slate-200 rounded-md outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200 whitespace-pre-wrap wrap-break-word"
-              @input="handleInput"
-              @variable-drop="handleVariableDrop"
-              @paste="handlePaste"
-              @focus="handleFocus"
-              @blur="handleBlur"
-            ></div>
+            <div class="w-full h-full min-h-[200px] bg-white border border-slate-200 rounded-md overflow-hidden">
+              <VariableEditor
+                ref="editorRef"
+                :model-value="internalValue"
+                :multiline="true"
+                class="w-full"
+                @update:model-value="handleEditorUpdate"
+                @focus="handleFocus"
+                @blur="handleBlur"
+                @variable-drop="handleVariableDrop"
+              />
+            </div>
           </div>
         </div>
 
@@ -149,6 +151,7 @@ import IconChevronRight from "@/icons/IconChevronRight.vue";
 import ModalShell from "../ui/ModalShell.vue";
 import VariablePanel from "../variables/VariablePanel.vue";
 import VariablePreview from "./VariablePreview.vue";
+import VariableEditor from "./editor/VariableEditor.vue";
 import { useUiStore } from "../../stores/ui";
 import { useVariableContext } from "../../composables/useVariableContext";
 import { resolveConfigWithVariables } from "workflow-flow-nodes";
@@ -159,7 +162,7 @@ const {
   variableEditorModalVisible,
   variableEditorModalContent,
 } = storeToRefs(uiStore);
-const editorRef = ref<HTMLDivElement | null>(null);
+const editorRef = ref<InstanceType<typeof VariableEditor> | null>(null);
 const internalValue = ref("");
 const currentPreviewIndex = ref(0);
 const pageInput = ref("0");
@@ -216,16 +219,6 @@ const canNavigateNext = computed(
     currentPreviewIndex.value < previewItems.value.length - 1
 );
 
-// 监听编辑器挂载
-watch(
-  editorRef,
-  (editor) => {
-    if (editor) {
-      updateEditorContent(internalValue.value, false);
-    }
-  },
-  { flush: "post" }
-);
 
 // 监听预览项变化
 watch(
@@ -261,7 +254,6 @@ watch(
   (newValue) => {
     if (variableEditorModalVisible.value && newValue !== undefined) {
       internalValue.value = newValue || "";
-      updateEditorContent(internalValue.value, false);
     }
   },
   { immediate: true }
@@ -272,7 +264,6 @@ watch(variableEditorModalVisible, (visible) => {
   if (visible) {
     const value = variableEditorModalContent.value.value || "";
     internalValue.value = value;
-    updateEditorContent(value, false);
     // 重置预览索引
     currentPreviewIndex.value = 0;
     pageInput.value = "0";
@@ -305,34 +296,20 @@ function handleBlur() {
   // 可以在这里添加失焦逻辑
 }
 
-function handleInput() {
-  if (!editorRef.value) return;
-
-  const plainText = getPlainText(editorRef.value);
-  if (plainText === internalValue.value) return;
-  internalValue.value = plainText;
-
-  updateEditorContent(plainText, true);
-}
-
-function handlePaste(event: ClipboardEvent) {
-  event.preventDefault();
-  const text = event.clipboardData?.getData("text/plain") || "";
-  insertTextAtCursor(text);
-  handleInput();
+function handleEditorUpdate(value: string) {
+  internalValue.value = value;
 }
 
 function handleVariableDrop(event: CustomEvent) {
-  if (!editorRef.value) return;
-
   const dragData = event.detail;
   if (!dragData?.reference) return;
 
   const reference = dragData.reference.trim();
   if (!reference) return;
 
-  insertTextAtCursor(reference);
-  handleInput();
+  // 如果按住 Ctrl，则替换整个内容；否则追加
+  const newValue = dragData.isReplace ? reference : internalValue.value + reference;
+  handleEditorUpdate(newValue);
 }
 
 function goPrevItem() {
@@ -388,140 +365,4 @@ function handlePageInputKeydown(event: KeyboardEvent) {
   }
 }
 
-function updateEditorContent(text: string, restoreCursor = false) {
-  const editor = editorRef.value;
-  if (!editor) return;
-
-  let cursorPos: number | null = null;
-  if (restoreCursor) {
-    cursorPos = getCursorPosition();
-  }
-
-  const html = highlightVariables(text) || "";
-  if (editor.innerHTML !== html) {
-    editor.innerHTML = html;
-  }
-
-  if (restoreCursor && cursorPos !== null) {
-    setCursorPosition(cursorPos);
-  }
-}
-
-function getPlainText(element: HTMLElement): string {
-  return (
-    element.textContent?.replace(/\u00a0/g, " ").replace(/\u200B/g, "") ?? ""
-  );
-}
-
-function getCursorPosition(): number | null {
-  const editor = editorRef.value;
-  if (!editor) return null;
-
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return null;
-
-  const range = selection.getRangeAt(0);
-  if (!editor.contains(range.endContainer)) return null;
-
-  const preCaretRange = range.cloneRange();
-  preCaretRange.selectNodeContents(editor);
-  preCaretRange.setEnd(range.endContainer, range.endOffset);
-
-  return preCaretRange.toString().length;
-}
-
-function setCursorPosition(offset: number) {
-  const editor = editorRef.value;
-  if (!editor) return;
-
-  const selection = window.getSelection();
-  if (!selection) return;
-
-  const text = getPlainText(editor);
-  const target = Math.max(0, Math.min(offset, text.length));
-
-  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-  let current = walker.nextNode() as Text | null;
-  let traversed = 0;
-
-  while (current) {
-    const nodeLength = current.textContent?.length ?? 0;
-    if (traversed + nodeLength >= target) {
-      const innerOffset = target - traversed;
-      const range = document.createRange();
-      range.setStart(current, innerOffset);
-      range.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(range);
-      return;
-    }
-    traversed += nodeLength;
-    current = walker.nextNode() as Text | null;
-  }
-
-  const range = document.createRange();
-  range.selectNodeContents(editor);
-  range.collapse(false);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
-function insertTextAtCursor(text: string) {
-  const editor = editorRef.value;
-  if (!editor) return;
-
-  const selection = window.getSelection();
-  if (!selection) return;
-
-  if (selection.rangeCount === 0) {
-    editor.appendChild(document.createTextNode(text));
-    return;
-  }
-
-  const range = selection.getRangeAt(0);
-  if (!editor.contains(range.startContainer)) {
-    range.selectNodeContents(editor);
-    range.collapse(false);
-  }
-
-  range.deleteContents();
-  const node = document.createTextNode(text);
-  range.insertNode(node);
-
-  const newRange = document.createRange();
-  newRange.setStart(node, node.length);
-  newRange.collapse(true);
-
-  selection.removeAllRanges();
-  selection.addRange(newRange);
-}
-
-function highlightVariables(value: string): string {
-  if (!value) return "\u200B";
-
-  const tokenRegex = /\{\{\s*\$?[^{}]+?\s*\}\}/g;
-  let lastIndex = 0;
-  let result = "";
-  let match: RegExpExecArray | null;
-
-  while ((match = tokenRegex.exec(value)) !== null) {
-    const token = match[0];
-    const start = match.index;
-    result += escapeHtml(value.slice(lastIndex, start));
-    result += `<span class="variable-token">${escapeHtml(token)}</span>`;
-    lastIndex = start + token.length;
-  }
-
-  result += escapeHtml(value.slice(lastIndex));
-  return result;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 </script>

@@ -109,10 +109,11 @@
                   </n-button>
                 </div>
               </div>
+
               <!-- 树列表 -->
               <div class="space-y-1">
                 <VariableTreeItem
-                  v-for="node in filteredVariables"
+                  v-for="node in displayVariables"
                   :key="node.id"
                   :node="node"
                   :level="0"
@@ -120,6 +121,8 @@
                   :expanded-node-ids="expandedNodeIds ?? undefined"
                   @toggle="handleToggle"
                   @toggle-with-first="handleToggleWithFirst"
+                  @pin="handlePinVariable"
+                  @unpin="handleUnpinVariable"
                 />
               </div>
             </div>
@@ -211,6 +214,10 @@ interface Props {
   showJsonSelector?: boolean;
   /** 是否在 JSON 视图中展开所有节点 */
   expandAllJson?: boolean;
+  /** 是否显示顶固变量 */
+  showPinned?: boolean;
+  /** localStorage 存储 key */
+  pinnedStorageKey?: string;
 }
 
 interface Emits {
@@ -231,6 +238,8 @@ const props = withDefaults(defineProps<Props>(), {
   enableDrag: true,
   showJsonSelector: true,
   expandAllJson: false,
+  showPinned: true,
+  pinnedStorageKey: "variable_panel_pinned",
 });
 
 const emit = defineEmits<Emits>();
@@ -241,6 +250,135 @@ const viewMode = ref<"schema" | "json">(props.defaultViewMode);
 // 展开控制相关
 // 使用 null 表示未激活外部控制，让节点使用内部状态
 const expandedNodeIds = ref<Set<string> | null>(null);
+
+// 顶固变量管理
+interface PinnedVariable {
+  id: string;
+  label: string;
+  reference: string;
+  value: unknown;
+  valueType: string;
+}
+
+const pinnedVariables = ref<PinnedVariable[]>([]);
+
+/** 从 localStorage 加载顶固变量 */
+function loadPinnedVariables() {
+  if (!props.showPinned) return;
+  try {
+    const stored = localStorage.getItem(props.pinnedStorageKey);
+    if (stored) {
+      pinnedVariables.value = JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error("[VariablePanel] 加载顶固变量失败:", error);
+    pinnedVariables.value = [];
+  }
+}
+
+/** 保存顶固变量到 localStorage */
+function savePinnedVariables() {
+  if (!props.showPinned) return;
+  try {
+    localStorage.setItem(
+      props.pinnedStorageKey,
+      JSON.stringify(pinnedVariables.value)
+    );
+  } catch (error) {
+    console.error("[VariablePanel] 保存顶固变量失败:", error);
+  }
+}
+
+/** 添加顶固变量 */
+function handlePinVariable(node: VariableTreeNode) {
+  if (!props.showPinned) return;
+
+  // 检查是否已存在
+  const exists = pinnedVariables.value.some(
+    (p) => p.reference === node.reference
+  );
+  if (exists) return;
+
+  pinnedVariables.value.push({
+    id: node.id,
+    label: node.label,
+    reference: node.reference || "",
+    value: node.value,
+    valueType: node.valueType,
+  });
+
+  savePinnedVariables();
+}
+
+/** 移除顶固变量 */
+function handleUnpinVariable(reference: string) {
+  if (!props.showPinned) return;
+
+  pinnedVariables.value = pinnedVariables.value.filter(
+    (p) => p.reference !== reference
+  );
+  savePinnedVariables();
+}
+
+/** 获取过滤后的顶固变量（仅显示在当前变量中存在的） */
+const filteredPinnedVariables = computed<PinnedVariable[]>(() => {
+  if (!props.showPinned || pinnedVariables.value.length === 0) {
+    return [];
+  }
+
+  // 构建当前变量的引用集合
+  const currentReferences = new Set<string>();
+  const collectReferences = (nodes: VariableTreeNode[]) => {
+    nodes.forEach((node) => {
+      if (node.reference) {
+        currentReferences.add(node.reference);
+      }
+      if (node.children) {
+        collectReferences(node.children);
+      }
+    });
+  };
+  collectReferences(props.variables);
+
+  // 过滤：只显示在当前变量中存在的顶固变量
+  return pinnedVariables.value.filter((p) =>
+    currentReferences.has(p.reference)
+  );
+});
+
+/** 将顶固变量转换为 VariableTreeNode */
+function pinnedVariableToTreeNode(pinned: PinnedVariable): VariableTreeNode {
+  return {
+    id: `pinned_${pinned.reference}`,
+    label: pinned.label,
+    reference: pinned.reference,
+    value: pinned.value,
+    valueType: pinned.valueType,
+    children: undefined,
+  };
+}
+
+/** 显示的变量列表（顶固变量 + 过滤后的变量） */
+const displayVariables = computed<VariableTreeNode[]>(() => {
+  if (!props.showPinned || filteredPinnedVariables.value.length === 0) {
+    return filteredVariables.value;
+  }
+
+  // 创建顶固容器节点
+  const pinnedContainerNode: VariableTreeNode = {
+    id: "pinned_container",
+    label: `📌 顶固变量 (${filteredPinnedVariables.value.length})`,
+    reference: undefined,
+    value: undefined,
+    valueType: "node",
+    children: filteredPinnedVariables.value.map(pinnedVariableToTreeNode),
+  };
+
+  return [pinnedContainerNode, ...filteredVariables.value];
+});
+
+// 初始化时加载顶固变量
+loadPinnedVariables();
 
 /** 递归收集所有节点的 ID */
 function collectAllNodeIds(nodes: VariableTreeNode[]): string[] {
@@ -325,6 +463,12 @@ function handleToggle(nodeId: string, expanded: boolean) {
 
 /** 处理根节点点击：展开该节点的首项链路 */
 function handleToggleWithFirst(nodeId: string) {
+  // 特殊处理顶固容器节点
+  if (nodeId === "pinned_container") {
+    handleToggle(nodeId, !expandedNodeIds.value?.has(nodeId));
+    return;
+  }
+
   // 找到该节点
   const node = props.variables.find((n) => n.id === nodeId);
   if (!node) return;
@@ -546,10 +690,16 @@ defineExpose({
   viewMode,
   searchQuery,
   selectedVariableNode,
+  pinnedVariables,
+  filteredPinnedVariables,
   clearSearch: () => {
     searchQuery.value = "";
     isSearchExpanded.value = false;
   },
+  handlePinVariable,
+  handleUnpinVariable,
+  loadPinnedVariables,
+  savePinnedVariables,
 });
 </script>
 

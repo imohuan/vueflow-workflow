@@ -32,11 +32,7 @@
       >
         <div class="flex items-center gap-1.5">
           <!-- 状态图标指示器 -->
-          <span
-            v-if="isCtrlPressed"
-            class="text-purple-600 text-xs"
-            >⟳</span
-          >
+          <span v-if="isCtrlPressed" class="text-purple-600 text-xs">⟳</span>
           <span
             v-else-if="dropTargetState === 'empty'"
             class="text-emerald-600 text-xs"
@@ -51,11 +47,7 @@
           {{ node.label }}
 
           <!-- 提示文字 -->
-          <span
-            v-if="isCtrlPressed"
-            class="text-[10px] opacity-70"
-            >替换</span
-          >
+          <span v-if="isCtrlPressed" class="text-[10px] opacity-70">替换</span>
           <span
             v-else-if="dropTargetState === 'empty'"
             class="text-[10px] opacity-70"
@@ -77,51 +69,51 @@
         :class="{ 'cursor-pointer': hasChildren }"
         @click="handleRowClick"
       >
-      <!-- 展开/收起按钮 -->
-      <button
-        v-if="hasChildren"
-        class="w-3 h-3 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors shrink-0"
-        @click.stop="toggle"
-      >
-        <IconRight
-          class="transition-transform"
-          :class="{ 'rotate-90': expanded }"
-        />
-      </button>
-      <span v-else class="w-3 h-3 shrink-0"></span>
-
-      <!-- 变量名 - 白底黑字+阴影，表示可拖拽 -->
-      <span
-        class="px-2 py-0.5 text-xs font-medium text-slate-800 bg-white/90 rounded-lg shadow-sm border border-slate-200 shrink-0 transition-all duration-150 hover:shadow-md"
-        :class="{
-          'cursor-grab': node.reference && props.enableDrag,
-          'cursor-default': !props.enableDrag || !node.reference,
-        }"
-        @mousedown.stop="handleMouseDown"
-      >
-        {{ node.label }}
-      </span>
-
-      <!-- 分隔符和值预览（仅非根节点显示） -->
-      <template v-if="node.valueType !== 'node'">
-        <span class="text-xs text-slate-300 shrink-0">:</span>
-
-        <!-- 值预览 -->
-        <span
-          :class="valueClass"
-          class="text-xs truncate flex-1 min-w-0 font-mono"
-          :title="formattedValue"
+        <!-- 展开/收起按钮 -->
+        <button
+          v-if="hasChildren"
+          class="w-3 h-3 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors shrink-0"
+          @click.stop="toggle"
         >
-          {{ formattedValue }}
+          <IconRight
+            class="transition-transform"
+            :class="{ 'rotate-90': expanded }"
+          />
+        </button>
+        <span v-else class="w-3 h-3 shrink-0"></span>
+
+        <!-- 变量名 - 白底黑字+阴影，表示可拖拽 -->
+        <span
+          class="px-2 py-0.5 text-xs font-medium text-slate-800 bg-white/90 rounded-lg shadow-sm border border-slate-200 shrink-0 transition-all duration-150 hover:shadow-md"
+          :class="{
+            'cursor-grab': node.reference && props.enableDrag,
+            'cursor-default': !props.enableDrag || !node.reference,
+          }"
+          @mousedown.stop="handleMouseDown"
+        >
+          {{ node.label }}
         </span>
 
-        <!-- 类型标签（仅在悬停时显示） -->
-        <span
-          class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-        >
-          {{ node.valueType }}
-        </span>
-      </template>
+        <!-- 分隔符和值预览（仅非根节点显示） -->
+        <template v-if="node.valueType !== 'node'">
+          <span class="text-xs text-slate-300 shrink-0">:</span>
+
+          <!-- 值预览 -->
+          <span
+            :class="valueClass"
+            class="text-xs truncate flex-1 min-w-0 font-mono"
+            :title="formattedValue"
+          >
+            {{ formattedValue }}
+          </span>
+
+          <!-- 类型标签（仅在悬停时显示） -->
+          <span
+            class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          >
+            {{ node.valueType }}
+          </span>
+        </template>
       </div>
     </ContextMenu>
 
@@ -136,6 +128,8 @@
         :expanded-node-ids="props.expandedNodeIds"
         @toggle="(id, exp) => emit('toggle', id, exp)"
         @toggle-with-first="(id) => emit('toggleWithFirst', id)"
+        @pin="(nodeData) => emit('pin', nodeData)"
+        @unpin="(nodeId) => emit('unpin', nodeId)"
       />
     </div>
   </div>
@@ -156,8 +150,10 @@ import IconCopyReference from "@/icons/IconCopyReference.vue";
 defineOptions({ name: "VariableTreeItem" });
 
 interface Emits {
-  (e: 'toggle', nodeId: string, expanded: boolean): void;
-  (e: 'toggleWithFirst', nodeId: string): void;
+  (e: "toggle", nodeId: string, expanded: boolean): void;
+  (e: "toggleWithFirst", nodeId: string): void;
+  (e: "pin", nodeData: VariableTreeNode): void;
+  (e: "unpin", nodeId: string): void;
 }
 
 const emit = defineEmits<Emits>();
@@ -282,6 +278,33 @@ const contextMenuItems = computed(() => {
         copyToClipboard(ref);
       },
     });
+
+    // 检查是否在顶固容器中（id 以 pinned_ 开头）
+    const isPinnedItem = props.node.id.startsWith("pinned_");
+
+    if (isPinnedItem) {
+      // 如果是顶固项，显示取消顶固选项
+      items.push({
+        label: "取消顶固",
+        value: "📌",
+        color: "#f59e0b",
+        icon: undefined,
+        onClick: () => {
+          emit("unpin", ref);
+        },
+      });
+    } else {
+      // 否则显示顶固选项
+      items.push({
+        label: "顶固",
+        value: "📌",
+        color: "#f59e0b",
+        icon: undefined,
+        onClick: () => {
+          emit("pin", props.node);
+        },
+      });
+    }
   }
 
   return items;
@@ -291,7 +314,7 @@ function toggle() {
   if (props.expandedNodeIds) {
     // 如果使用外部状态，触发事件让父组件更新
     const newExpanded = !expanded.value;
-    emit('toggle', props.node.id, newExpanded);
+    emit("toggle", props.node.id, newExpanded);
   } else {
     // 使用内部状态
     internalExpanded.value = !internalExpanded.value;
@@ -302,8 +325,12 @@ function handleRowClick() {
   // 只有在有子节点时才展开/收起
   if (hasChildren.value) {
     // 如果是根节点（level=0）且当前是折叠状态，展开首项链路
-    if (props.level === 0 && !expanded.value && props.expandedNodeIds !== undefined) {
-      emit('toggleWithFirst', props.node.id);
+    if (
+      props.level === 0 &&
+      !expanded.value &&
+      props.expandedNodeIds !== undefined
+    ) {
+      emit("toggleWithFirst", props.node.id);
     } else {
       toggle();
     }
@@ -332,10 +359,13 @@ function handleMouseDown(event: MouseEvent) {
 const message = useMessage();
 
 function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text).then(() => {
-    message.success("已复制到剪贴板");
-  }).catch(() => {
-    message.error("复制失败");
-  });
+  navigator.clipboard
+    .writeText(text)
+    .then(() => {
+      message.success("已复制到剪贴板");
+    })
+    .catch(() => {
+      message.error("复制失败");
+    });
 }
 </script>
