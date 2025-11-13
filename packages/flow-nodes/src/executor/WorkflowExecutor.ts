@@ -464,9 +464,13 @@ export class WorkflowExecutor {
   }
 
   /**
-   * 检查节点是否应该因为没有有效输入而被跳过
-   * 主要用于 IF 节点等条件分支场景
-   * 只有当上游节点是条件分支节点（如 IF 节点）时才生效
+   * 判断节点是否应该因为无效输入而被跳过
+   *
+   * 逻辑说明：
+   * 1. 无入边的节点不跳过（如开始节点）
+   * 2. 有循环容器输入的节点不跳过
+   * 3. 有条件分支输入的节点：仅当分支无有效输出且只有一条入边时才跳过
+   * 4. 其他节点：当所有输入都无有效数据时跳过
    */
   private shouldSkipNodeDueToInvalidInputs(
     nodeId: string,
@@ -477,127 +481,80 @@ export class WorkflowExecutor {
       (edge) => edge.target === nodeId
     );
 
-    // 测试代码
-    const node = workflow.nodes.find((f) => f.id === nodeId);
-    if (node.label === "延迟_1") {
-      debugger;
-    }
+    // 无入边的节点不跳过（如开始节点）
+    if (incomingEdges.length === 0) return false;
 
-    console.log(
-      `[shouldSkipNodeDueToInvalidInputs] 节点 ${nodeId} 的入边:`,
-      incomingEdges
-    );
-
-    // 如果节点没有传入边，不跳过（例如开始节点）
-    if (incomingEdges.length === 0) {
-      console.log(
-        `[shouldSkipNodeDueToInvalidInputs] 节点 ${nodeId} 没有入边，不跳过`
-      );
-      return false;
-    }
-
-    let hasConditionalBranchInput = false;
-    /** 分支存在有效数据 */
-    let hasValidInputFromConditionalBranch = false;
-    let hasNonConditionalValidInput = false;
+    /** 是否存在循环容器的输入 */
     let hasForContainerInput = false;
+    /** 是否存在条件分支的输入 */
+    let hasConditionalBranchInput = false;
+    /** 条件分支是否有有效输出 */
+    let hasValidInputFromConditionalBranch = false;
+    /** 普通节点是否有有效输入 */
+    let hasNonConditionalValidInput = false;
 
+    // 遍历所有入边，分析输入状态
     for (const edge of incomingEdges) {
-      console.log(`[shouldSkipNodeDueToInvalidInputs] 检查边:`, edge);
-
       // 查找源节点
       const sourceNode = workflow.nodes.find((n) => n.id === edge.source);
       if (!sourceNode) {
-        console.log(
-          `[shouldSkipNodeDueToInvalidInputs] 找不到源节点 ${edge.source}`
-        );
         continue;
       }
 
-      // 获取源节点类型
       const sourceNodeType = sourceNode.data?.nodeType || sourceNode.type;
 
-      const isForContainerBranch = sourceNodeType === "forLoopContainer";
-      console.log(
-        `[shouldSkipNodeDueToInvalidInputs] 源节点 ${edge.source} 类型: ${sourceNodeType}, 是 forLoopContainer: ${isForContainerBranch}`
-      );
-      if (isForContainerBranch) {
+      // 处理循环容器输入：直接标记并跳过后续检查
+      if (sourceNodeType === "forLoopContainer") {
         hasForContainerInput = true;
-        continue
+        break;
       }
 
-      const isConditionalBranch = sourceNodeType === "if";
-      console.log(
-        `[shouldSkipNodeDueToInvalidInputs] 源节点 ${edge.source} 类型: ${sourceNodeType}, 是条件分支: ${isConditionalBranch}`
-      );
-
+      // 获取源节点的输出数据
       const sourceOutput = context.getNodeOutput(edge.source);
-      console.log(
-        `[shouldSkipNodeDueToInvalidInputs] 源节点 ${edge.source} 输出:`,
-        sourceOutput
-      );
-
       if (!sourceOutput) {
         // 源节点尚无输出，继续检查其他入边
-        console.log(
-          `[shouldSkipNodeDueToInvalidInputs] 源节点 ${edge.source} 尚无输出`
-        );
         continue;
       }
 
+      // 获取指定句柄的输出值（默认句柄为 "default"）
       const sourceHandle = edge.sourceHandle || "default";
       const handleValue = sourceOutput[sourceHandle];
-      console.log(
-        `[shouldSkipNodeDueToInvalidInputs] 源节点 ${edge.source} 句柄 ${sourceHandle} 值:`,
-        handleValue
-      );
+      const isConditionalBranch = sourceNodeType === "if";
 
       if (isConditionalBranch) {
+        // 条件分支输入：检查是否有有效输出
         hasConditionalBranchInput = true;
         if (handleValue !== undefined && handleValue !== null) {
           hasValidInputFromConditionalBranch = true;
-          console.log(
-            `[shouldSkipNodeDueToInvalidInputs] 找到有效的条件分支输入`
-          );
         }
       } else {
+        // 普通节点输入：优先使用句柄值，否则使用整个输出对象
         const value =
           handleValue !== undefined && handleValue !== null
             ? handleValue
             : sourceOutput;
-        console.log(`[shouldSkipNodeDueToInvalidInputs] 非条件分支值:`, value);
         if (value !== undefined && value !== null) {
           hasNonConditionalValidInput = true;
-          console.log(
-            `[shouldSkipNodeDueToInvalidInputs] 找到有效的非条件分支输入`
-          );
         }
       }
     }
 
-    console.log(`[shouldSkipNodeDueToInvalidInputs] 最终状态:`, {
-      hasConditionalBranchInput,
-      hasValidInputFromConditionalBranch,
-      hasNonConditionalValidInput,
-    });
+    // 决策逻辑：根据输入状态判断是否跳过
 
+    // 1. 有循环容器输入的节点不跳过
     if (hasForContainerInput) {
-      return false
+      return false;
     }
 
+    // 2. 有条件分支输入的节点：仅当分支无有效输出且只有一条入边时才跳过
     if (hasConditionalBranchInput) {
-      const result = !hasValidInputFromConditionalBranch;
-      console.log(
-        `[shouldSkipNodeDueToInvalidInputs] 有条件分支输入，跳过结果: ${result}`
-      );
-      return result && incomingEdges.length === 1;
+      const shouldSkip =
+        !hasValidInputFromConditionalBranch && incomingEdges.length === 1;
+      return shouldSkip;
     }
 
-    const result = !hasNonConditionalValidInput;
-    console.log(
-      `[shouldSkipNodeDueToInvalidInputs] 无条件分支输入，跳过结果: ${result}`
-    );
-    return result;
+    // 3. 其他节点：当所有输入都无有效数据时跳过
+    return !hasNonConditionalValidInput;
   }
 
   /**
