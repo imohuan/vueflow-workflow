@@ -40,7 +40,7 @@
             <span
               v-if="showPlaceholder"
               :class="[
-                'pointer-events-none absolute select-none text-slate-400',
+                'pointer-events-none absolute select-none text-slate-400 z-10',
                 density === 'compact'
                   ? 'left-2 top-1 text-xs'
                   : 'left-2 top-2 text-sm',
@@ -49,34 +49,18 @@
               {{ placeholder }}
             </span>
 
-            <!-- 编辑器 - 使用 contenteditable -->
-            <div
+            <!-- ProseMirror 编辑器 -->
+            <VariableEditor
               ref="editorRef"
-              contenteditable="true"
-              :class="[
-                'w-full cursor-text font-mono text-slate-700 bg-white outline-none wrap-break-word',
-                // 字体大小
-                density === 'compact' ? 'text-xs' : 'text-sm',
-                // 左右 padding
-                'px-2',
-                // 上下 padding 和高度
-                multiline
-                  ? density === 'compact'
-                    ? 'py-1 min-h-12 max-h-52 overflow-y-auto variable-scroll whitespace-pre-wrap resize-y'
-                    : 'py-2 min-h-16 max-h-60 overflow-y-auto variable-scroll whitespace-pre-wrap resize-y'
-                  : density === 'compact'
-                  ? 'h-7 flex items-center overflow-hidden whitespace-nowrap resize-none'
-                  : 'h-8 flex items-center overflow-hidden whitespace-nowrap resize-none',
-              ]"
-              @input="handleInput"
-              @variable-drop="handleVariableDrop"
-              @paste="handlePaste"
-              @keydown="handleKeyDown"
+              :model-value="internalValue"
+              :multiline="multiline"
+              :density="density"
+              class="w-full"
+              @update:model-value="handleEditorUpdate"
               @focus="handleFocus"
               @blur="handleBlur"
-              @mousedown="handleMouseDown"
-              @mouseup="handleMouseUp"
-            ></div>
+              @variable-drop="handleVariableDrop"
+            />
           </div>
 
           <!-- 打开变量编辑器按钮 - 右侧紧贴 -->
@@ -199,6 +183,7 @@ import IconFx from "@/icons/IconFx.vue";
 import IconExternalLink from "@/icons/IconExternalLink.vue";
 import Dropdown from "../common/Dropdown.vue";
 import VariablePreview from "./VariablePreview.vue";
+import VariableEditor from "./editor/VariableEditor.vue";
 import { storeToRefs } from "pinia";
 import { useUiStore } from "../../stores/ui";
 import { useVariableContext } from "../../composables/useVariableContext";
@@ -238,22 +223,12 @@ const emit = defineEmits<{
   (e: "update:modelValue", value: string): void;
 }>();
 
-const editorRef = ref<HTMLDivElement | null>(null);
+const editorRef = ref<InstanceType<typeof VariableEditor> | null>(null);
 const internalValue = ref(normalizeValue(props.modelValue));
 const showDropdown = ref(false);
 const currentPreviewIndex = ref(0);
 const pageInput = ref("0");
 const isFocused = ref(false);
-let isUpdating = false; // 防止重复触发
-const shouldForceCursorToEnd = ref(false);
-
-const CURSOR_PLACEHOLDER = "\u200B";
-const CURSOR_PLACEHOLDER_REGEX = new RegExp(CURSOR_PLACEHOLDER, "g");
-const VARIABLE_TOKEN_PATTERN = "\\{\\{\\s*[^{}]+?\\s*\\}\\}";
-const VARIABLE_TOKEN_LEADING_REGEX = new RegExp(`^${VARIABLE_TOKEN_PATTERN}`);
-const VARIABLE_TOKEN_TRAILING_REGEX = new RegExp(`${VARIABLE_TOKEN_PATTERN}$`);
-const CURSOR_PLACEHOLDER_HTML =
-  '<span data-cursor-anchor="true" style="display:inline-block;width:1px;">&#8203;</span>';
 
 const uiStore = useUiStore();
 const { selectedNodeId } = storeToRefs(uiStore);
@@ -263,27 +238,15 @@ const showPlaceholder = computed(
   () => !internalValue.value && props.placeholder
 );
 
-// 初始化编辑器内容
+// 监听 modelValue 变化
 watch(
   () => props.modelValue,
   (value) => {
     const newValue = normalizeValue(value);
     if (newValue !== internalValue.value) {
       internalValue.value = newValue;
-      updateEditorContent(newValue, false);
     }
   }
-);
-
-// 组件挂载时设置初始内容
-watch(
-  editorRef,
-  (editor) => {
-    if (editor) {
-      updateEditorContent(internalValue.value, false);
-    }
-  },
-  { flush: "post" }
 );
 
 // 检查是否包含变量
@@ -392,23 +355,12 @@ function handleBlur() {
   isFocused.value = false;
 }
 
-function handleMouseDown(event: MouseEvent) {
-  if (!editorRef.value) return;
-  const target = event.target as HTMLElement | null;
-  shouldForceCursorToEnd.value =
-    target === editorRef.value || target?.dataset.cursorAnchor === "true";
-}
-
-function handleMouseUp() {
-  if (!editorRef.value) return;
-  if (!shouldForceCursorToEnd.value) return;
-
-  const cursorPos = getCursorPosition();
-  if (cursorPos === 0 && internalValue.value) {
-    setCursorPosition(internalValue.value.length);
-  }
-
-  shouldForceCursorToEnd.value = false;
+/**
+ * 处理编辑器更新
+ */
+function handleEditorUpdate(value: string) {
+  internalValue.value = value;
+  emit("update:modelValue", value);
 }
 
 function goPrevItem() {
@@ -464,389 +416,19 @@ function handlePageInputKeydown(event: KeyboardEvent) {
   }
 }
 
-/**
- * 更新编辑器内容（带高亮）
- */
-function updateEditorContent(text: string, restoreCursor = false) {
-  const editor = editorRef.value;
-  if (!editor) return;
-
-  let cursorPos: number | null = null;
-  if (restoreCursor) {
-    cursorPos = getCursorPosition();
-  }
-
-  const html = highlightVariables(text) || "";
-  if (editor.innerHTML !== html) {
-    editor.innerHTML = html;
-  }
-
-  if (restoreCursor && cursorPos !== null) {
-    setCursorPosition(cursorPos);
-  }
-}
-
-/**
- * 获取纯文本内容
- */
-function getPlainText(element: HTMLElement): string {
-  return (
-    element.textContent
-      ?.replace(/\u00a0/g, " ") // 替换不间断空格
-      .replace(/\u200B/g, "") ?? // 移除零宽空格
-    ""
-  );
-}
-
-/**
- * 获取光标位置
- */
-function getCursorPosition(): number | null {
-  const editor = editorRef.value;
-  if (!editor) return null;
-
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return null;
-
-  const range = selection.getRangeAt(0);
-  if (!editor.contains(range.endContainer)) return null;
-
-  const preCaretRange = range.cloneRange();
-  preCaretRange.selectNodeContents(editor);
-  preCaretRange.setEnd(range.endContainer, range.endOffset);
-
-  const text = preCaretRange.toString().replace(CURSOR_PLACEHOLDER_REGEX, "");
-  return text.length;
-}
-
-/**
- * 设置光标位置
- */
-function setCursorPosition(offset: number) {
-  const editor = editorRef.value;
-  if (!editor) return;
-
-  const selection = window.getSelection();
-  if (!selection) return;
-
-  const text = getPlainText(editor);
-  const target = Math.max(0, Math.min(offset, text.length));
-
-  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-  let current = walker.nextNode() as Text | null;
-  let traversed = 0;
-
-  while (current) {
-    const nodeLength = current.textContent?.length ?? 0;
-    if (traversed + nodeLength >= target) {
-      const innerOffset = target - traversed;
-      const range = document.createRange();
-      range.setStart(current, innerOffset);
-      range.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(range);
-      return;
-    }
-    traversed += nodeLength;
-    current = walker.nextNode() as Text | null;
-  }
-
-  const range = document.createRange();
-  range.selectNodeContents(editor);
-  range.collapse(false);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
-/**
- * 处理输入事件
- */
-function handleInput() {
-  if (!editorRef.value || isUpdating) return;
-
-  const plainText = getPlainText(editorRef.value);
-  if (plainText === internalValue.value) return;
-  internalValue.value = plainText;
-  emit("update:modelValue", plainText);
-
-  isUpdating = true;
-  updateEditorContent(plainText, true);
-  isUpdating = false;
-}
-
-/**
- * 处理粘贴事件（只粘贴纯文本）
- */
-function handlePaste(event: ClipboardEvent) {
-  event.preventDefault();
-  const text = event.clipboardData?.getData("text/plain") || "";
-  insertTextAtCursor(text);
-  handleInput();
-}
-
-/**
- * 处理按键事件
- */
-function handleKeyDown(event: KeyboardEvent) {
-  if (event.key === "Enter") {
-    event.preventDefault();
-
-    if (!props.multiline) {
-      return;
-    }
-
-    insertTextAtCursor("\n");
-    handleInput();
-    return;
-  }
-
-  if (event.key === "Backspace") {
-    if (handleVariableDeletion(event, "backward")) {
-      return;
-    }
-  }
-
-  if (event.key === "Delete") {
-    if (handleVariableDeletion(event, "forward")) {
-      return;
-    }
-  }
-}
-
-function handleVariableDeletion(
-  event: KeyboardEvent,
-  direction: "backward" | "forward"
-): boolean {
-  const editor = editorRef.value;
-  if (!editor) return false;
-
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
-    return false;
-  }
-
-  const range = selection.getRangeAt(0);
-  const value = internalValue.value;
-
-  if (!range.collapsed) {
-    const startOffset = getRangeBoundaryOffset(range, "start");
-    const endOffset = getRangeBoundaryOffset(range, "end");
-    if (startOffset === null || endOffset === null) {
-      return false;
-    }
-
-    const { start, end } = expandOffsetsToTokenBoundary(
-      value,
-      startOffset,
-      endOffset
-    );
-    if (start === end) {
-      return false;
-    }
-
-    event.preventDefault();
-    applyValueChange(value.slice(0, start) + value.slice(end), start);
-    return true;
-  }
-
-  const cursorPos = getCursorPosition();
-  if (cursorPos === null) {
-    return false;
-  }
-
-  if (direction === "backward") {
-    if (cursorPos === 0) {
-      return false;
-    }
-
-    const before = value.slice(0, cursorPos);
-    const trailingMatch = before.match(VARIABLE_TOKEN_TRAILING_REGEX);
-    if (trailingMatch) {
-      const token = trailingMatch[0];
-      const start = cursorPos - token.length;
-      event.preventDefault();
-      applyValueChange(value.slice(0, start) + value.slice(cursorPos), start);
-      return true;
-    }
-  } else {
-    const after = value.slice(cursorPos);
-    const leadingMatch = after.match(VARIABLE_TOKEN_LEADING_REGEX);
-    if (leadingMatch) {
-      const token = leadingMatch[0];
-      const end = cursorPos + token.length;
-      event.preventDefault();
-      applyValueChange(value.slice(0, cursorPos) + value.slice(end), cursorPos);
-      return true;
-    }
-  }
-
-  const tokenRegex = new RegExp(VARIABLE_TOKEN_PATTERN, "g");
-  let match: RegExpExecArray | null;
-
-  while ((match = tokenRegex.exec(value)) !== null) {
-    const tokenStart = match.index;
-    const tokenEnd = tokenStart + match[0].length;
-
-    const isWithinBackward =
-      direction === "backward" &&
-      cursorPos > tokenStart &&
-      cursorPos <= tokenEnd;
-    const isWithinForward =
-      direction === "forward" &&
-      cursorPos >= tokenStart &&
-      cursorPos < tokenEnd;
-
-    if (isWithinBackward || isWithinForward) {
-      event.preventDefault();
-      applyValueChange(
-        value.slice(0, tokenStart) + value.slice(tokenEnd),
-        tokenStart
-      );
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function applyValueChange(newValue: string, cursorOffset: number) {
-  internalValue.value = newValue;
-  emit("update:modelValue", newValue);
-  updateEditorContent(newValue, false);
-  setCursorPosition(cursorOffset);
-}
-
-function getRangeBoundaryOffset(
-  range: Range,
-  type: "start" | "end"
-): number | null {
-  const editor = editorRef.value;
-  if (!editor) return null;
-
-  const boundaryRange = range.cloneRange();
-  boundaryRange.selectNodeContents(editor);
-
-  if (type === "start") {
-    boundaryRange.setEnd(range.startContainer, range.startOffset);
-  } else {
-    boundaryRange.setEnd(range.endContainer, range.endOffset);
-  }
-
-  const text = boundaryRange.toString().replace(CURSOR_PLACEHOLDER_REGEX, "");
-  return text.length;
-}
-
-function expandOffsetsToTokenBoundary(
-  value: string,
-  start: number,
-  end: number
-): { start: number; end: number } {
-  if (start === end) {
-    return { start, end };
-  }
-
-  const tokenRegex = new RegExp(VARIABLE_TOKEN_PATTERN, "g");
-  let match: RegExpExecArray | null;
-  let adjustedStart = start;
-  let adjustedEnd = end;
-
-  while ((match = tokenRegex.exec(value)) !== null) {
-    const tokenStart = match.index;
-    const tokenEnd = tokenStart + match[0].length;
-
-    if (tokenStart < adjustedStart && tokenEnd > adjustedStart) {
-      adjustedStart = tokenStart;
-    }
-
-    if (tokenStart < adjustedEnd && tokenEnd > adjustedEnd) {
-      adjustedEnd = tokenEnd;
-    }
-  }
-
-  return { start: adjustedStart, end: adjustedEnd };
-}
 
 /**
  * 处理拖放事件
  */
 function handleVariableDrop(event: CustomEvent) {
-  if (!editorRef.value) return;
-
   const dragData = event.detail;
   if (!dragData?.reference) return;
 
   const reference = dragData.reference.trim();
   if (!reference) return;
 
-  insertTextAtCursor(reference);
-  handleInput();
-}
-
-function insertTextAtCursor(text: string) {
-  const editor = editorRef.value;
-  if (!editor) return;
-
-  const selection = window.getSelection();
-  if (!selection) return;
-
-  if (selection.rangeCount === 0) {
-    editor.appendChild(document.createTextNode(text));
-    return;
-  }
-
-  const range = selection.getRangeAt(0);
-  if (!editor.contains(range.startContainer)) {
-    range.selectNodeContents(editor);
-    range.collapse(false);
-  }
-
-  range.deleteContents();
-  const node = document.createTextNode(text);
-  range.insertNode(node);
-
-  const newRange = document.createRange();
-  newRange.setStart(node, node.length);
-  newRange.collapse(true);
-
-  selection.removeAllRanges();
-  selection.addRange(newRange);
-}
-
-/**
- * 高亮变量（用于编辑器中显示原始的 {{ }} 变量）
- */
-function highlightVariables(value: string): string {
-  // 空内容时返回零宽空格，保持光标正常显示
-  if (!value) return CURSOR_PLACEHOLDER;
-
-  const tokenRegex = new RegExp(VARIABLE_TOKEN_PATTERN, "g");
-  tokenRegex.lastIndex = 0;
-  let lastIndex = 0;
-  let result = "";
-  let match: RegExpExecArray | null;
-
-  while ((match = tokenRegex.exec(value)) !== null) {
-    const token = match[0];
-    const start = match.index;
-    result += escapeHtml(value.slice(lastIndex, start));
-    result += `<span class="variable-token">${escapeHtml(token)}</span>`;
-    lastIndex = start + token.length;
-  }
-
-  result += escapeHtml(value.slice(lastIndex));
-  return result + CURSOR_PLACEHOLDER_HTML;
-}
-
-/**
- * HTML 转义
- */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  const newValue = internalValue.value + reference;
+  handleEditorUpdate(newValue);
 }
 
 /**
@@ -854,9 +436,48 @@ function escapeHtml(value: string): string {
  */
 function openVariableEditor() {
   uiStore.openVariableEditorModal(internalValue.value, (value: string) => {
-    internalValue.value = value;
-    emit("update:modelValue", value);
-    updateEditorContent(value, false);
+    handleEditorUpdate(value);
   });
 }
 </script>
+
+<style scoped>
+:deep(.variable-token) {
+  color: #10b981;
+  background-color: #ecfdf5;
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: 500;
+}
+
+:deep(.ProseMirror) {
+  outline: none;
+}
+
+:deep(.ProseMirror p) {
+  margin: 0;
+  padding: 0;
+}
+
+.variable-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+}
+
+.variable-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.variable-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.variable-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.variable-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+</style>

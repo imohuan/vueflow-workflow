@@ -2,7 +2,8 @@
   <!-- 内联模式：不显示边框和标题 -->
   <div
     v-if="inline && resolvedValue"
-    class="text-xs text-slate-700 font-mono whitespace-pre-wrap wrap-break-word"
+    class="text-xs text-slate-700 whitespace-pre-wrap wrap-break-word"
+    style="font-family: 'Fira Code', 'Courier New', 'Microsoft YaHei', 'SimHei', monospace"
     v-html="resolvedValueHtml"
   ></div>
 
@@ -18,7 +19,8 @@
       <span class="text-[9px] text-slate-400">已解析变量</span>
     </div>
     <div
-      class="text-xs text-slate-700 font-mono whitespace-pre-wrap wrap-break-word max-h-32 overflow-y-auto variable-scroll"
+      class="text-xs text-slate-700 whitespace-pre-wrap wrap-break-word max-h-32 overflow-y-auto variable-scroll"
+      style="font-family: 'Fira Code', 'Courier New', 'Microsoft YaHei', 'SimHei', monospace"
       v-html="resolvedValueHtml"
     ></div>
   </div>
