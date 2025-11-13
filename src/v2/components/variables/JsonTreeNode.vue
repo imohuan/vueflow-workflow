@@ -88,21 +88,23 @@
       <span class="json-content">
         <!-- 如果有键名，先显示键名 -->
         <template v-if="keyName !== null">
-          <span class="json-key">
-            <span
-              class="json-key-content"
-              :class="{
-                'cursor-grab active:cursor-grabbing': props.enableDrag,
-                'cursor-default': !props.enableDrag,
-                'is-dragging': isDragging,
-                'is-highlight': isHighlighted,
-              }"
-              @mousedown="handleKeyMouseDown"
-            >
-              "{{ keyName }}"
+          <ContextMenu :items="keyContextMenuItems">
+            <span class="json-key">
+              <span
+                class="json-key-content"
+                :class="{
+                  'cursor-grab active:cursor-grabbing': props.enableDrag,
+                  'cursor-default': !props.enableDrag,
+                  'is-dragging': isDragging,
+                  'is-highlight': isHighlighted,
+                }"
+                @mousedown="handleKeyMouseDown"
+              >
+                "{{ keyName }}"
+              </span>
+              <span class="json-colon">: </span>
             </span>
-            <span class="json-colon">: </span>
-          </span>
+          </ContextMenu>
         </template>
 
         <!-- 然后根据值类型显示内容 -->
@@ -132,12 +134,14 @@
 
         <!-- 基本类型值 -->
         <template v-else>
-          <span
-            class="json-value"
-            :class="[valueClass, { 'is-highlight': isHighlighted }]"
-          >
-            {{ formattedValue }}
-          </span>
+          <ContextMenu :items="valueContextMenuItems">
+            <span
+              class="json-value"
+              :class="[valueClass, { 'is-highlight': isHighlighted }]"
+            >
+              {{ formattedValue }}
+            </span>
+          </ContextMenu>
           <span v-if="!isLast" class="json-comma">,</span>
         </template>
       </span>
@@ -184,6 +188,12 @@
 import { ref, computed } from "vue";
 import { useEditableDrag } from "@/v2/composables/useEditableDrag";
 import IconHand from "@/icons/IconHand.vue";
+import { useMessage } from "naive-ui";
+import ContextMenu from "@/v2/components/common/ContextMenu.vue";
+import IconCopyKey from "@/icons/IconCopyKey.vue";
+import IconCopyValue from "@/icons/IconCopyValue.vue";
+import IconCopyPath from "@/icons/IconCopyPath.vue";
+import IconCopyReference from "@/icons/IconCopyReference.vue";
 
 defineOptions({ name: "JsonTreeNode" });
 
@@ -361,6 +371,119 @@ const valueClass = computed(() => {
   return typeStyleMap[dataType.value] || "";
 });
 
+// 键的上下文菜单项
+const keyContextMenuItems = computed(() => {
+  const items: Array<{
+    label: string;
+    value: string;
+    color: string;
+    icon: any;
+    onClick: () => void;
+  }> = [];
+
+  if (props.keyName === null) return items;
+
+  // 复制 key
+  items.push({
+    label: "复制 Key",
+    value: props.keyName,
+    color: "#a855f7",
+    icon: IconCopyKey,
+    onClick: () => {
+      copyToClipboard(props.keyName!);
+    },
+  });
+
+  // 复制路径
+  if (props.path) {
+    items.push({
+      label: "复制路径",
+      value: props.path,
+      color: "#d97706",
+      icon: IconCopyPath,
+      onClick: () => {
+        copyToClipboard(props.path);
+      },
+    });
+
+    // 复制引用
+    const reference = `{{ ${props.path} }}`;
+    items.push({
+      label: "复制引用",
+      value: reference,
+      color: "#0284c7",
+      icon: IconCopyReference,
+      onClick: () => {
+        copyToClipboard(reference);
+      },
+    });
+  }
+
+  return items;
+});
+
+// 值的上下文菜单项
+const valueContextMenuItems = computed(() => {
+  const items: Array<{
+    label: string;
+    value: string;
+    color: string;
+    icon: any;
+    onClick: () => void;
+  }> = [];
+
+  // 复制 value
+  items.push({
+    label: "复制 Value",
+    value: formattedValue.value,
+    color: "#059669",
+    icon: IconCopyValue,
+    onClick: () => {
+      copyToClipboard(String(props.data));
+    },
+  });
+
+  // 如果有 keyName，复制 key
+  if (props.keyName) {
+    items.push({
+      label: "复制 Key",
+      value: props.keyName,
+      color: "#a855f7",
+      icon: IconCopyKey,
+      onClick: () => {
+        copyToClipboard(props.keyName!);
+      },
+    });
+  }
+
+  // 复制路径
+  if (props.path) {
+    items.push({
+      label: "复制路径",
+      value: props.path,
+      color: "#d97706",
+      icon: IconCopyPath,
+      onClick: () => {
+        copyToClipboard(props.path);
+      },
+    });
+
+    // 复制引用
+    const reference = `{{ ${props.path} }}`;
+    items.push({
+      label: "复制引用",
+      value: reference,
+      color: "#0284c7",
+      icon: IconCopyReference,
+      onClick: () => {
+        copyToClipboard(reference);
+      },
+    });
+  }
+
+  return items;
+});
+
 // 拖拽相关
 interface DraggedKeyData {
   key: string;
@@ -404,6 +527,16 @@ const handleKeyMouseDown = (event: MouseEvent) => {
 
   startDrag(event, draggedKeyData);
 };
+
+const message = useMessage();
+
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text).then(() => {
+    message.success("已复制到剪贴板");
+  }).catch(() => {
+    message.error("复制失败");
+  });
+}
 </script>
 
 <style scoped>

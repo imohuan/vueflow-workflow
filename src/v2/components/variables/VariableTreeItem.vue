@@ -70,12 +70,13 @@
       </div>
     </Teleport>
 
-    <div
-      class="flex items-center gap-2 px-2 py-1 rounded-md transition-colors duration-150 group hover:bg-slate-100/70"
-      :style="{ paddingLeft: `${level * 12 + 6}px` }"
-      :class="{ 'cursor-pointer': hasChildren }"
-      @click="handleRowClick"
-    >
+    <ContextMenu :items="contextMenuItems">
+      <div
+        class="flex items-center gap-2 px-2 py-1 rounded-md transition-colors duration-150 group hover:bg-slate-100/70"
+        :style="{ paddingLeft: `${level * 12 + 6}px` }"
+        :class="{ 'cursor-pointer': hasChildren }"
+        @click="handleRowClick"
+      >
       <!-- 展开/收起按钮 -->
       <button
         v-if="hasChildren"
@@ -121,7 +122,8 @@
           {{ node.valueType }}
         </span>
       </template>
-    </div>
+      </div>
+    </ContextMenu>
 
     <!-- 子节点 -->
     <div v-if="expanded && hasChildren" class="space-y-0.5">
@@ -145,6 +147,11 @@ import IconRight from "@/icons/IconRight.vue";
 import type { VariableTreeNode } from "workflow-node-executor";
 import IconHand from "@/icons/IconHand.vue";
 import { useEditableDrag } from "@/v2/composables/useEditableDrag";
+import { useMessage } from "naive-ui";
+import ContextMenu from "@/v2/components/common/ContextMenu.vue";
+import IconCopyKey from "@/icons/IconCopyKey.vue";
+import IconCopyValue from "@/icons/IconCopyValue.vue";
+import IconCopyReference from "@/icons/IconCopyReference.vue";
 
 defineOptions({ name: "VariableTreeItem" });
 
@@ -230,6 +237,56 @@ const valueClass = computed(() => {
   return typeStyleMap[props.node.valueType] || "text-slate-600";
 });
 
+const contextMenuItems = computed(() => {
+  const items: Array<{
+    label: string;
+    value: string;
+    color: string;
+    icon: any;
+    onClick: () => void;
+  }> = [];
+
+  // 复制 key
+  items.push({
+    label: "复制 Key",
+    value: props.node.label,
+    color: "#a855f7",
+    icon: IconCopyKey,
+    onClick: () => {
+      copyToClipboard(props.node.label);
+    },
+  });
+
+  // 复制 value
+  if (props.node.valueType !== "node") {
+    items.push({
+      label: "复制 Value",
+      value: formattedValue.value,
+      color: "#059669",
+      icon: IconCopyValue,
+      onClick: () => {
+        copyToClipboard(String(props.node.value));
+      },
+    });
+  }
+
+  // 复制完整引用
+  if (props.node.reference) {
+    const ref = props.node.reference;
+    items.push({
+      label: "复制引用",
+      value: ref,
+      color: "#0284c7",
+      icon: IconCopyReference,
+      onClick: () => {
+        copyToClipboard(ref);
+      },
+    });
+  }
+
+  return items;
+});
+
 function toggle() {
   if (props.expandedNodeIds) {
     // 如果使用外部状态，触发事件让父组件更新
@@ -270,5 +327,15 @@ function handleMouseDown(event: MouseEvent) {
   };
 
   startDrag(event, draggedVariableData);
+}
+
+const message = useMessage();
+
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text).then(() => {
+    message.success("已复制到剪贴板");
+  }).catch(() => {
+    message.error("复制失败");
+  });
 }
 </script>
