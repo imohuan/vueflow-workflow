@@ -1,39 +1,16 @@
 <template>
-  <div
-    class="vueflow-canvas-wrapper"
-    :style="{ backgroundColor: editorConfig.bgColor }"
-  >
-    <VueFlow
-      v-model:nodes="coreNodes"
-      v-model:edges="coreEdges"
-      :node-types="nodeTypes"
-      :edge-types="edgeTypes"
-      :default-zoom="editorConfig.defaultZoom"
-      :min-zoom="editorConfig.minZoom"
-      :max-zoom="editorConfig.maxZoom"
-      :snap-to-grid="editorConfig.snapToGrid"
-      :snap-grid="[editorConfig.gridSize, editorConfig.gridSize]"
-      :fit-view-on-init="config.fitViewOnInit"
-      :connect-on-click="config.connectOnClick"
-      :default-edge-options="defaultEdgeOptions"
-      :edges-updatable="true"
-      :edge-updater-radius="20"
-      connectable
-      :connection-mode="config.connectionMode || 'loose'"
-      @drop="handleDrop"
-      @dragover="handleDragOver"
-      @connect="handleConnect"
-      @connect-start="handleConnectStart"
-      @connect-end="handleConnectEnd"
-      @node-click="handleNodeClick"
-      @node-double-click="handleNodeDoubleClick"
-      @node-context-menu="handleNodeContextMenu"
-      @edge-click="handleEdgeClick"
-      @edge-update-start="handleEdgeUpdateStart"
-      @edge-update="handleEdgeUpdate"
-      @edge-update-end="handleEdgeUpdateEnd"
-      @pane-click="handlePaneClick"
-    >
+  <div class="vueflow-canvas-wrapper" :style="{ backgroundColor: editorConfig.bgColor }">
+    <VueFlow v-model:nodes="coreNodes" v-model:edges="coreEdges" :node-types="nodeTypes" :edge-types="edgeTypes"
+      :default-zoom="editorConfig.defaultZoom" :min-zoom="editorConfig.minZoom" :max-zoom="editorConfig.maxZoom"
+      :snap-to-grid="editorConfig.snapToGrid" :snap-grid="[editorConfig.gridSize, editorConfig.gridSize]"
+      :fit-view-on-init="config.fitViewOnInit" :connect-on-click="config.connectOnClick"
+      :default-edge-options="defaultEdgeOptions" :edges-updatable="true" :edge-updater-radius="20" connectable
+      :connection-mode="config.connectionMode || 'loose'" @drop="handleDrop" @dragover="handleDragOver"
+      @connect="handleConnect" @connect-start="handleConnectStart" @connect-end="handleConnectEnd"
+      @node-click="handleNodeClick" @node-double-click="handleNodeDoubleClick"
+      @node-context-menu="handleNodeContextMenu" @edge-click="handleEdgeClick"
+      @edge-update-start="handleEdgeUpdateStart" @edge-update="handleEdgeUpdate" @edge-update-end="handleEdgeUpdateEnd"
+      @pane-click="handlePaneClick">
       <!-- 自定义节点类型插槽 -->
       <template #node-custom="nodeProps">
         <slot name="node-custom" v-bind="nodeProps">
@@ -92,32 +69,18 @@
       </template>
 
       <!-- 背景网格 -->
-      <Background
-        v-if="showBackground && editorConfig.showGrid"
-        :pattern-color="editorConfig.gridColor"
-        :gap="editorConfig.gridGap"
-        :variant="gridVariant"
-      />
+      <Background v-if="showBackground && editorConfig.showGrid" :pattern-color="editorConfig.gridColor"
+        :gap="editorConfig.gridGap" :variant="gridVariant" />
 
       <!-- 控制按钮 -->
-      <Controls
-        v-if="showControls"
-        :position="controlsConfig.position"
-        :show-zoom="controlsConfig.showZoom"
-        :show-fit-view="controlsConfig.showFitView"
-        :show-interactive="controlsConfig.showInteractive"
-        class="-scale-x-100"
-      />
+      <Controls v-if="showControls" :position="controlsConfig.position" :show-zoom="controlsConfig.showZoom"
+        :show-fit-view="controlsConfig.showFitView" :show-interactive="controlsConfig.showInteractive"
+        class="-scale-x-100" />
 
       <!-- 小地图 -->
-      <MiniMap
-        v-if="showMiniMap"
-        :position="miniMapConfig.position"
-        :pannable="miniMapConfig.pannable"
-        :zoomable="miniMapConfig.zoomable"
-        :node-color="getMiniMapNodeColor"
-        :node-stroke-color="getMiniMapNodeStroke"
-      />
+      <MiniMap v-if="showMiniMap" :position="miniMapConfig.position" :pannable="miniMapConfig.pannable"
+        :zoomable="miniMapConfig.zoomable" :node-color="getMiniMapNodeColor"
+        :node-stroke-color="getMiniMapNodeStroke" />
     </VueFlow>
   </div>
 </template>
@@ -346,12 +309,12 @@ function addNodeAtPosition(
   nodeMetadata:
     | NodeMetadataItem
     | {
-        id: string;
-        name: string;
-        description?: string;
-        inputs?: any[];
-        outputs?: any[];
-      },
+      id: string;
+      name: string;
+      description?: string;
+      inputs?: any[];
+      outputs?: any[];
+    },
   position: { x: number; y: number }
 ): Node {
   const nodeId = "type" in nodeMetadata ? nodeMetadata.type : nodeMetadata.id;
@@ -662,9 +625,8 @@ function getEdgeKey(edge: Edge): string {
   }
 
   // 生成唯一标识符：source_target_sourceHandle_targetHandle_sourceY_targetY
-  return `${edge.source}_${edge.target}_${edge.sourceHandle || ""}_${
-    edge.targetHandle || ""
-  }_${sourceY}_${targetY}`;
+  return `${edge.source}_${edge.target}_${edge.sourceHandle || ""}_${edge.targetHandle || ""
+    }_${sourceY}_${targetY}`;
 }
 
 /**
@@ -856,12 +818,12 @@ function handleNodeLabelUpdate({
     nodes.map((n) =>
       n.id === nodeId
         ? {
-            ...n,
-            data: {
-              ...n.data,
-              label: uniqueLabel,
-            },
-          }
+          ...n,
+          data: {
+            ...n.data,
+            label: uniqueLabel,
+          },
+        }
         : n
     )
   );
@@ -964,10 +926,10 @@ function handleNodeDetachFromContainer({
     nodes.map((n) =>
       n.id === nodeId
         ? {
-            ...n,
-            parentNode: undefined,
-            position: { x: absoluteX, y: absoluteY },
-          }
+          ...n,
+          parentNode: undefined,
+          position: { x: absoluteX, y: absoluteY },
+        }
         : n
     )
   );
@@ -1002,7 +964,7 @@ onMounted(() => {
   const copyPastePlugin = createCopyPastePlugin({ enableShortcut });
   pluginManager.register(copyPastePlugin);
 
-  const multiSelectPlugin = createMultiSelectPlugin();
+  const multiSelectPlugin = createMultiSelectPlugin({ enableShortcut });
   pluginManager.register(multiSelectPlugin);
 
   const historyPlugin = createHistoryPlugin();

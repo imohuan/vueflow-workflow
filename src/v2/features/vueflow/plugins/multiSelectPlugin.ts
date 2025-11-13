@@ -5,13 +5,20 @@
  */
 
 import type { VueFlowPlugin, PluginContext } from "./types";
+import type { ComputedRef } from "vue";
 import { watch } from "vue";
 import { useMagicKeys } from "@vueuse/core";
+
+interface MultiSelectPluginOptions {
+  enableShortcut: ComputedRef<boolean>;
+}
 
 /**
  * 创建多选插件
  */
-export function createMultiSelectPlugin(): VueFlowPlugin {
+export function createMultiSelectPlugin(
+  options: MultiSelectPluginOptions
+): VueFlowPlugin {
   // 存储清理函数
   let stopWatch: (() => void) | null = null;
   let stopNodesWatch: (() => void) | null = null;
@@ -56,7 +63,7 @@ export function createMultiSelectPlugin(): VueFlowPlugin {
       // 同步 Shift 键状态到 VueFlow 的 multiSelectionActive
       // Shift 用于多选（可以切换选择状态）
       stopWatch = watch(shiftKey, (pressed) => {
-        if (multiSelectionActive) {
+        if (multiSelectionActive && options.enableShortcut.value) {
           multiSelectionActive.value = Boolean(pressed);
           console.log(
             `[MultiSelect Plugin] Shift ${pressed ? "按下" : "释放"}，多选模式${
@@ -68,7 +75,7 @@ export function createMultiSelectPlugin(): VueFlowPlugin {
 
       // 监听 Ctrl+A 组合键，实现全选功能
       stopCtrlAWatch = watch(ctrlAKey, (pressed) => {
-        if (pressed) {
+        if (pressed && options.enableShortcut.value) {
           // 获取所有节点并设置为选中状态
           const allNodes = getNodes?.value ?? [];
           if (allNodes.length > 0) {

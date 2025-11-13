@@ -102,6 +102,7 @@ import {
 import { onClickOutside } from "@vueuse/core";
 import { NCard, NInput, NIcon, NScrollbar, NText, NEmpty } from "naive-ui";
 import { SearchOutline } from "@vicons/ionicons5";
+import { match, pinyin } from "pinyin-pro";
 import IconCode from "@/icons/IconCode.vue";
 import IconWidget from "@/icons/IconWidget.vue";
 import IconServer from "@/icons/IconServer.vue";
@@ -199,6 +200,37 @@ const menuStyle = computed(() => ({
   zIndex: 1000,
 }));
 
+// 拼音搜索辅助函数
+function matchesPinyin(text: string, keyword: string): boolean {
+  // 1. 直接中文匹配
+  if (text.toLowerCase().includes(keyword.toLowerCase())) {
+    return true;
+  }
+
+  // 2. 使用 pinyin-pro 的 match 函数进行拼音匹配
+  // match 返回匹配的索引数组，如果匹配成功则返回数组，否则返回 null
+  try {
+    const matchResult = match(text, keyword);
+    if (matchResult !== null) {
+      return true;
+    }
+  } catch {
+    // 如果 match 函数出错，继续其他匹配方式
+  }
+
+  // 3. 获取拼音首字母进行匹配
+  try {
+    const firstLetters = pinyin(text, { pattern: 'first', toneType: 'none' });
+    if (firstLetters.toLowerCase().includes(keyword.toLowerCase())) {
+      return true;
+    }
+  } catch {
+    // 如果获取首字母失败，继续
+  }
+
+  return false;
+}
+
 // 过滤节点
 const filteredNodes = computed(() => {
   let nodes = nodeList.value;
@@ -211,11 +243,11 @@ const filteredNodes = computed(() => {
   if (!searchKeyword.value.trim()) {
     return nodes;
   }
-  const keyword = searchKeyword.value.toLowerCase();
+  const keyword = searchKeyword.value.trim();
   return nodes.filter(
     (node) =>
-      node.name.toLowerCase().includes(keyword) ||
-      node.description.toLowerCase().includes(keyword)
+      matchesPinyin(node.name, keyword) ||
+      matchesPinyin(node.description, keyword)
   );
 });
 

@@ -91,6 +91,7 @@ import IconSearch from "@/icons/IconSearch.vue";
 import IconAdd from "@/icons/IconAdd.vue";
 import IconNodeEditor from "@/icons/IconNodeEditor.vue";
 import IconDelete from "@/icons/IconDelete.vue";
+import IconEdit from "@/icons/IconEdit.vue";
 import IconFolder from "@/icons/IconFolder.vue";
 import { useCanvasStore } from "../../../../stores/canvas";
 import {
@@ -197,8 +198,36 @@ function renderLabel({ option }: { option: TreeOption }) {
         meta.updatedAt &&
         h(
           "span",
-          { class: "text-xs text-slate-400 ml-2" },
+          { class: "text-xs text-slate-400 mr-2" },
           h(NTime, { time: meta.updatedAt, type: "relative" })
+        ),
+      // 工作流重命名按钮
+      isWorkflow &&
+        h(
+          NTooltip,
+          { placement: "bottom", trigger: "hover" },
+          {
+            trigger: () =>
+              h(
+                NButton,
+                {
+                  size: "tiny",
+                  text: true,
+                  class:
+                    "opacity-0 group-hover:opacity-100 transition-opacity ml-2",
+                  onClick: (e: MouseEvent) => {
+                    e.stopPropagation();
+                    if (meta?.type === "workflow") {
+                      renameWorkflow(meta.workflowId, String(option.label || ""));
+                    }
+                  },
+                },
+                {
+                  icon: () => h(NIcon, { component: IconEdit, class: "text-blue-500" }),
+                }
+              ),
+            default: () => "重命名工作流",
+          }
         ),
       // 工作流删除按钮
       isWorkflow &&
@@ -594,6 +623,64 @@ function createFolder() {
       }
     },
   });
+}
+
+/**
+ * 重命名工作流
+ */
+function renameWorkflow(workflowId: string, currentName: string) {
+  const nameRef = ref(currentName);
+
+  dialog?.create({
+    title: "重命名工作流",
+    content: () =>
+      h(
+        NSpace,
+        { vertical: true, size: "large", style: { width: "100%" } },
+        {
+          default: () => [
+            h("div", { class: "text-sm text-slate-600 mb-1" }, "工作流名称"),
+            h(NInput, {
+              value: nameRef.value,
+              placeholder: "请输入工作流名称",
+              onUpdateValue: (val: string) => {
+                nameRef.value = val;
+              },
+              onKeydown: (e: KeyboardEvent) => {
+                if (e.key === "Enter") {
+                  handleRenameConfirm();
+                }
+              },
+            }),
+          ],
+        }
+      ),
+    positiveText: "确定",
+    negativeText: "取消",
+    onPositiveClick: () => handleRenameConfirm(),
+  });
+
+  function handleRenameConfirm() {
+    if (!nameRef.value.trim()) {
+      message?.warning("工作流名称不能为空");
+      return false;
+    }
+
+    const newName = nameRef.value.trim();
+    if (newName === currentName) {
+      return true; // 名称没有改变，直接关闭对话框
+    }
+
+    workflowStore.renameWorkflow(workflowId, newName);
+    message?.success(`工作流 "${newName}" 重命名成功`);
+
+    // 如果重命名的是当前选中的工作流，更新画布标题
+    if (canvasStore.currentWorkflowId === workflowId) {
+      // 可以在这里触发画布更新事件
+    }
+
+    return true;
+  }
 }
 
 /**

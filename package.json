@@ -25,6 +25,7 @@
     "monaco-editor": "^0.54.0",
     "naive-ui": "^2.43.1",
     "pinia": "^3.0.3",
+    "pinyin-pro": "^3.27.0",
     "pocketbase": "^0.26.3",
     "primevue": "^4.4.1",
     "tailwind-merge": "^3.3.1",
