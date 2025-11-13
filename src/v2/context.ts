@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mitt from "mitt";
-import { injectPocketBase } from "./cache-handler";
-injectPocketBase();
+
+import { injectHttpCacheHandler } from "./cache-handler-client";
+injectHttpCacheHandler();
 
 // 全局通用上下文，提供可覆盖的异步缓存读写接口与事件订阅能力
 // 其他模块可通过覆盖 handler，将数据保存到任意介质（本地、IndexedDB、服务端、数据库等）
