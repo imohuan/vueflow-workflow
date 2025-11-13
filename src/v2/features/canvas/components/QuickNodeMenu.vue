@@ -4,10 +4,7 @@
       v-if="visible"
       ref="menuRef"
       tabindex="-1"
-      @keydown.esc="handleEscape"
-      @keydown.down.prevent="handleArrowDown"
-      @keydown.up.prevent="handleArrowUp"
-      @keydown.enter.prevent="handleEnterSelect"
+      @keydown="handleCardKeydown"
       class="absolute outline-none shadow-2xl quick-node-menu"
       :style="menuStyle"
       size="small"
@@ -25,9 +22,7 @@
           placeholder="搜索节点..."
           clearable
           size="small"
-          @keydown.enter.stop.prevent="handleEnterSelect"
-          @keydown.down.stop.prevent="handleArrowDown"
-          @keydown.up.stop.prevent="handleArrowUp"
+          @keydown="handleInputKeydown"
         >
           <template #prefix>
             <n-icon :component="SearchOutline" :size="16" />
@@ -284,8 +279,51 @@ onClickOutside(menuRef, () => {
   }
 });
 
-function handleEscape() {
-  emit("close");
+/**
+ * 处理输入框的键盘事件
+ */
+function handleInputKeydown(event: KeyboardEvent) {
+  switch (event.key) {
+    case "Enter":
+      event.preventDefault();
+      event.stopPropagation();
+      handleEnterSelect();
+      break;
+    case "ArrowDown":
+      event.preventDefault();
+      event.stopPropagation();
+      handleArrowDown();
+      break;
+    case "ArrowUp":
+      event.preventDefault();
+      event.stopPropagation();
+      handleArrowUp();
+      break;
+  }
+}
+
+/**
+ * 处理卡片上的键盘事件
+ */
+function handleCardKeydown(event: KeyboardEvent) {
+  switch (event.key) {
+    case "Escape":
+      event.preventDefault();
+      emit("close");
+      break;
+    case "Enter":
+      event.preventDefault();
+      handleEnterSelect();
+      break;
+    case "ArrowDown":
+      event.preventDefault();
+      handleArrowDown();
+      break;
+    case "ArrowUp":
+      event.preventDefault();
+      handleArrowUp();
+      break;
+  }
 }
 
 function handleNodeSelect(node: NodeInfo) {
@@ -319,51 +357,17 @@ function handleArrowUp() {
 function scrollToSelectedItem() {
   nextTick(() => {
     const selectedItem = itemRefs.value[selectedIndex.value];
-    if (!selectedItem || !scrollbarRef.value || !nodeListContainerRef.value)
-      return;
+    if (!selectedItem) return;
 
     try {
-      // 获取滚动容器的 DOM 元素
-      // naive-ui 的 n-scrollbar 组件结构：.n-scrollbar > .n-scrollbar-container
-      const scrollbarEl = (scrollbarRef.value as any).$el as HTMLElement;
-      if (!scrollbarEl) return;
-
-      const scrollContainer = scrollbarEl.querySelector(
-        ".n-scrollbar-container"
-      ) as HTMLElement;
-      if (!scrollContainer) return;
-
-      // 获取选中项相对于滚动容器的位置
-      const containerRect = scrollContainer.getBoundingClientRect();
-      const itemRect = selectedItem.getBoundingClientRect();
-
-      const itemTop =
-        itemRect.top - containerRect.top + scrollContainer.scrollTop;
-      const itemHeight = itemRect.height;
-      const containerHeight = containerRect.height;
-      const scrollTop = scrollContainer.scrollTop;
-
-      // 如果选中的项目在可视区域上方，滚动到项目顶部
-      if (itemTop < scrollTop) {
-        scrollContainer.scrollTo({
-          top: Math.max(0, itemTop - 8), // 留一点间距，确保不小于 0
-          behavior: "auto",
-        });
-      }
-      // 如果选中的项目在可视区域下方，滚动到项目底部可见
-      else if (itemTop + itemHeight > scrollTop + containerHeight) {
-        scrollContainer.scrollTo({
-          top: itemTop + itemHeight - containerHeight + 8, // 留一点间距
-          behavior: "auto",
-        });
-      }
-    } catch (error) {
-      // 如果滚动失败，使用 scrollIntoView 作为后备方案
-      console.warn("[QuickNodeMenu] 滚动失败，使用 scrollIntoView:", error);
+      // 直接使用 scrollIntoView，这是最可靠的跨浏览器方案
       selectedItem.scrollIntoView({
         behavior: "auto",
         block: "nearest",
       });
+    } catch (error) {
+      // 如果 scrollIntoView 也失败，记录错误
+      console.warn("[QuickNodeMenu] scrollIntoView 失败:", error);
     }
   });
 }

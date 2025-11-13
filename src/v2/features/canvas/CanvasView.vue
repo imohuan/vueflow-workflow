@@ -377,6 +377,23 @@ events.on("canvas:clicked", () => {
   uiStore.clearNodePreview();
 });
 
+// 监听画布双击事件
+events.on("canvas:double-clicked", ({ event }) => {
+  console.log("[CanvasView] 画布被双击，打开快捷菜单");
+  
+  // 将浏览器窗口坐标转换为相对于画布容器的坐标
+  const canvasPosition = convertToCanvasCoordinates(event.clientX, event.clientY);
+  
+  // 打开快捷菜单
+  quickMenu.visible = true;
+  quickMenu.position = canvasPosition;
+  quickMenu.startHandle = undefined; // 双击打开时没有起始端口
+  
+  nextTick(() => {
+    quickMenuRef.value?.focus();
+  });
+});
+
 // 最近一次连接开始信息（由 edge:connect-start 提供）
 let lastConnectStart:
   | {

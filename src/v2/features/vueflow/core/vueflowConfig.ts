@@ -40,6 +40,8 @@ export const DEFAULT_VUEFLOW_CONFIG = {
     type: "default",
     animated: false,
   } as DefaultEdgeOptions,
+  /** 禁用双击缩放，允许自定义双击事件处理 */
+  zoomOnDoubleClick: false,
 };
 
 /**

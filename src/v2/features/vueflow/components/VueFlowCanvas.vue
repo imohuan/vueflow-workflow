@@ -1,16 +1,37 @@
 <template>
   <div class="vueflow-canvas-wrapper" :style="{ backgroundColor: editorConfig.bgColor }">
-    <VueFlow v-model:nodes="coreNodes" v-model:edges="coreEdges" :node-types="nodeTypes" :edge-types="edgeTypes"
-      :default-zoom="editorConfig.defaultZoom" :min-zoom="editorConfig.minZoom" :max-zoom="editorConfig.maxZoom"
-      :snap-to-grid="editorConfig.snapToGrid" :snap-grid="[editorConfig.gridSize, editorConfig.gridSize]"
-      :fit-view-on-init="config.fitViewOnInit" :connect-on-click="config.connectOnClick"
-      :default-edge-options="defaultEdgeOptions" :edges-updatable="true" :edge-updater-radius="20" connectable
-      :connection-mode="config.connectionMode || 'loose'" @drop="handleDrop" @dragover="handleDragOver"
-      @connect="handleConnect" @connect-start="handleConnectStart" @connect-end="handleConnectEnd"
-      @node-click="handleNodeClick" @node-double-click="handleNodeDoubleClick"
-      @node-context-menu="handleNodeContextMenu" @edge-click="handleEdgeClick"
-      @edge-update-start="handleEdgeUpdateStart" @edge-update="handleEdgeUpdate" @edge-update-end="handleEdgeUpdateEnd"
-      @pane-click="handlePaneClick">
+    <VueFlow
+      v-model:nodes="coreNodes"
+      v-model:edges="coreEdges"
+      :node-types="nodeTypes"
+      :edge-types="edgeTypes"
+      :default-zoom="editorConfig.defaultZoom"
+      :min-zoom="editorConfig.minZoom"
+      :max-zoom="editorConfig.maxZoom"
+      :snap-to-grid="editorConfig.snapToGrid"
+      :snap-grid="[editorConfig.gridSize, editorConfig.gridSize]"
+      :fit-view-on-init="config.fitViewOnInit"
+      :connect-on-click="config.connectOnClick"
+      :default-edge-options="defaultEdgeOptions"
+      :edges-updatable="true"
+      :edge-updater-radius="20"
+      connectable
+      :connection-mode="config.connectionMode || 'loose'"
+      :zoom-on-double-click="config.zoomOnDoubleClick ?? false"
+      @drop="handleDrop"
+      @dragover="handleDragOver"
+      @connect="handleConnect"
+      @connect-start="handleConnectStart"
+      @connect-end="handleConnectEnd"
+      @node-click="handleNodeClick"
+      @node-double-click="handleNodeDoubleClick"
+      @node-context-menu="handleNodeContextMenu"
+      @edge-click="handleEdgeClick"
+      @edge-update-start="handleEdgeUpdateStart"
+      @edge-update="handleEdgeUpdate"
+      @edge-update-end="handleEdgeUpdateEnd"
+      @pane-click="handlePaneClick"
+    >
       <!-- 自定义节点类型插槽 -->
       <template #node-custom="nodeProps">
         <slot name="node-custom" v-bind="nodeProps">
@@ -69,18 +90,32 @@
       </template>
 
       <!-- 背景网格 -->
-      <Background v-if="showBackground && editorConfig.showGrid" :pattern-color="editorConfig.gridColor"
-        :gap="editorConfig.gridGap" :variant="gridVariant" />
+      <Background
+        v-if="showBackground && editorConfig.showGrid"
+        :pattern-color="editorConfig.gridColor"
+        :gap="editorConfig.gridGap"
+        :variant="gridVariant"
+      />
 
       <!-- 控制按钮 -->
-      <Controls v-if="showControls" :position="controlsConfig.position" :show-zoom="controlsConfig.showZoom"
-        :show-fit-view="controlsConfig.showFitView" :show-interactive="controlsConfig.showInteractive"
-        class="-scale-x-100" />
+      <Controls
+        v-if="showControls"
+        :position="controlsConfig.position"
+        :show-zoom="controlsConfig.showZoom"
+        :show-fit-view="controlsConfig.showFitView"
+        :show-interactive="controlsConfig.showInteractive"
+        class="-scale-x-100"
+      />
 
       <!-- 小地图 -->
-      <MiniMap v-if="showMiniMap" :position="miniMapConfig.position" :pannable="miniMapConfig.pannable"
-        :zoomable="miniMapConfig.zoomable" :node-color="getMiniMapNodeColor"
-        :node-stroke-color="getMiniMapNodeStroke" />
+      <MiniMap
+        v-if="showMiniMap"
+        :position="miniMapConfig.position"
+        :pannable="miniMapConfig.pannable"
+        :zoomable="miniMapConfig.zoomable"
+        :node-color="getMiniMapNodeColor"
+        :node-stroke-color="getMiniMapNodeStroke"
+      />
     </VueFlow>
   </div>
 </template>
@@ -102,6 +137,7 @@ import { MiniMap } from "@vue-flow/minimap";
 import { useVueFlowCore } from "../core/useVueFlowCore";
 import { useNodeExecutionStatus } from "../composables/useNodeExecutionStatus";
 import { useConnectionValidation } from "../composables/useConnectionValidation";
+import { useDoubleClick } from "../composables/useDoubleClick";
 import {
   DEFAULT_VUEFLOW_CONFIG,
   BACKGROUND_CONFIG,
@@ -284,6 +320,21 @@ provide(PLUGIN_MANAGER_KEY, pluginManager);
 
 // 初始化节点执行状态监听（监听事件并同步到 canvasStore）
 useNodeExecutionStatus();
+
+// 初始化双击检测
+const { handleClick: handlePaneClick } = useDoubleClick({
+  delay: 300,
+  onSingleClick: (event) => {
+    if (events) {
+      events.emit("canvas:clicked", { event });
+    }
+  },
+  onDoubleClick: (event) => {
+    if (events) {
+      events.emit("canvas:double-clicked", { event });
+    }
+  },
+});
 
 /**
  * 小地图节点颜色
@@ -745,15 +796,6 @@ function handleNodeContextMenu({ node, event }: any) {
 function handleEdgeClick({ edge }: { edge: Edge }) {
   if (events) {
     events.emit("edge:selected", { edge });
-  }
-}
-
-/**
- * 处理画布点击
- */
-function handlePaneClick(event: MouseEvent) {
-  if (events) {
-    events.emit("canvas:clicked", { event });
   }
 }
 

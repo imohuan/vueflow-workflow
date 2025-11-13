@@ -107,6 +107,8 @@ export interface CanvasEvents {
   "canvas:viewport-changed": { x: number; y: number; zoom: number };
   /** 画布被点击 */
   "canvas:clicked": { event: MouseEvent };
+  /** 画布被双击 */
+  "canvas:double-clicked": { event: MouseEvent };
   /** 画布适应视图 */
   "canvas:fit-view": { padding?: number };
   /** 画布清空 */
