@@ -258,6 +258,7 @@ interface PinnedVariable {
   reference: string;
   value: unknown;
   valueType: string;
+  children?: VariableTreeNode[];
 }
 
 const pinnedVariables = ref<PinnedVariable[]>([]);
@@ -305,6 +306,7 @@ function handlePinVariable(node: VariableTreeNode) {
     reference: node.reference || "",
     value: node.value,
     valueType: node.valueType,
+    children: node.children,
   });
 
   savePinnedVariables();
@@ -354,7 +356,7 @@ function pinnedVariableToTreeNode(pinned: PinnedVariable): VariableTreeNode {
     reference: pinned.reference,
     value: pinned.value,
     valueType: pinned.valueType,
-    children: undefined,
+    children: pinned.children,
   };
 }
 

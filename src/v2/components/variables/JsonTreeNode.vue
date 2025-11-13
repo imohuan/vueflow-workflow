@@ -379,40 +379,44 @@ const keyContextMenuItems = computed(() => {
     color: string;
     icon: any;
     onClick: () => void;
+    layout?: 'vertical' | 'horizontal';
   }> = [];
 
   if (props.keyName === null) return items;
 
-  // 复制 key
+  // 复制 key - 水平布局
   items.push({
     label: "复制 Key",
     value: props.keyName,
     color: "#a855f7",
     icon: IconCopyKey,
+    layout: 'horizontal',
     onClick: () => {
       copyToClipboard(props.keyName!);
     },
   });
 
-  // 复制路径
+  // 复制路径 - 水平布局
   if (props.path) {
     items.push({
       label: "复制路径",
       value: props.path,
       color: "#d97706",
       icon: IconCopyPath,
+      layout: 'horizontal',
       onClick: () => {
         copyToClipboard(props.path);
       },
     });
 
-    // 复制引用
+    // 复制引用 - 垂直布局
     const reference = `{{ ${props.path} }}`;
     items.push({
       label: "复制引用",
       value: reference,
       color: "#0284c7",
       icon: IconCopyReference,
+      layout: 'vertical',
       onClick: () => {
         copyToClipboard(reference);
       },
@@ -430,51 +434,56 @@ const valueContextMenuItems = computed(() => {
     color: string;
     icon: any;
     onClick: () => void;
+    layout?: 'vertical' | 'horizontal';
   }> = [];
 
-  // 复制 value
+  // 复制 value - 水平布局
   items.push({
     label: "复制 Value",
     value: formattedValue.value,
     color: "#059669",
     icon: IconCopyValue,
+    layout: 'horizontal',
     onClick: () => {
       copyToClipboard(String(props.data));
     },
   });
 
-  // 如果有 keyName，复制 key
+  // 如果有 keyName，复制 key - 水平布局
   if (props.keyName) {
     items.push({
       label: "复制 Key",
       value: props.keyName,
       color: "#a855f7",
       icon: IconCopyKey,
+      layout: 'horizontal',
       onClick: () => {
         copyToClipboard(props.keyName!);
       },
     });
   }
 
-  // 复制路径
+  // 复制路径 - 水平布局
   if (props.path) {
     items.push({
       label: "复制路径",
       value: props.path,
       color: "#d97706",
       icon: IconCopyPath,
+      layout: 'horizontal',
       onClick: () => {
         copyToClipboard(props.path);
       },
     });
 
-    // 复制引用
+    // 复制引用 - 垂直布局
     const reference = `{{ ${props.path} }}`;
     items.push({
       label: "复制引用",
       value: reference,
       color: "#0284c7",
       icon: IconCopyReference,
+      layout: 'vertical',
       onClick: () => {
         copyToClipboard(reference);
       },

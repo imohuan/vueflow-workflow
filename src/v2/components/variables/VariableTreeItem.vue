@@ -146,6 +146,7 @@ import ContextMenu from "@/v2/components/common/ContextMenu.vue";
 import IconCopyKey from "@/icons/IconCopyKey.vue";
 import IconCopyValue from "@/icons/IconCopyValue.vue";
 import IconCopyReference from "@/icons/IconCopyReference.vue";
+import IconPin from "@/icons/IconPin.vue";
 
 defineOptions({ name: "VariableTreeItem" });
 
@@ -240,33 +241,68 @@ const contextMenuItems = computed(() => {
     color: string;
     icon: any;
     onClick: () => void;
+    layout?: 'vertical' | 'horizontal';
   }> = [];
 
-  // 复制 key
+  // 顶固项放在最开始 - 水平布局
+  if (props.node.reference) {
+    const ref = props.node.reference;
+    const isPinnedItem = props.node.id.startsWith("pinned_");
+
+    if (isPinnedItem) {
+      // 如果是顶固项，显示取消顶固选项
+      items.unshift({
+        label: "取消顶固",
+        value: "",
+        color: "#f59e0b",
+        icon: IconPin,
+        layout: 'horizontal',
+        onClick: () => {
+          emit("unpin", ref);
+        },
+      });
+    } else {
+      // 否则显示顶固选项
+      items.unshift({
+        label: "顶固",
+        value: "",
+        color: "#f59e0b",
+        icon: IconPin,
+        layout: 'horizontal',
+        onClick: () => {
+          emit("pin", props.node);
+        },
+      });
+    }
+  }
+
+  // 复制 key - 水平布局
   items.push({
     label: "复制 Key",
     value: props.node.label,
     color: "#a855f7",
     icon: IconCopyKey,
+    layout: 'horizontal',
     onClick: () => {
       copyToClipboard(props.node.label);
     },
   });
 
-  // 复制 value
+  // 复制 value - 水平布局
   if (props.node.valueType !== "node") {
     items.push({
       label: "复制 Value",
       value: formattedValue.value,
       color: "#059669",
       icon: IconCopyValue,
+      layout: 'horizontal',
       onClick: () => {
         copyToClipboard(String(props.node.value));
       },
     });
   }
 
-  // 复制完整引用
+  // 复制完整引用 - 垂直布局（保持原样）
   if (props.node.reference) {
     const ref = props.node.reference;
     items.push({
@@ -274,37 +310,11 @@ const contextMenuItems = computed(() => {
       value: ref,
       color: "#0284c7",
       icon: IconCopyReference,
+      layout: 'vertical',
       onClick: () => {
         copyToClipboard(ref);
       },
     });
-
-    // 检查是否在顶固容器中（id 以 pinned_ 开头）
-    const isPinnedItem = props.node.id.startsWith("pinned_");
-
-    if (isPinnedItem) {
-      // 如果是顶固项，显示取消顶固选项
-      items.push({
-        label: "取消顶固",
-        value: "📌",
-        color: "#f59e0b",
-        icon: undefined,
-        onClick: () => {
-          emit("unpin", ref);
-        },
-      });
-    } else {
-      // 否则显示顶固选项
-      items.push({
-        label: "顶固",
-        value: "📌",
-        color: "#f59e0b",
-        icon: undefined,
-        onClick: () => {
-          emit("pin", props.node);
-        },
-      });
-    }
   }
 
   return items;
