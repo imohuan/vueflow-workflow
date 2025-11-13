@@ -220,13 +220,14 @@ onMounted(() => {
   // 监听全局滚动（包括所有可滚动的父元素）
   window.addEventListener("scroll", handleScroll, true);
   window.addEventListener("resize", handleResize);
-  document.addEventListener("mousedown", handleClickOutside);
+  // 使用 capture 阶段监听 mousedown，确保即使事件被 stopPropagation 也能捕获
+  document.addEventListener("mousedown", handleClickOutside, true);
 });
 
 onUnmounted(() => {
   window.removeEventListener("scroll", handleScroll, true);
   window.removeEventListener("resize", handleResize);
-  document.removeEventListener("mousedown", handleClickOutside);
+  document.removeEventListener("mousedown", handleClickOutside, true);
 });
 
 // 暴露方法给父组件
