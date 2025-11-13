@@ -1,5 +1,5 @@
 <template>
-  <div class="vueflow-canvas-wrapper" :style="{ backgroundColor: editorConfig.bgColor }">
+  <div ref="canvasWrapperRef" class="vueflow-canvas-wrapper" :style="{ backgroundColor: editorConfig.bgColor }">
     <VueFlow
       v-model:nodes="coreNodes"
       v-model:edges="coreEdges"
@@ -121,8 +121,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, provide, nextTick } from "vue";
+import { computed, onMounted, onUnmounted, provide, nextTick, ref } from "vue";
 import { storeToRefs } from "pinia";
+import { useMouse } from "@vueuse/core";
 import {
   VueFlow,
   useVueFlow,
@@ -981,11 +982,31 @@ function handleNodeDetachFromContainer({
   );
 }
 
+/**
+ * 使用 vueuse 的 useMouse 来追踪鼠标位置（供粘贴功能使用）
+ */
+const canvasWrapperRef = ref<HTMLElement | null>(null);
+const { x: mouseX, y: mouseY } = useMouse();
+
+// 计算相对于画布容器的鼠标位置
+const getRelativeMousePosition = () => {
+  if (!canvasWrapperRef.value) {
+    return { x: mouseX.value, y: mouseY.value };
+  }
+  const rect = canvasWrapperRef.value.getBoundingClientRect();
+  return {
+    x: mouseX.value - rect.left,
+    y: mouseY.value - rect.top,
+  };
+};
+
 onMounted(() => {
   // 设置插件上下文（在挂载后设置，确保 VueFlow 已初始化）
   pluginManager.setContext({
     core: vueFlowCore,
     vueflow: vueFlowApi,
+    // 传递鼠标位置计算函数给插件
+    getMousePosition: getRelativeMousePosition,
   });
 
   // 监听节点操作事件

@@ -81,6 +81,8 @@ export interface PluginContext {
   vueflow: VueFlowStore;
   /** 插件共享状态（用于插件之间以及插件与组件之间的状态共享） */
   shared: PluginSharedState;
+  /** 获取相对于画布容器的鼠标位置函数（用于粘贴等功能） */
+  getMousePosition?: () => { x: number; y: number };
 }
 
 /**

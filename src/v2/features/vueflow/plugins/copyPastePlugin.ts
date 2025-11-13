@@ -151,8 +151,28 @@ export function createCopyPastePlugin(
    */
   function pasteNodes(context: PluginContext) {
     const proceed = (clip: ClipboardData) => {
-      pasteOffset += 30;
-      const baseOffset = pasteOffset;
+      // 获取当前鼠标位置并转换为画布坐标
+      let pastePosition = { x: 0, y: 0 };
+      
+      // 获取相对于画布容器的鼠标位置
+      const getMousePosition = context.getMousePosition;
+      if (getMousePosition && context.vueflow.project) {
+        // 获取相对于容器的鼠标位置
+        const relativeMousePos = getMousePosition();
+        // 使用 vueflow 的 project 方法将容器坐标转换为画布坐标
+        pastePosition = context.vueflow.project({
+          x: relativeMousePos.x,
+          y: relativeMousePos.y,
+        });
+      } else {
+        // 如果无法获取鼠标位置，使用递增偏移作为备选方案
+        pasteOffset += 30;
+        pastePosition = { x: pasteOffset, y: pasteOffset };
+      }
+
+      // 计算粘贴节点相对于原始中心点的偏移
+      const offsetX = pastePosition.x - clip.center.x;
+      const offsetY = pastePosition.y - clip.center.y;
 
       const pastedNodeIds: string[] = [];
       const nodeIdMap = new Map<string, string>();
@@ -173,8 +193,8 @@ export function createCopyPastePlugin(
           ...node,
           id: newId,
           position: {
-            x: node.position.x + baseOffset,
-            y: node.position.y + baseOffset,
+            x: node.position.x + offsetX,
+            y: node.position.y + offsetY,
           },
           data: {
             ...node.data,
@@ -223,7 +243,7 @@ export function createCopyPastePlugin(
       });
 
       console.log(
-        `[CopyPaste Plugin] 已粘贴 ${pastedNodeIds.length} 个节点和 ${pastedEdgeIds.length} 条连接线 (偏移: ${baseOffset}px)`
+        `[CopyPaste Plugin] 已粘贴 ${pastedNodeIds.length} 个节点和 ${pastedEdgeIds.length} 条连接线 (位置: ${pastePosition.x.toFixed(0)}, ${pastePosition.y.toFixed(0)})`
       );
     };
 
