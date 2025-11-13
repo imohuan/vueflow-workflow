@@ -1,28 +1,29 @@
 <template>
-  <div class="h-full overflow-y-auto bg-white">
-    <!-- 顶部工具栏 -->
-    <div class="border-b border-slate-200 bg-white p-3">
-      <n-space vertical size="small">
+  <div class="flex flex-col h-full bg-white">
+    <!-- 顶部工具栏（固定）-->
+    <div class="shrink-0 border-b border-slate-200 bg-white p-3">
+      <div class="flex items-center gap-2">
         <!-- 过滤器 -->
         <n-select
           v-model:value="statusFilter"
           :options="statusOptions"
           size="small"
           placeholder="过滤状态"
+          class="flex-1"
         />
 
         <!-- 清空按钮 -->
-        <n-button block secondary size="small" @click="clearHistory">
+        <n-button secondary size="small" @click="clearHistory">
           <template #icon>
             <n-icon :component="IconDelete" />
           </template>
           清空历史
         </n-button>
-      </n-space>
+      </div>
     </div>
 
-    <!-- 执行历史时间线 -->
-    <div class="p-4">
+    <!-- 执行历史时间线（可滚动）-->
+    <div class="flex-1 overflow-y-auto variable-scroll p-4">
       <n-timeline>
         <n-timeline-item
           v-for="record in filteredHistory"
@@ -83,14 +84,31 @@
         class="mt-8"
       />
     </div>
+
+    <!-- 分页器（固定）-->
+    <div
+      v-if="totalRecords > 0"
+      class="shrink-0 border-t border-slate-200 bg-white p-3 flex justify-center"
+    >
+      <n-pagination
+        :display-order="['quick-jumper', 'pages', 'size-picker']"
+        show-size-picker
+        v-model:page="currentPage"
+        :page-size="pageSize"
+        :item-count="totalRecords"
+        :page-slot="3"
+        :page-sizes="[5, 10, 20, 50, 100]"
+        @update:page="(page: number) => loadHistory(page, pageSize)"
+        @update:page-size="(size: number) => loadHistory(1, size)"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, shallowRef, computed, onMounted, triggerRef } from "vue";
 import { useMessage, useDialog } from "naive-ui";
 import IconDelete from "@/icons/IconDelete.vue";
-import IconPlay from "@/icons/IconPlay.vue";
 import { useCanvasStore } from "@/v2/stores/canvas";
 import { useWorkflowStore } from "@/v2/stores/workflow";
 import { useVueFlowEvents } from "@/v2/features/vueflow/events";
@@ -135,8 +153,13 @@ const statusOptions = [
 ];
 
 // 执行历史记录
-const executionHistory = ref<ExecutionRecord[]>([]);
+const executionHistory = shallowRef<ExecutionRecord[]>([]);
 const isLoading = ref(false);
+
+// 分页相关
+const currentPage = ref(1);
+const pageSize = ref(20);
+const totalRecords = ref(0);
 
 // 过滤后的历史记录
 const filteredHistory = computed(() => {
@@ -250,12 +273,17 @@ async function viewDetails(record: ExecutionRecord) {
     console.log("查看详情:", record);
 
     // 获取完整的历史记录（包含执行结果和工作流结构）
-    const history = await canvasStore.vueFlowExecution.getHistory(
-      record.workflowId
+    // 获取该工作流的所有历史记录（不分页，获取第一页大量数据）
+    const result = await canvasStore.vueFlowExecution.getHistory(
+      record.workflowId,
+      1,
+      1000
     );
 
     // 查找匹配的历史记录
-    const historyRecord = history.find((h) => h.executionId === record.id);
+    const historyRecord = result.history.find(
+      (h: ExecutionHistoryRecord) => h.executionId === record.id
+    );
 
     if (!historyRecord) {
       message?.warning("未找到该执行记录的详细数据");
@@ -326,6 +354,7 @@ async function deleteRecord(record: ExecutionRecord) {
         const index = executionHistory.value.indexOf(record);
         if (index > -1) {
           executionHistory.value.splice(index, 1);
+          triggerRef(executionHistory);
         }
         message?.success("记录已删除");
       } catch (error) {
@@ -349,6 +378,7 @@ function clearHistory() {
       try {
         await canvasStore.vueFlowExecution.clearHistory();
         executionHistory.value = [];
+        triggerRef(executionHistory);
         message?.success("历史记录已清空");
       } catch (error) {
         console.error("清空历史失败:", error);
@@ -361,26 +391,39 @@ function clearHistory() {
 /**
  * 加载历史记录
  */
-async function loadHistory() {
+async function loadHistory(page: number = 1, size: number = 20) {
   isLoading.value = true;
   try {
-    const history = await canvasStore.vueFlowExecution.getHistory();
+    const result = await canvasStore.vueFlowExecution.getHistory(
+      undefined,
+      page,
+      size
+    );
 
     // 转换为 UI 层的格式
-    executionHistory.value = history.map((record: ExecutionHistoryRecord) => ({
-      id: record.executionId,
-      workflowId: record.workflowId,
-      workflowName:
-        workflowStore.getWorkflowById(record.workflowId)?.name ||
-        record.workflowId, // TODO: 从 workflowStore 获取工作流名称
-      status: record.success ? "success" : "failed",
-      startTime: record.startTime,
-      endTime: record.endTime,
-      totalNodes: record.executedNodeCount + record.skippedNodeCount,
-      successNodes: record.executedNodeCount,
-      failedNodes: 0, // 暂时没有失败节点数
-      errorMessage: record.error,
-    }));
+    executionHistory.value = result.history.map(
+      (record: ExecutionHistoryRecord) => ({
+        id: record.executionId,
+        workflowId: record.workflowId,
+        workflowName:
+          workflowStore.getWorkflowById(record.workflowId)?.name ||
+          record.workflowId, // TODO: 从 workflowStore 获取工作流名称
+        status: record.success ? "success" : "failed",
+        startTime: record.startTime,
+        endTime: record.endTime,
+        totalNodes: record.executedNodeCount + record.skippedNodeCount,
+        successNodes: record.executedNodeCount,
+        failedNodes: 0, // 暂时没有失败节点数
+        errorMessage: record.error,
+      })
+    );
+
+    // 更新分页信息
+    currentPage.value = result.page;
+    pageSize.value = result.pageSize;
+    totalRecords.value = result.total;
+
+    triggerRef(executionHistory);
   } catch (error) {
     console.error("加载历史记录失败:", error);
     message?.error("加载历史记录失败");
@@ -398,6 +441,7 @@ onMounted(() => {
     console.log("[HistoryPanel] 工作流执行完成，重新加载历史记录", data);
     loadHistory();
   });
+
   vueflowEvents.on("execution:error", (data) => {
     console.log("[HistoryPanel] 工作流执行失败，重新加载历史记录", data);
     loadHistory();

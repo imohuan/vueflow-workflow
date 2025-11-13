@@ -63,7 +63,12 @@ interface PendingNodeListRequest {
 }
 
 interface PendingHistoryRequest {
-  resolve: (history: ExecutionHistoryRecord[]) => void;
+  resolve: (data: {
+    history: ExecutionHistoryRecord[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }) => void;
   reject: (reason: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
 }
@@ -237,7 +242,8 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
               wsClient.getHistory(
                 command.payload.requestId,
                 command.payload.workflowId,
-                command.payload.limit
+                command.payload.page,
+                command.payload.pageSize
               );
               break;
             case "CLEAR_HISTORY":
@@ -384,13 +390,19 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
 
   async function getHistory(
     workflowId?: string,
-    limit?: number
-  ): Promise<ExecutionHistoryRecord[]> {
+    page: number = 1,
+    pageSize: number = 20
+  ): Promise<{
+    history: ExecutionHistoryRecord[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     await ensureChannel();
 
     const requestId = generateRequestId();
 
-    return new Promise<ExecutionHistoryRecord[]>((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         pendingHistoryRequests.delete(requestId);
         reject(new Error("获取历史记录超时"));
@@ -400,7 +412,7 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
 
       channel!.send({
         type: "GET_HISTORY",
-        payload: { requestId, workflowId, limit },
+        payload: { requestId, workflowId, page, pageSize },
       });
     });
   }
@@ -558,14 +570,17 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
 
   function handleHistoryResponse(
     requestId: string,
-    history: ExecutionHistoryRecord[]
+    history: ExecutionHistoryRecord[],
+    total: number,
+    page: number,
+    pageSize: number
   ): void {
     const pending = pendingHistoryRequests.get(requestId);
     if (!pending) {
       return;
     }
     clearTimeout(pending.timer);
-    pending.resolve(history);
+    pending.resolve({ history, total, page, pageSize });
     pendingHistoryRequests.delete(requestId);
   }
 
@@ -616,7 +631,10 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
       case "HISTORY_DATA":
         handleHistoryResponse(
           message.payload.requestId,
-          message.payload.history
+          message.payload.history,
+          message.payload.total,
+          message.payload.page,
+          message.payload.pageSize
         );
         break;
       case "STATE_CHANGE":

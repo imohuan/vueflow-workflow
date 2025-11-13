@@ -15,7 +15,11 @@
         @close="uiStore.closeFloatingPanel"
       >
         <!-- 动态内容渲染 -->
-        <component :is="currentPanelComponent" v-if="uiStore.activeTab" />
+        <component
+          :is="currentPanelComponent"
+          v-if="uiStore.activeTab"
+          class="variable-scroll"
+        />
 
         <!-- 空状态 -->
         <div

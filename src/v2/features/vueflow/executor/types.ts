@@ -135,7 +135,8 @@ export type ExecutionCommand =
       payload: {
         requestId: string;
         workflowId?: string;
-        limit?: number;
+        page?: number;
+        pageSize?: number;
       };
     }
   | {
@@ -192,6 +193,9 @@ export type ExecutionEventMessage =
       payload: {
         requestId: string;
         history: ExecutionHistoryRecord[];
+        total: number;
+        page: number;
+        pageSize: number;
       };
     };
 

@@ -123,7 +123,8 @@ function addExecutionHistory(
 function getExecutionHistory(
   requestId: string,
   workflowId?: string,
-  limit?: number
+  page: number = 1,
+  pageSize: number = 20
 ): void {
   try {
     let history = getHistoryFromStorage();
@@ -136,21 +137,26 @@ function getExecutionHistory(
     // 按时间倒序排序（最新的在前）
     history.sort((a, b) => b.startTime - a.startTime);
 
-    // 限制返回数量
-    if (limit && limit > 0) {
-      history = history.slice(0, limit);
-    }
+    const total = history.length;
+
+    // 分页处理
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedHistory = history.slice(startIndex, endIndex);
 
     postMessageToMain({
       type: "HISTORY_DATA",
       payload: {
         requestId,
-        history,
+        history: paginatedHistory,
+        total,
+        page,
+        pageSize,
       },
     });
 
     console.log(
-      `${loggerPrefix} 已返回历史记录，共 ${history.length} 条`,
+      `${loggerPrefix} 已返回历史记录，第 ${page} 页，共 ${paginatedHistory.length} 条（总计 ${total} 条）`,
       workflowId ? `(工作流: ${workflowId})` : "(全部)"
     );
   } catch (error) {
@@ -602,7 +608,8 @@ self.addEventListener(
           getExecutionHistory(
             message.payload.requestId,
             message.payload.workflowId,
-            message.payload.limit
+            message.payload.page,
+            message.payload.pageSize
           );
           break;
 
