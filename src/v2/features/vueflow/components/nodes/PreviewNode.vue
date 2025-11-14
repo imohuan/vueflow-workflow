@@ -43,35 +43,37 @@
       <div class="text-xs text-red-600 leading-relaxed">{{ errorMessage }}</div>
     </div>
 
-    <!-- 图片显示 -->
-    <img
-      v-if="imageUrl && isImage"
-      :src="imageUrl"
-      :alt="imageAlt"
-      class="w-full h-full object-contain"
-      @load="handleImageLoad"
-      @error="handleImageError"
-    />
+    <div class="w-full h-full rounded-lg overflow-hidden">
+      <!-- 图片显示 -->
+      <img
+        v-if="imageUrl && isImage"
+        :src="imageUrl"
+        :alt="imageAlt"
+        class="w-full h-full object-contain"
+        @load="handleImageLoad"
+        @error="handleImageError"
+      />
 
-    <!-- 视频显示 -->
-    <video
-      v-else-if="imageUrl && isVideo"
-      class="w-full h-full object-contain bg-black"
-      controls
-      @loadedmetadata="handleVideoLoad"
-      @error="handleVideoError"
-    >
-      <source :src="imageUrl" />
-      您的浏览器不支持视频播放
-    </video>
+      <!-- 视频显示 -->
+      <video
+        v-else-if="imageUrl && isVideo"
+        class="w-full h-full object-contain bg-black"
+        controls
+        @loadedmetadata="handleVideoLoad"
+        @error="handleVideoError"
+      >
+        <source :src="imageUrl" />
+        您的浏览器不支持视频播放
+      </video>
 
-    <!-- 空状态 -->
-    <div
-      v-else
-      class="flex flex-col items-center justify-center gap-2 p-5 w-full h-full text-center"
-    >
-      <div class="text-4xl opacity-60">🖼️</div>
-      <div class="text-xs text-gray-400 leading-relaxed">等待媒体 URL</div>
+      <!-- 空状态 -->
+      <div
+        v-else
+        class="flex flex-col items-center justify-center gap-2 p-5 w-full h-full text-center"
+      >
+        <div class="text-4xl opacity-60">🖼️</div>
+        <div class="text-xs text-gray-400 leading-relaxed">等待媒体 URL</div>
+      </div>
     </div>
 
     <!-- 右下角调整大小手柄 -->
