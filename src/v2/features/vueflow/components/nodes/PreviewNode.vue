@@ -101,19 +101,10 @@
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  computed,
-  type Ref,
-  onMounted,
-  onUnmounted,
-  watchEffect,
-  watch,
-} from "vue";
+import { ref, computed, type Ref, onMounted, watchEffect, watch } from "vue";
 import { useVueFlow, type NodeProps, Position } from "@vue-flow/core";
 import { useMouse } from "@vueuse/core";
 import { useCanvasStore } from "@/v2/stores/canvas";
-import { eventBusUtils } from "@/v2/features/vueflow/events";
 import NodeExecutionBadge from "./NodeExecutionBadge.vue";
 import PortHandle from "../ports/PortHandle.vue";
 
@@ -144,9 +135,24 @@ const canvasStore = useCanvasStore();
 const isLoading = ref(false);
 const hasError = ref(false);
 const errorMessage = ref("");
-const imageUrl = ref(props.data.imageUrl || "");
-const imageInfo = ref(props.data.imageInfo);
 const mediaType = ref<"image" | "video" | "unknown">("unknown");
+
+// 从执行结果中获取 imageUrl 和 imageInfo（响应式）
+const imageUrl = computed(() => {
+  const executionStatus = canvasStore.getNodeExecutionStatus(props.id);
+  if (executionStatus?.result?.imageUrl) {
+    return executionStatus.result.imageUrl;
+  }
+  return props.data.imageUrl || "";
+});
+
+const imageInfo = computed(() => {
+  const executionStatus = canvasStore.getNodeExecutionStatus(props.id);
+  if (executionStatus?.result?.imageInfo) {
+    return executionStatus.result.imageInfo;
+  }
+  return props.data.imageInfo;
+});
 
 // 检测媒体类型（通过扩展名）
 function detectMediaTypeByExtension(
@@ -370,56 +376,14 @@ async function autoDetectMediaType(url: string) {
   isLoading.value = false;
 }
 
-// 监听 URL 变化
+// 监听 imageUrl 变化，自动检测媒体类型
 watch(imageUrl, (newUrl) => {
   if (newUrl) {
+    hasError.value = false;
+    errorMessage.value = "";
     autoDetectMediaType(newUrl);
   }
 });
-
-// 监听节点执行完成事件，从结果中获取图片数据
-function handleNodeComplete(payload: any) {
-  if (payload.nodeId !== props.id) return;
-
-  const executionStatus = canvasStore.getNodeExecutionStatus(props.id);
-  if (!executionStatus || !executionStatus.result) return;
-
-  const result = executionStatus.result;
-
-  // 从执行结果中提取 imageUrl
-  if (result.imageUrl) {
-    imageUrl.value = result.imageUrl;
-    hasError.value = false;
-    errorMessage.value = "";
-  }
-
-  // 从执行结果中提取 imageInfo
-  if (result.imageInfo) {
-    imageInfo.value = result.imageInfo;
-  }
-}
-
-// 监听缓存命中事件
-function handleCacheHit(payload: any) {
-  if (payload.nodeId !== props.id) return;
-
-  const executionStatus = canvasStore.getNodeExecutionStatus(props.id);
-  if (!executionStatus || !executionStatus.result) return;
-
-  const result = executionStatus.result;
-
-  // 从缓存结果中提取 imageUrl
-  if (result.imageUrl) {
-    imageUrl.value = result.imageUrl;
-    hasError.value = false;
-    errorMessage.value = "";
-  }
-
-  // 从缓存结果中提取 imageInfo
-  if (result.imageInfo) {
-    imageInfo.value = result.imageInfo;
-  }
-}
 
 // 同步 data 中的尺寸变化
 watch(
@@ -434,21 +398,11 @@ watch(
   }
 );
 
-// 注册事件监听
+// 初始化媒体类型检测
 onMounted(() => {
-  eventBusUtils.on("execution:node:complete", handleNodeComplete);
-  eventBusUtils.on("execution:cache-hit", handleCacheHit);
-
-  // 初始化媒体类型检测
   if (imageUrl.value) {
     autoDetectMediaType(imageUrl.value);
   }
-});
-
-// 清理事件监听
-onUnmounted(() => {
-  eventBusUtils.off("execution:node:complete", handleNodeComplete);
-  eventBusUtils.off("execution:cache-hit", handleCacheHit);
 });
 
 // 监听鼠标移动，更新尺寸（仅在调整大小时执行）
@@ -471,13 +425,12 @@ function handleImageLoad(event: Event) {
   isLoading.value = false;
   hasError.value = false;
   const img = event.target as HTMLImageElement;
-  if (!imageInfo.value) {
-    imageInfo.value = {};
-  }
-  imageInfo.value.width = img.naturalWidth;
-  imageInfo.value.height = img.naturalHeight;
   if (props.data) {
-    props.data.imageInfo = imageInfo.value;
+    if (!props.data.imageInfo) {
+      props.data.imageInfo = {};
+    }
+    props.data.imageInfo.width = img.naturalWidth;
+    props.data.imageInfo.height = img.naturalHeight;
   }
 }
 
@@ -493,13 +446,12 @@ function handleVideoLoad(event: Event) {
   isLoading.value = false;
   hasError.value = false;
   const video = event.target as HTMLVideoElement;
-  if (!imageInfo.value) {
-    imageInfo.value = {};
-  }
-  imageInfo.value.width = video.videoWidth;
-  imageInfo.value.height = video.videoHeight;
   if (props.data) {
-    props.data.imageInfo = imageInfo.value;
+    if (!props.data.imageInfo) {
+      props.data.imageInfo = {};
+    }
+    props.data.imageInfo.width = video.videoWidth;
+    props.data.imageInfo.height = video.videoHeight;
   }
 }
 
