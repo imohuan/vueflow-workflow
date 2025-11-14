@@ -54,7 +54,8 @@ export type ClientMessage =
       payload: {
         requestId: string;
         workflowId?: string;
-        limit?: number;
+        page?: number;
+        pageSize?: number;
       };
     }
   | {
@@ -171,6 +172,9 @@ export type ServerMessage =
       payload: {
         requestId: string;
         history: any[];
+        total: number;
+        page: number;
+        pageSize: number;
       };
     }
   | {
@@ -186,7 +190,16 @@ export type ServerMessage =
  */
 export interface HistoryHandlers {
   /** 获取历史记录 */
-  getHistory: (workflowId?: string, limit?: number) => Promise<any[]>;
+  getHistory: (
+    workflowId?: string,
+    page?: number,
+    pageSize?: number
+  ) => Promise<{
+    history: any[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>;
   /** 保存历史记录 */
   saveHistory: (
     result: any,

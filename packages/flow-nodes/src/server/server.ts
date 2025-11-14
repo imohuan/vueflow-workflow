@@ -353,18 +353,22 @@ export function createWorkflowServer(config: ServerConfig) {
           case "GET_HISTORY":
             if (historyHandlers) {
               try {
-                const history = await historyHandlers.getHistory(
+                const result = await historyHandlers.getHistory(
                   message.payload.workflowId,
-                  message.payload.limit
+                  message.payload.page,
+                  message.payload.pageSize
                 );
                 sendMessage({
                   type: "HISTORY_DATA",
                   payload: {
                     requestId: message.payload.requestId,
-                    history,
+                    history: result.history,
+                    total: result.total,
+                    page: result.page,
+                    pageSize: result.pageSize,
                   },
                 });
-                logMessage(`已返回历史记录，共 ${history.length} 条`);
+                logMessage(`已返回历史记录，第 ${result.page} 页，共 ${result.history.length} 条（总计 ${result.total} 条）`);
               } catch (err) {
                 errorMessage("获取历史记录失败:", err);
                 sendMessage({
@@ -380,6 +384,9 @@ export function createWorkflowServer(config: ServerConfig) {
                 payload: {
                   requestId: message.payload.requestId,
                   history: [],
+                  total: 0,
+                  page: message.payload.page ?? 1,
+                  pageSize: message.payload.pageSize ?? 20,
                 },
               });
             }

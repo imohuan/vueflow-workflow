@@ -164,7 +164,7 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
       cleanupChannel();
     }
 
-    await editorConfigStore.ready()
+    await editorConfigStore.ready();
 
     // 根据模式创建通道
     if (mode.value === "worker") {
