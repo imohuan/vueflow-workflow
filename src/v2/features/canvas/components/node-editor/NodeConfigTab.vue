@@ -30,6 +30,14 @@
         @update:params="handleParamsUpdate"
       />
 
+      <!-- 变量聚合节点特殊配置 -->
+      <VariableAggregateNodeEditor
+        v-else-if="selectedNode.data?.nodeType === 'variableAggregate'"
+        :selected-node="selectedNode"
+        :node-config="nodeConfig"
+        @update:params="handleParamsUpdate"
+      />
+
       <!-- 默认节点配置 -->
       <DefaultNodeEditor
         v-else
@@ -65,6 +73,7 @@ import IconReset from "@/icons/IconReset.vue";
 import IconTrash from "@/icons/IconTrash.vue";
 import IfNodeEditor from "./editors/IfNodeEditor.vue";
 import CodeNodeEditor from "./editors/CodeNodeEditor.vue";
+import VariableAggregateNodeEditor from "./editors/VariableAggregateNodeEditor.vue";
 import DefaultNodeEditor from "./editors/DefaultNodeEditor.vue";
 import type { ConfigField as ConfigFieldType } from "@/v2/typings/config";
 import type { NodeConfigData } from "./types";

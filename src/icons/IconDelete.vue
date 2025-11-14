@@ -1,22 +1,18 @@
 <template>
   <svg
-    xmlns="http://www.w3.org/2000/svg"
+    class="icon-icon icon-icon-coz_minus text-lg"
     width="1em"
     height="1em"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
+    viewBox="0 0 25 24"
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
   >
-    <path d="M3 6h18" />
-    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-    <line x1="10" x2="10" y1="11" y2="17" />
-    <line x1="14" x2="14" y1="11" y2="17" />
+    <path
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      d="M3.68204 11.8978C3.67863 11.9314 3.67688 11.9655 3.67688 12C3.67688 12.5523 4.1246 13 4.67688 13H19.6769C20.2292 13 20.6769 12.5523 20.6769 12C20.6769 11.9655 20.6751 11.9314 20.6717 11.8978C20.6205 11.3935 20.1946 11 19.6769 11H4.67688C4.64236 11 4.60825 11.0017 4.57464 11.0052C4.104 11.053 3.72984 11.4271 3.68204 11.8978Z"
+    ></path>
   </svg>
 </template>
 
 <script setup lang="ts"></script>
-

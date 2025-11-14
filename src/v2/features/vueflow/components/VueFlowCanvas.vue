@@ -88,6 +88,11 @@
         <PreviewNode v-bind="nodeProps" />
       </template>
 
+      <!-- 变量聚合节点插槽 -->
+      <template #node-variableAggregate="nodeProps">
+        <VariableAggregateNode v-bind="nodeProps" />
+      </template>
+
       <!-- 自定义连接线（拖拽时的临时连接线） -->
       <template #connection-line="connectionLineProps">
         <CustomConnectionEdge v-bind="connectionLineProps" />
@@ -173,6 +178,8 @@ import CodeNode from "./nodes/CodeNode.vue";
 import CustomConnectionEdge from "./edges/CustomConnectionEdge.vue";
 import CustomEdge from "./edges/CustomEdge.vue";
 import PreviewNode from "./nodes/PreviewNode.vue";
+import VariableAggregateNode from "./nodes/VariableAggregateNode.vue";
+
 import {
   PluginManager,
   PLUGIN_MANAGER_KEY,
@@ -272,6 +279,7 @@ const nodeTypes = {
   forLoopContainer: () => ForLoopContainerNode,
   code: () => CodeNode,
   preview: () => PreviewNode,
+  variableAggregate: () => VariableAggregateNode,
 };
 
 // 边类型映射
