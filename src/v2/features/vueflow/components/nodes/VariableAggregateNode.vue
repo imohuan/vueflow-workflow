@@ -8,24 +8,29 @@
     <!-- 自定义内容区域 -->
     <template #default>
       <!-- 分组信息 -->
-      <div v-if="groupInfo.length > 0" class="space-y-1">
-        <div class="text-xs font-semibold text-gray-600 mb-2">
-          📊 分组信息 ({{ groupInfo.length }})
-        </div>
+      <div v-if="configGroups.length > 0" class="space-y-2">
         <div
-          v-for="(group, idx) in groupInfo"
-          :key="idx"
-          class="text-xs bg-gray-50 rounded p-2 border border-gray-200"
+          v-for="(group, idx) in displayGroups"
+          :key="group.name ?? idx"
+          class="flex items-start gap-3"
         >
-          <div class="font-medium text-gray-700">{{ group.name }}</div>
-          <div class="text-gray-500 text-[11px] mt-1">
-            类型: {{ group.type }} | 项数: {{ group.itemCount }}
-          </div>
+          <!-- 左侧：分组标题 -->
           <div
-            v-if="group.firstItem !== null && group.firstItem !== undefined"
-            class="text-[11px] text-gray-600 mt-1 truncate"
+            class="text-[10px] font-medium text-gray-500 whitespace-nowrap min-w-fit"
           >
-            首项: {{ formatValue(group.firstItem) }}
+            {{ group.name }}
+          </div>
+
+          <!-- 右侧：Tag 组（横向排列，自动换行） -->
+          <div class="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-2">
+            <span
+              v-for="(label, childIdx) in group.items"
+              :key="label + ':' + childIdx"
+              class="inline-flex items-center px-1 py-0.5 rounded-md text-[8px] font-medium bg-gray-200 text-gray-800 truncate max-w-[140px]"
+              :title="label"
+            >
+              {{ label }}
+            </span>
           </div>
         </div>
       </div>
@@ -55,27 +60,26 @@ const props = withDefaults(defineProps<Props>(), {
   selected: false,
 });
 
-// 将 data 转换为 StandardNode 的格式
-const standardNodeData = computed(() => {
-  const style: NodeStyleConfig = {
-    headerColor: ["#06b6d4", "#0891b2"], // 青色渐变
-    icon: "📦",
-    showIcon: true,
-  };
+const STANDARD_STYLE: NodeStyleConfig = {
+  headerColor: ["#06b6d4", "#0891b2"],
+  icon: "📦",
+  showIcon: true,
+};
 
+const standardNodeData = computed(() => {
   return {
     ...props.data,
-    style,
+    style: STANDARD_STYLE,
   };
 });
 
-// 从执行结果中获取分组信息
-const groupInfo = computed(() => {
-  const executionResult = props.data?.executionResult;
-  if (!executionResult?.summary?.groups) {
+// 从节点配置中获取分组信息
+const configGroups = computed(() => {
+  const params = props.data?.params;
+  if (!params?.data || !Array.isArray(params.data)) {
     return [];
   }
-  return executionResult.summary.groups;
+  return params.data;
 });
 
 // 格式化值显示
@@ -92,6 +96,45 @@ const formatValue = (value: any): string => {
   }
   return String(value);
 };
+
+const getChildRawValue = (child: any): any => {
+  if (child && typeof child === "object") {
+    if (child.name !== undefined && child.name !== null) return child.name;
+    if (child.label !== undefined && child.label !== null) return child.label;
+    if (child.value !== undefined && child.value !== null) return child.value;
+    return undefined;
+  }
+  return child;
+};
+
+const isEmptyChild = (child: any): boolean => {
+  const v = getChildRawValue(child);
+  if (v === null || v === undefined) return true;
+  const s = String(v).trim();
+  return s.length === 0;
+};
+
+const getFilteredChildren = (children: any[] | undefined): any[] => {
+  return (children || []).filter((c) => !isEmptyChild(c));
+};
+
+const childValueLabel = (child: any): string => {
+  const v = getChildRawValue(child);
+  if (v === null || v === undefined) return "";
+  const s = String(v);
+  return s.length > 30 ? s.substring(0, 30) + "..." : s;
+};
+
+const displayGroups = computed(() => {
+  return configGroups.value.map((g: any) => {
+    const children = getFilteredChildren(g?.children);
+    const items = children.map((c) => childValueLabel(c));
+    return {
+      name: g?.name ?? "",
+      items,
+    };
+  });
+});
 </script>
 
 <style scoped>
