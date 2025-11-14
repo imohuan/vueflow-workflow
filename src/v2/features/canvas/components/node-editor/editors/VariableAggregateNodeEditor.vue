@@ -166,10 +166,7 @@ function initializeGroups() {
     }));
   } else {
     // 初始化两个默认分组
-    groups.value = [
-      { name: "Group1", children: [""] },
-      { name: "Group2", children: [""] },
-    ];
+    groups.value = [{ name: "Group1", children: [""] }];
   }
   editingGroupIdx.value = [];
 }

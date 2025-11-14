@@ -22,15 +22,35 @@
           </div>
 
           <!-- 右侧：Tag 组（横向排列，自动换行） -->
-          <div class="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-2">
-            <span
+          <div class="flex-1 min-w-0 flex flex-wrap items-center gap-1">
+            <template
               v-for="(label, childIdx) in group.items"
               :key="label + ':' + childIdx"
-              class="inline-flex items-center px-1 py-0.5 rounded-md text-[8px] font-medium bg-gray-200 text-gray-800 truncate max-w-[140px]"
-              :title="label"
             >
-              {{ label }}
-            </span>
+              <!-- 变量标签 -->
+              <span
+                v-if="isVariable(label)"
+                class="inline-flex items-center justify-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-semibold font-mono bg-linear-to-r from-blue-100 to-cyan-100 text-blue-700 truncate max-w-[140px] border border-blue-200"
+                :title="label"
+              >
+                <span
+                  class="inline-flex items-center justify-center w-3 h-3 shrink-0"
+                >
+                  <IconVariable class="w-full h-full" />
+                </span>
+                <span class="leading-none text-[6px]">{{
+                  extractVariableName(label)
+                }}</span>
+              </span>
+              <!-- 普通标签 -->
+              <span
+                v-else
+                class="inline-flex items-center px-1 py-0.5 rounded-md text-[8px] font-medium bg-gray-200 text-gray-800 truncate max-w-[140px]"
+                :title="label"
+              >
+                {{ label }}
+              </span>
+            </template>
           </div>
         </div>
       </div>
@@ -46,6 +66,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import StandardNode from "./StandardNode.vue";
+import IconVariable from "@/icons/IconVariable.vue";
 import type { NodeStyleConfig } from "workflow-flow-nodes";
 
 interface Props {
@@ -123,6 +144,17 @@ const childValueLabel = (child: any): string => {
   if (v === null || v === undefined) return "";
   const s = String(v);
   return s.length > 30 ? s.substring(0, 30) + "..." : s;
+};
+
+// 检测是否为变量格式 {{xx}}
+const isVariable = (label: string): boolean => {
+  return /^\{\{.+\}\}$/.test(label.trim());
+};
+
+// 提取变量名，去掉大括号
+const extractVariableName = (label: string): string => {
+  const match = label.trim().match(/^\{\{(.+)\}\}$/);
+  return match?.[1] ?? label;
 };
 
 const displayGroups = computed(() => {
