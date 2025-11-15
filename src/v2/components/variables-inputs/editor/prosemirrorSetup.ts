@@ -39,7 +39,8 @@ export function createSchema(): Schema {
             "span",
             {
               class: "variable-token",
-              style: "color: #10b981; background-color: #ecfdf5; padding: 0 2px; border-radius: 2px;",
+              style:
+                "color: #10b981; background-color: #ecfdf5; padding: 0 2px; border-radius: 2px;",
             },
           ];
         },
@@ -59,23 +60,27 @@ function calculateDecorations(doc: any): Decoration[] {
   const decorations: Decoration[] = [];
   const VARIABLE_PATTERN = /\{\{\s*[^{}]+?\s*\}\}/g;
 
-  doc.nodesBetween(0, doc.content.size, (node: ProseMirrorNode, pos: number) => {
-    if (node.isText) {
-      const text = node.text || "";
-      let match: RegExpExecArray | null;
-      VARIABLE_PATTERN.lastIndex = 0;
+  doc.nodesBetween(
+    0,
+    doc.content.size,
+    (node: ProseMirrorNode, pos: number) => {
+      if (node.isText) {
+        const text = node.text || "";
+        let match: RegExpExecArray | null;
+        VARIABLE_PATTERN.lastIndex = 0;
 
-      while ((match = VARIABLE_PATTERN.exec(text)) !== null) {
-        const from = pos + match.index;
-        const to = from + match[0].length;
-        decorations.push(
-          Decoration.inline(from, to, {
-            class: "variable-token",
-          })
-        );
+        while ((match = VARIABLE_PATTERN.exec(text)) !== null) {
+          const from = pos + match.index;
+          const to = from + match[0].length;
+          decorations.push(
+            Decoration.inline(from, to, {
+              class: "variable-token",
+            })
+          );
+        }
       }
     }
-  });
+  );
 
   return decorations;
 }
@@ -91,7 +96,12 @@ export function createVariableHighlightPlugin(): Plugin {
         const decorations = calculateDecorations(config.doc!);
         return DecorationSet.create(config.doc!, decorations);
       },
-      apply(_tr: Transaction, _value: DecorationSet, _oldState: EditorState, newState: EditorState) {
+      apply(
+        _tr: Transaction,
+        _value: DecorationSet,
+        _oldState: EditorState,
+        newState: EditorState
+      ) {
         // 在文档变化时重新计算装饰
         const decorations = calculateDecorations(newState.doc);
         return DecorationSet.create(newState.doc, decorations);
@@ -139,7 +149,10 @@ export function createVariableDeletionPlugin(): Plugin {
               lastMatch = match;
             }
 
-            if (lastMatch && lastMatch.index + lastMatch[0].length === before.length) {
+            if (
+              lastMatch &&
+              lastMatch.index + lastMatch[0].length === before.length
+            ) {
               // 光标在变量末尾，删除整个变量
               const start = lastMatch.index + 1; // 转换为 ProseMirror 位置
               const end = start + lastMatch[0].length;
@@ -172,7 +185,10 @@ export function createVariableDeletionPlugin(): Plugin {
  */
 export function createEditorState(
   schema: Schema,
-  initialContent: string = ""
+  initialContent: string = "",
+  options?: {
+    multiline?: boolean;
+  }
 ): EditorState {
   const doc = schema.nodeFromJSON({
     type: "doc",
@@ -186,18 +202,34 @@ export function createEditorState(
       : [],
   });
 
+  const keyBindings: { [key: string]: any } = {
+    ...baseKeymap,
+    "Mod-z": undo,
+    "Mod-y": redo,
+    "Mod-Shift-z": redo,
+    ...(options?.multiline
+      ? {
+          Enter: (state: EditorState, dispatch?: (tr: Transaction) => void) => {
+            if (!dispatch) return false;
+            const { from, to } = state.selection;
+            const tr = state.tr.insertText("\n", from, to);
+            dispatch(tr.scrollIntoView());
+            return true;
+          },
+        }
+      : {
+          // 单行模式下禁止换行
+          Enter: () => true,
+        }),
+  };
+
   return EditorState.create({
     doc,
     plugins: [
       history(),
       createVariableHighlightPlugin(),
       createVariableDeletionPlugin(),
-      keymap({
-        "Mod-z": undo,
-        "Mod-y": redo,
-        "Mod-Shift-z": redo,
-        ...baseKeymap,
-      }),
+      keymap(keyBindings),
     ],
   });
 }
@@ -235,5 +267,7 @@ export function setEditorContent(
       : [],
   });
 
-  return state.apply(state.tr.replaceWith(0, state.doc.content.size, doc.content));
+  return state.apply(
+    state.tr.replaceWith(0, state.doc.content.size, doc.content)
+  );
 }

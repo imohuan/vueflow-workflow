@@ -1,5 +1,10 @@
 <template>
-  <div ref="editorContainer" class="variable-editor-container " @focus="handleFocus" @blur="handleBlur"></div>
+  <div
+    ref="editorContainer"
+    class="variable-editor-container"
+    @focus="handleFocus"
+    @blur="handleBlur"
+  ></div>
 </template>
 
 <script setup lang="ts">
@@ -47,7 +52,9 @@ let isUpdating = false;
 function initEditor() {
   if (!editorContainer.value) return;
 
-  const initialState = createEditorState(schema, props.modelValue);
+  const initialState = createEditorState(schema, props.modelValue, {
+    multiline: props.multiline,
+  });
 
   editorView = new EditorView(editorContainer.value, {
     state: initialState,
@@ -72,7 +79,13 @@ function initEditor() {
         font-family: 'Fira Code', 'Courier New', 'Microsoft YaHei', 'SimHei', monospace;
         font-size: ${props.density === "compact" ? "0.75rem" : "0.875rem"};
         line-height: 1.5;
-        min-height: ${props.multiline ? (props.density === "compact" ? "3rem" : "4rem") : "auto"};
+        min-height: ${
+          props.multiline
+            ? props.density === "compact"
+              ? "3rem"
+              : "4rem"
+            : "auto"
+        };
         max-height: ${props.multiline ? "15rem" : "auto"};
         overflow-y: ${props.multiline ? "auto" : "hidden"};
         white-space: ${props.multiline ? "pre-wrap" : "nowrap"};
@@ -87,7 +100,10 @@ function initEditor() {
   editorView.dom.addEventListener("blur", handleBlur);
 
   // 绑定拖放事件
-  editorView.dom.addEventListener("variable-drop", handleVariableDrop as EventListener);
+  editorView.dom.addEventListener(
+    "variable-drop",
+    handleVariableDrop as EventListener
+  );
 }
 
 /**
@@ -97,7 +113,10 @@ function destroyEditor() {
   if (editorView) {
     editorView.dom.removeEventListener("focus", handleFocus);
     editorView.dom.removeEventListener("blur", handleBlur);
-    editorView.dom.removeEventListener("variable-drop", handleVariableDrop as EventListener);
+    editorView.dom.removeEventListener(
+      "variable-drop",
+      handleVariableDrop as EventListener
+    );
     editorView.destroy();
     editorView = null;
   }
@@ -137,7 +156,11 @@ watch(
     const currentContent = getEditorContent(editorView.state);
     if (currentContent !== newValue) {
       isUpdating = true;
-      const newState = setEditorContent(editorView.state, schema, newValue || "");
+      const newState = setEditorContent(
+        editorView.state,
+        schema,
+        newValue || ""
+      );
       editorView.updateState(newState);
       isUpdating = false;
     }

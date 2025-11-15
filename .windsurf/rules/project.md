@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+trigger: always_on
 ---
 
 # 项目开发规范

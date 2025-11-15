@@ -38,6 +38,14 @@
         @update:params="handleParamsUpdate"
       />
 
+      <!-- OpenAI LLM 节点特殊配置 -->
+      <OpenAILlmNodeEditor
+        v-else-if="selectedNode.data?.nodeType === 'openaiLlm'"
+        :selected-node="selectedNode"
+        :node-config="nodeConfig"
+        @update:params="handleParamsUpdate"
+      />
+
       <!-- 默认节点配置 -->
       <DefaultNodeEditor
         v-else
@@ -74,6 +82,7 @@ import IconTrash from "@/icons/IconTrash.vue";
 import IfNodeEditor from "./editors/IfNodeEditor.vue";
 import CodeNodeEditor from "./editors/CodeNodeEditor.vue";
 import VariableAggregateNodeEditor from "./editors/VariableAggregateNodeEditor.vue";
+import OpenAILlmNodeEditor from "./editors/OpenAILlmNodeEditor.vue";
 import DefaultNodeEditor from "./editors/DefaultNodeEditor.vue";
 import type { ConfigField as ConfigFieldType } from "@/v2/typings/config";
 import type { NodeConfigData } from "./types";

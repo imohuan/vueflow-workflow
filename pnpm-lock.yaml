@@ -160,6 +160,9 @@ importers:
 
   packages/flow-nodes:
     dependencies:
+      openai:
+        specifier: ^6.9.0
+        version: 6.9.0(ws@8.18.3)
       ws:
         specifier: ^8.18.3
         version: 8.18.3
@@ -1507,6 +1510,18 @@ packages:
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
     engines: {node: '>=0.10.0'}
+
+  openai@6.9.0:
+    resolution: {integrity: sha512-n2sJRYmM+xfJ0l3OfH8eNnIyv3nQY7L08gZQu3dw6wSdfPtKAk92L83M2NIP5SS8Cl/bsBBG3yKzEOjkx0O+7A==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   orderedmap@2.1.1:
     resolution: {integrity: sha512-TvAWxi0nDe1j/rtMcWcIj94+Ffe6n7zhow33h40SKxmsmozs6dz/e+EajymfoFcHd7sxNn8yHM8839uixMOV6g==}
@@ -3182,6 +3197,10 @@ snapshots:
   nanoid@3.3.11: {}
 
   object-assign@4.1.1: {}
+
+  openai@6.9.0(ws@8.18.3):
+    optionalDependencies:
+      ws: 8.18.3
 
   orderedmap@2.1.1: {}
 

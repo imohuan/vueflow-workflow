@@ -64,7 +64,7 @@
           </div>
 
           <!-- 打开变量编辑器按钮 - 右侧紧贴 -->
-          <div class="w-5 h-8 pt-3">
+          <div class="absolute right-0 bottom-0 w-5 h-8 pt-3">
             <button
               type="button"
               class="flex items-center justify-center w-full h-full border-l rounded-tl-md border-t border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-700 hover:bg-slate-100 rounded-r-md shrink-0"
@@ -416,7 +416,6 @@ function handlePageInputKeydown(event: KeyboardEvent) {
   }
 }
 
-
 /**
  * 处理拖放事件
  */
@@ -428,7 +427,9 @@ function handleVariableDrop(event: CustomEvent) {
   if (!reference) return;
 
   // 如果按住 Ctrl，则替换整个内容；否则追加
-  const newValue = dragData.isReplace ? reference : internalValue.value + reference;
+  const newValue = dragData.isReplace
+    ? reference
+    : internalValue.value + reference;
   handleEditorUpdate(newValue);
 }
 

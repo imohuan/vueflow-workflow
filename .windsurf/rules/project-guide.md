@@ -1,6 +1,10 @@
 ---
-alwaysApply: true
+trigger: always_on
 ---
+
+---
+
+## alwaysApply: true
 
 # 项目开发指南
 

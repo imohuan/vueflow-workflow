@@ -41,7 +41,9 @@
 
           <!-- 编辑器主体 -->
           <div class="flex-1 p-4 overflow-y-auto variable-scroll">
-            <div class="w-full h-full min-h-[200px] bg-white border border-slate-200 rounded-md overflow-hidden">
+            <div
+              class="w-full h-full min-h-[200px] bg-white border border-slate-200 rounded-md overflow-hidden"
+            >
               <VariableEditor
                 ref="editorRef"
                 :model-value="internalValue"
@@ -186,12 +188,19 @@ const previewItems = computed(() => {
     return [value];
   }
 
-  if (!selectedNodeId.value || !contextMap.value || contextMap.value.size === 0) {
+  if (
+    !selectedNodeId.value ||
+    !contextMap.value ||
+    contextMap.value.size === 0
+  ) {
     return [value];
   }
 
   try {
-    const resolved = resolveConfigWithVariables({ preview: value }, contextMap.value);
+    const resolved = resolveConfigWithVariables(
+      { preview: value },
+      contextMap.value
+    );
 
     const result = resolved.preview;
 
@@ -218,7 +227,6 @@ const canNavigateNext = computed(
     previewItems.value.length > 1 &&
     currentPreviewIndex.value < previewItems.value.length - 1
 );
-
 
 // 监听预览项变化
 watch(
@@ -308,7 +316,9 @@ function handleVariableDrop(event: CustomEvent) {
   if (!reference) return;
 
   // 如果按住 Ctrl，则替换整个内容；否则追加
-  const newValue = dragData.isReplace ? reference : internalValue.value + reference;
+  const newValue = dragData.isReplace
+    ? reference
+    : internalValue.value + reference;
   handleEditorUpdate(newValue);
 }
 
@@ -364,5 +374,4 @@ function handlePageInputKeydown(event: KeyboardEvent) {
     handlePageInputCommit();
   }
 }
-
 </script>

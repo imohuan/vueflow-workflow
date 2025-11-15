@@ -39,6 +39,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "openai": "^6.9.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {

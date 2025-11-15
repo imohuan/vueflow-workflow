@@ -117,7 +117,8 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
     // 获取容器内的所有子节点
     const childNodes = nodes.filter(
       (n) =>
-        n.parentNode === containerId && (!allowedNodeIds || allowedNodeIds.has(n.id))
+        n.parentNode === containerId &&
+        (!allowedNodeIds || allowedNodeIds.has(n.id))
     );
 
     if (childNodes.length === 0) {
@@ -178,7 +179,6 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
 
     const baseX = Number.isFinite(minX) ? minX : 0;
     const baseY = Number.isFinite(minY) ? minY : 0;
-
 
     // 计算相对位置（相对于容器左上角，考虑容器的 padding 和 header）
     childNodes.forEach((node) => {
@@ -272,7 +272,8 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
         nodes.value,
         partialLayout
           ? edges.value.filter(
-              (e: Edge) => allowedNodeIds.has(e.source) && allowedNodeIds.has(e.target)
+              (e: Edge) =>
+                allowedNodeIds.has(e.source) && allowedNodeIds.has(e.target)
             )
           : edges.value,
         {
@@ -383,7 +384,8 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
     const topLevelNodeIds = new Set(topLevelNodes.map((n) => n.id));
     const edgeSource = partialLayout
       ? edges.value.filter(
-          (e: Edge) => allowedNodeIds.has(e.source) && allowedNodeIds.has(e.target)
+          (e: Edge) =>
+            allowedNodeIds.has(e.source) && allowedNodeIds.has(e.target)
         )
       : edges.value;
     edgeSource.forEach((edge: Edge) => {
@@ -446,9 +448,14 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
         currentPositions.set(n.id, n.position?.x ?? 0);
       });
       const anchorCandidate = positionedNodes
-        .map((pn) => ({ id: pn.node.id, x: currentPositions.get(pn.node.id) ?? 0 }))
+        .map((pn) => ({
+          id: pn.node.id,
+          x: currentPositions.get(pn.node.id) ?? 0,
+        }))
         .reduce((min, cur) => (cur.x < min.x ? cur : min));
-      const anchorPos = positionedNodes.find((pn) => pn.node.id === anchorCandidate.id)!;
+      const anchorPos = positionedNodes.find(
+        (pn) => pn.node.id === anchorCandidate.id
+      )!;
       const anchorNewX = anchorPos.x - anchorPos.width / 2 - baseX + padding;
       offsetX = (anchorCandidate.x ?? 0) - anchorNewX;
     }
@@ -472,7 +479,8 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
         // 处理顶层节点的位置
         const positioned = positionedNodes.find((pn) => pn.node.id === node.id);
         if (positioned && (!partialLayout || allowedNodeIds.has(node.id))) {
-          const newX = positioned.x - positioned.width / 2 - baseX + padding + offsetX;
+          const newX =
+            positioned.x - positioned.width / 2 - baseX + padding + offsetX;
           const newY = positioned.y - positioned.height / 2 - baseY + padding;
 
           return {
@@ -485,7 +493,10 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
         }
 
         // 处理 for 节点的容器：居中放在 for 节点正下方
-        if (containerForNodeMap.has(node.id) && (!partialLayout || allowedNodeIds.has(node.id))) {
+        if (
+          containerForNodeMap.has(node.id) &&
+          (!partialLayout || allowedNodeIds.has(node.id))
+        ) {
           const forNodeId = containerForNodeMap.get(node.id)!;
           // 从 positionedNodes 中查找 for 节点的新位置（布局后的位置）
           const forNodePositioned = positionedNodes.find(
