@@ -121,11 +121,50 @@ const vueFlowCanvasRef = ref<InstanceType<typeof VueFlowCanvas> | null>(null);
 
 uiStore.activeTab = "node-library";
 
-// 初始化节点列表
+/**
+ * 检查并设置默认工作流
+ */
+function ensureCurrentWorkflow() {
+  // 等待 store 数据加载完成（异步初始化）
+  setTimeout(() => {
+    const { currentWorkflow, workflows, setCurrentWorkflow } = workflowStore;
+
+    // currentWorkflow 是 computed，如果为 null 说明：
+    // 1. 没有设置当前工作流 ID，或
+    // 2. 当前工作流 ID 对应的工作流不存在
+    if (!currentWorkflow) {
+      // 不存在当前工作流，默认显示第一个工作流
+      const firstWorkflow = workflows[0];
+      if (firstWorkflow) {
+        console.log("[CanvasView] 没有当前工作流，默认显示第一个工作流");
+        setCurrentWorkflow(firstWorkflow.workflow_id);
+      } else {
+        console.log("[CanvasView] 没有可用的工作流");
+      }
+    } else {
+      // 当前工作流存在，无需操作
+      console.log("[CanvasView] 当前工作流已存在:", currentWorkflow.name);
+    }
+
+    fitView({ padding: 0.2, duration: 0 });
+  }, 10); // 等待 store 异步初始化完成
+}
+
+watch(
+  () => workflowStore.currentWorkflowId,
+  () => {
+    ensureCurrentWorkflow();
+  }
+);
+
+// 初始化节点列表和检查工作流
 onMounted(() => {
   setTimeout(() => {
     canvasStore.loadNodeList();
   }, 400);
+
+  // 检查并设置默认工作流
+  ensureCurrentWorkflow();
 });
 
 /**
