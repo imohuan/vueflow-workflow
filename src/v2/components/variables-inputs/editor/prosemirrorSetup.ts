@@ -122,59 +122,97 @@ export function createVariableHighlightPlugin(): Plugin {
 export function createVariableDeletionPlugin(): Plugin {
   const VARIABLE_PATTERN = /\{\{\s*[^{}]+?\s*\}\}/g;
 
+  function findVariableRanges(
+    doc: ProseMirrorNode
+  ): Array<{ from: number; to: number }> {
+    const ranges: Array<{ from: number; to: number }> = [];
+
+    doc.nodesBetween(
+      0,
+      doc.content.size,
+      (node: ProseMirrorNode, pos: number) => {
+        if (!node.isText) {
+          return;
+        }
+
+        const text = node.text || "";
+        let match: RegExpExecArray | null;
+
+        VARIABLE_PATTERN.lastIndex = 0;
+        while ((match = VARIABLE_PATTERN.exec(text)) !== null) {
+          const from = pos + match.index;
+          const to = from + match[0].length;
+          ranges.push({ from, to });
+        }
+      }
+    );
+
+    return ranges;
+  }
+
   return new Plugin({
     key: new PluginKey("variableDeletion"),
     props: {
       handleKeyDown(view, event) {
-        if (event.key === "Backspace" || event.key === "Delete") {
-          const { state, dispatch } = view;
-          const { $from, $to } = state.selection;
+        if (event.key !== "Backspace" && event.key !== "Delete") {
+          return false;
+        }
 
-          // 如果有选区，使用默认删除
-          if ($from.pos !== $to.pos) {
-            return false;
+        const { state, dispatch } = view;
+        const { from, to, empty } = state.selection;
+        const doc = state.doc;
+        const ranges = findVariableRanges(doc);
+
+        // 如果有选区，使用默认删除
+        if (!empty) {
+          let deleteFrom = from;
+          let deleteTo = to;
+
+          for (const range of ranges) {
+            if (range.from < deleteTo && range.to > deleteFrom) {
+              if (range.from < deleteFrom) {
+                deleteFrom = range.from;
+              }
+              if (range.to > deleteTo) {
+                deleteTo = range.to;
+              }
+            }
           }
 
-          const text = state.doc.textContent;
-          const pos = $from.pos - 1; // 光标前的位置
+          if (deleteFrom !== from || deleteTo !== to) {
+            event.preventDefault();
+            dispatch(state.tr.delete(deleteFrom, deleteTo).scrollIntoView());
+            return true;
+          }
 
-          if (event.key === "Backspace") {
-            // 向后删除：检查光标前是否有变量
-            const before = text.slice(0, pos + 1);
-            let match: RegExpExecArray | null;
-            let lastMatch: RegExpExecArray | null = null;
+          return false;
+        }
 
-            VARIABLE_PATTERN.lastIndex = 0;
-            while ((match = VARIABLE_PATTERN.exec(before)) !== null) {
-              lastMatch = match;
-            }
+        const pos = from;
 
-            if (
-              lastMatch &&
-              lastMatch.index + lastMatch[0].length === before.length
-            ) {
-              // 光标在变量末尾，删除整个变量
-              const start = lastMatch.index + 1; // 转换为 ProseMirror 位置
-              const end = start + lastMatch[0].length;
-              dispatch(state.tr.delete(start, end));
-              return true;
-            }
-          } else if (event.key === "Delete") {
-            // 向前删除：检查光标后是否有变量
-            const after = text.slice(pos + 1);
-            const match = after.match(VARIABLE_PATTERN);
+        let targetRange: { from: number; to: number } | null = null;
 
-            if (match && match.index === 0) {
-              // 光标在变量开头，删除整个变量
-              const start = pos + 1;
-              const end = start + match[0].length;
-              dispatch(state.tr.delete(start, end));
-              return true;
-            }
+        for (const range of ranges) {
+          const isWithinBackward =
+            event.key === "Backspace" && pos > range.from && pos <= range.to;
+          const isWithinForward =
+            event.key === "Delete" && pos >= range.from && pos < range.to;
+
+          if (isWithinBackward || isWithinForward) {
+            targetRange = range;
+            break;
           }
         }
 
-        return false;
+        if (!targetRange) {
+          return false;
+        }
+
+        event.preventDefault();
+        dispatch(
+          state.tr.delete(targetRange.from, targetRange.to).scrollIntoView()
+        );
+        return true;
       },
     },
   });
