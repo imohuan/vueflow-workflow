@@ -1,319 +1,301 @@
 <template>
   <div class="mb-6 space-y-4">
-    <!-- Tab 切换 -->
-    <n-tabs
-      v-model:value="activeTab"
-      type="line"
-      size="small"
-      class="border-b border-slate-200"
-    >
-      <!-- 基础配置 Tab -->
-      <n-tab-pane name="config" tab="基础配置">
-        <div class="mt-4 space-y-4">
-          <!-- Base URL -->
-          <div class="space-y-2">
-            <label class="text-sm font-medium text-slate-700">Base URL</label>
-            <VariableTextInput
-              v-model="config.baseUrl"
-              placeholder="https://api.openai.com/v1"
-              :show-border="isDraggingVariable"
-              preview-mode="bottom"
-              @update:model-value="
-                (val) => {
-                  config.baseUrl = val;
-                  handleConfigUpdate();
-                }
-              "
-            />
-          </div>
+    <div class="absolute right-0 top-0 pr-4 h-[34px] flex items-center">
+      <ToggleButtonGroup v-model="activeTab" :options="tabOptions" size="sm" />
+    </div>
 
-          <!-- API Key -->
-          <div class="space-y-2">
-            <label class="text-sm font-medium text-slate-700">API Key</label>
-            <VariableTextInput
-              v-model="config.apiKey"
-              placeholder="输入 API Key"
-              :show-border="isDraggingVariable"
-              :multiline="true"
-              preview-mode="bottom"
-              @update:model-value="
-                (val) => {
-                  config.apiKey = val;
-                  handleConfigUpdate();
-                }
-              "
-            />
-          </div>
+    <!-- Tab 内容 -->
+    <!-- 基础配置 Tab -->
+    <div v-if="activeTab === 'config'" class="space-y-4">
+      <!-- Base URL -->
+      <div class="space-y-2">
+        <label class="text-sm font-medium text-slate-700">Base URL</label>
+        <VariableTextInput
+          v-model="config.baseUrl"
+          placeholder="https://api.openai.com/v1"
+          :show-border="isDraggingVariable"
+          preview-mode="bottom"
+          @update:model-value="
+            (val) => {
+              config.baseUrl = val;
+              handleConfigUpdate();
+            }
+          "
+        />
+      </div>
 
-          <!-- 模型选择 -->
-          <div class="space-y-2">
-            <label class="text-sm font-medium text-slate-700">模型</label>
-            <InputItem
-              v-model="config.model"
-              placeholder="输入或选择模型名称，如 gpt-3.5-turbo"
-              :is-dragging-variable="isDraggingVariable"
-              @update:model-value="handleModelChange"
-            >
-              <n-select
-                v-model:value="config.model"
-                :options="modelOptionsWithType"
-                placeholder="输入或选择模型名称，如 gpt-3.5-turbo"
-                filterable
-                clearable
-                :loading="loadingModels"
-                :disabled="!config.baseUrl || !config.apiKey"
-                :render-label="renderModelLabel"
-                :render-option="renderModelOption"
-                class="model-select"
-                @update:value="handleModelChange"
-                @focus="handleModelSelectFocus"
-              >
-                <template #empty>
-                  <div class="px-3 py-2 text-sm text-slate-400 text-center">
-                    {{ modelError || "暂无模型" }}
-                  </div>
-                </template>
-              </n-select>
-            </InputItem>
-            <p class="text-xs text-slate-400">
-              输入模型名称搜索，或从下拉列表选择（需要先配置 Base URL 和 API
-              Key）
-            </p>
-          </div>
+      <!-- API Key -->
+      <div class="space-y-2">
+        <label class="text-sm font-medium text-slate-700">API Key</label>
+        <VariableTextInput
+          v-model="config.apiKey"
+          placeholder="输入 API Key"
+          :show-border="isDraggingVariable"
+          :multiline="true"
+          preview-mode="bottom"
+          @update:model-value="
+            (val) => {
+              config.apiKey = val;
+              handleConfigUpdate();
+            }
+          "
+        />
+      </div>
 
-          <!-- 大模型配置项 -->
-          <div class="space-y-4 border-t border-slate-200 pt-4">
-            <h4 class="text-sm font-semibold text-slate-700">模型配置</h4>
-
-            <!-- Temperature -->
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <label class="text-sm font-medium text-slate-700"
-                  >Temperature</label
-                >
-                <span class="text-xs text-slate-400">{{
-                  config.temperature
-                }}</span>
+      <!-- 模型选择 -->
+      <div class="space-y-2">
+        <label class="text-sm font-medium text-slate-700">模型</label>
+        <InputItem
+          v-model="config.model"
+          placeholder="输入或选择模型名称，如 gpt-3.5-turbo"
+          :is-dragging-variable="isDraggingVariable"
+          @update:model-value="handleModelChange"
+        >
+          <n-select
+            v-model:value="config.model"
+            :options="modelOptionsWithType"
+            placeholder="输入或选择模型名称，如 gpt-3.5-turbo"
+            filterable
+            clearable
+            :loading="loadingModels"
+            :disabled="!config.baseUrl || !config.apiKey"
+            :render-label="renderModelLabel"
+            :render-option="renderModelOption"
+            class="model-select"
+            @update:value="handleModelChange"
+            @focus="handleModelSelectFocus"
+          >
+            <template #empty>
+              <div class="px-3 py-2 text-sm text-slate-400 text-center">
+                {{ modelError || "暂无模型" }}
               </div>
-              <n-slider
-                v-model:value="config.temperature"
-                :min="0"
-                :max="2"
-                :step="0.1"
-                @update:value="handleConfigUpdate"
-              />
-              <p class="text-xs text-slate-400">控制输出的随机性（0-2）</p>
-            </div>
+            </template>
+          </n-select>
+        </InputItem>
+        <p class="text-xs text-slate-400">
+          输入模型名称搜索，或从下拉列表选择（需要先配置 Base URL 和 API Key）
+        </p>
+      </div>
 
-            <!-- Max Tokens -->
-            <div class="space-y-2">
-              <label class="text-sm font-medium text-slate-700"
-                >Max Tokens</label
-              >
-              <InputItem
-                v-model="config.maxTokens"
-                :is-dragging-variable="isDraggingVariable"
-                @update:model-value="
+      <!-- 大模型配置项 -->
+      <div class="space-y-4 border-t border-slate-200 pt-4">
+        <h4 class="text-sm font-semibold text-slate-700">模型配置</h4>
+
+        <!-- Temperature -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-medium text-slate-700"
+              >Temperature</label
+            >
+            <span class="text-xs text-slate-400">{{ config.temperature }}</span>
+          </div>
+          <n-slider
+            v-model:value="config.temperature"
+            :min="0"
+            :max="2"
+            :step="0.1"
+            @update:value="handleConfigUpdate"
+          />
+          <p class="text-xs text-slate-400">控制输出的随机性（0-2）</p>
+        </div>
+
+        <!-- Max Tokens -->
+        <div class="space-y-2">
+          <label class="text-sm font-medium text-slate-700">Max Tokens</label>
+          <InputItem
+            v-model="config.maxTokens"
+            :is-dragging-variable="isDraggingVariable"
+            @update:model-value="
                   (val) => {
                     config.maxTokens = val as any;
                     handleConfigUpdate();
                   }
                 "
-              >
-                <n-input-number
-                  :value="parseInt(config.maxTokens as any)"
-                  :min="1"
-                  :max="32000"
-                  class="w-full"
-                  @update:value="
-                    (val) => {
-                      config.maxTokens = val ?? 2048;
-                      handleConfigUpdate();
-                    }
-                  "
-                />
-              </InputItem>
-              <p class="text-xs text-slate-400">最大生成的 token 数</p>
-            </div>
-
-            <!-- Top P -->
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <label class="text-sm font-medium text-slate-700">Top P</label>
-                <span class="text-xs text-slate-400">{{ config.topP }}</span>
-              </div>
-              <n-slider
-                v-model:value="config.topP"
-                :min="0"
-                :max="1"
-                :step="0.01"
-                @update:value="handleConfigUpdate"
-              />
-              <p class="text-xs text-slate-400">核采样参数（0-1）</p>
-            </div>
-
-            <!-- Frequency Penalty -->
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <label class="text-sm font-medium text-slate-700"
-                  >Frequency Penalty</label
-                >
-                <span class="text-xs text-slate-400">{{
-                  config.frequencyPenalty
-                }}</span>
-              </div>
-              <n-slider
-                v-model:value="config.frequencyPenalty"
-                :min="-2"
-                :max="2"
-                :step="0.1"
-                @update:value="handleConfigUpdate"
-              />
-              <p class="text-xs text-slate-400">频率惩罚（-2 到 2）</p>
-            </div>
-
-            <!-- Presence Penalty -->
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <label class="text-sm font-medium text-slate-700"
-                  >Presence Penalty</label
-                >
-                <span class="text-xs text-slate-400">{{
-                  config.presencePenalty
-                }}</span>
-              </div>
-              <n-slider
-                v-model:value="config.presencePenalty"
-                :min="-2"
-                :max="2"
-                :step="0.1"
-                @update:value="handleConfigUpdate"
-              />
-              <p class="text-xs text-slate-400">存在惩罚（-2 到 2）</p>
-            </div>
-          </div>
-
-          <!-- 测试按钮 -->
-          <div class="border-t border-slate-200 pt-4">
-            <n-button
-              type="primary"
-              block
-              :loading="testing"
-              :disabled="!config.baseUrl || !config.apiKey || !config.model"
-              @click="testModel"
-            >
-              <template #icon>
-                <IconPlay class="h-4 w-4" />
-              </template>
-              {{ testing ? "测试中..." : "测试模型" }}
-            </n-button>
-            <p
-              v-if="testResult"
-              class="mt-2 text-xs"
-              :class="testResult.success ? 'text-green-600' : 'text-red-600'"
-            >
-              {{ testResult.message }}
-            </p>
-          </div>
-        </div>
-      </n-tab-pane>
-
-      <!-- 提示词 Tab -->
-      <n-tab-pane name="prompts" tab="提示词">
-        <div class="mt-4 space-y-3">
-          <div class="flex items-center justify-between">
-            <h4 class="text-sm font-semibold text-slate-700">消息列表</h4>
-            <n-button size="small" type="primary" ghost @click="addMessage">
-              <template #icon>
-                <IconPlus class="h-3.5 w-3.5" />
-              </template>
-              添加
-            </n-button>
-          </div>
-          <div
-            v-if="messages.length === 0"
-            class="text-sm text-slate-400 text-center py-4"
           >
-            暂无消息，点击"添加"创建
+            <n-input-number
+              :value="parseInt(config.maxTokens as any)"
+              :min="1"
+              :max="32000"
+              class="w-full"
+              @update:value="
+                (val) => {
+                  config.maxTokens = val ?? 2048;
+                  handleConfigUpdate();
+                }
+              "
+            />
+          </InputItem>
+          <p class="text-xs text-slate-400">最大生成的 token 数</p>
+        </div>
+
+        <!-- Top P -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-medium text-slate-700">Top P</label>
+            <span class="text-xs text-slate-400">{{ config.topP }}</span>
           </div>
-          <div v-else class="space-y-2">
-            <div
-              v-for="(msg, index) in messages"
-              :key="index"
-              class="rounded-md border border-slate-200 bg-white p-3 space-y-2"
+          <n-slider
+            v-model:value="config.topP"
+            :min="0"
+            :max="1"
+            :step="0.01"
+            @update:value="handleConfigUpdate"
+          />
+          <p class="text-xs text-slate-400">核采样参数（0-1）</p>
+        </div>
+
+        <!-- Frequency Penalty -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-medium text-slate-700"
+              >Frequency Penalty</label
             >
-              <div class="flex items-center gap-2">
-                <!-- Role 下拉框 -->
-                <n-select
-                  v-model:value="msg.role"
-                  :options="[
-                    { label: '系统', value: 'system' },
-                    { label: '用户', value: 'user' },
-                    { label: '助手', value: 'assistant' },
-                  ]"
-                  size="small"
-                  class="w-20"
-                  @update:value="handleMessagesUpdate"
-                />
-                <!-- Type 下拉框 -->
-                <n-select
-                  v-model:value="msg.type"
-                  :options="[
-                    { label: '文本', value: 'text' },
-                    { label: '图片', value: 'image' },
-                  ]"
-                  size="small"
-                  class="w-24"
-                  @update:value="handleMessagesUpdate"
-                />
-                <!-- 删除按钮 -->
-                <n-button
-                  text
-                  size="small"
-                  type="error"
-                  class="ml-auto"
-                  @click="removeMessage(index)"
-                >
-                  <template #icon>
-                    <IconDelete class="h-4 w-4" />
-                  </template>
-                </n-button>
-              </div>
-              <VariableTextInput
-                v-model="msg.message"
-                :placeholder="
-                  msg.type === 'text' ? '输入提示词内容' : '输入图片 URL'
-                "
-                :preview-mode="'none'"
-                :show-tip="false"
-                :show-border="isDraggingVariable"
-                multiline
-                @update:model-value="handleMessagesUpdate"
+            <span class="text-xs text-slate-400">{{
+              config.frequencyPenalty
+            }}</span>
+          </div>
+          <n-slider
+            v-model:value="config.frequencyPenalty"
+            :min="-2"
+            :max="2"
+            :step="0.1"
+            @update:value="handleConfigUpdate"
+          />
+          <p class="text-xs text-slate-400">频率惩罚（-2 到 2）</p>
+        </div>
+
+        <!-- Presence Penalty -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-medium text-slate-700"
+              >Presence Penalty</label
+            >
+            <span class="text-xs text-slate-400">{{
+              config.presencePenalty
+            }}</span>
+          </div>
+          <n-slider
+            v-model:value="config.presencePenalty"
+            :min="-2"
+            :max="2"
+            :step="0.1"
+            @update:value="handleConfigUpdate"
+          />
+          <p class="text-xs text-slate-400">存在惩罚（-2 到 2）</p>
+        </div>
+      </div>
+
+      <!-- 测试按钮 -->
+      <div class="border-t border-slate-200 pt-4">
+        <n-button
+          type="primary"
+          block
+          :loading="testing"
+          :disabled="!config.baseUrl || !config.apiKey || !config.model"
+          @click="testModel"
+        >
+          <template #icon>
+            <IconPlay class="h-4 w-4" />
+          </template>
+          {{ testing ? "测试中..." : "测试模型" }}
+        </n-button>
+        <p
+          v-if="testResult"
+          class="mt-2 text-xs"
+          :class="testResult.success ? 'text-green-600' : 'text-red-600'"
+        >
+          {{ testResult.message }}
+        </p>
+      </div>
+    </div>
+
+    <!-- 提示词 Tab -->
+    <div v-else-if="activeTab === 'prompts'" class="space-y-3">
+      <div class="flex items-center justify-between">
+        <h4 class="text-sm font-semibold text-slate-700">消息列表</h4>
+        <n-button size="small" type="primary" ghost @click="addMessage">
+          <template #icon>
+            <IconPlus class="h-3.5 w-3.5" />
+          </template>
+          添加
+        </n-button>
+      </div>
+      <div
+        v-if="messages.length === 0"
+        class="text-sm text-slate-400 text-center py-4"
+      >
+        暂无消息，点击"添加"创建
+      </div>
+      <div v-else class="space-y-2">
+        <div
+          v-for="(msg, index) in messages"
+          :key="index"
+          class="rounded-md border border-slate-200 bg-white p-3 space-y-2"
+        >
+          <div class="flex items-center gap-2">
+            <span class="font-mono font-bold text-gray-300">[{{ index }}]</span>
+            <!-- Role 下拉框 -->
+            <n-select
+              v-model:value="msg.role"
+              :options="[
+                { label: '系统', value: 'system' },
+                { label: '用户', value: 'user' },
+                { label: '助手', value: 'assistant' },
+              ]"
+              size="small"
+              class="w-20"
+              @update:value="handleMessagesUpdate"
+            />
+            <!-- Type 下拉框 -->
+            <div class="w-32">
+              <n-select
+                v-model:value="msg.type"
+                :options="[
+                  { label: '文本', value: 'text' },
+                  { label: '图片', value: 'image' },
+                ]"
+                size="small"
+                @update:value="handleMessagesUpdate"
               />
             </div>
+            <!-- 删除按钮 -->
+            <n-button
+              text
+              size="small"
+              class="ml-auto"
+              @click="removeMessage(index)"
+            >
+              <template #icon>
+                <IconDelete class="h-4 w-4" />
+              </template>
+            </n-button>
           </div>
+          <VariableTextInput
+            v-model="msg.message"
+            :placeholder="
+              msg.type === 'text' ? '输入提示词内容' : '输入图片 URL'
+            "
+            :preview-mode="'dropdown'"
+            :show-tip="false"
+            :show-border="isDraggingVariable"
+            multiline
+            @update:model-value="handleMessagesUpdate"
+          />
         </div>
-      </n-tab-pane>
-    </n-tabs>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, computed, h } from "vue";
-import {
-  NButton,
-  NInputNumber,
-  NSlider,
-  NSelect,
-  NTabs,
-  NTabPane,
-  useMessage,
-} from "naive-ui";
+import { NButton, NInputNumber, NSlider, NSelect, useMessage } from "naive-ui";
 import type { SelectOption } from "naive-ui";
 import type { Node } from "@vue-flow/core";
 import type { NodeConfigData } from "../types";
 import VariableTextInput from "@/v2/components/variables-inputs/VariableTextInput.vue";
 import InputItem from "../components/InputItem.vue";
+import ToggleButtonGroup from "@/v2/components/ui/ToggleButtonGroup.vue";
 import IconPlus from "@/icons/IconPlus.vue";
 import IconDelete from "@/icons/IconDelete.vue";
 import IconPlay from "@/icons/IconPlay.vue";
@@ -358,6 +340,13 @@ const message = useMessage();
 const { isDraggingVariable } = useVariableDrag();
 
 const activeTab = ref<"config" | "prompts">("config");
+
+// Tab 选项配置
+const tabOptions = [
+  { value: "config", label: "基础配置" },
+  { value: "prompts", label: "提示词" },
+];
+
 const loadingModels = ref(false);
 const models = ref<Model[]>([]);
 const modelError = ref<string>("");

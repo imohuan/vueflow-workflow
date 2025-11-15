@@ -5,7 +5,7 @@
       v-model:value="activeTab"
       type="line"
       size="small"
-      class="border-b border-slate-200 node-config-tabs"
+      class="border-b border-slate-200 node-config-tabs relative h-full"
     >
       <n-tab-pane name="node" tab="节点配置">
         <NodeConfigTab
@@ -102,7 +102,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
-.node-config-tabs .n-tabs-nav {
+.node-config-tabs > .n-tabs-nav {
   padding: 0 1rem;
 }
 
