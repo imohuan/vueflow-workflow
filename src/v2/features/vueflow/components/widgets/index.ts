@@ -4,3 +4,4 @@
  */
 export { default as ResizeHandle } from "./ResizeHandle.vue";
 export type { ResizeOptions } from "./ResizeHandle.vue";
+export { default as NodeExecutionBadge } from "./NodeExecutionBadge.vue";

@@ -184,7 +184,7 @@
 import { ref, computed, watch, type Ref } from "vue";
 import { type NodeProps, Position } from "@vue-flow/core";
 import { useCanvasStore } from "@/v2/stores/canvas";
-import NodeExecutionBadge from "./NodeExecutionBadge.vue";
+import { NodeExecutionBadge } from "../widgets";
 import PortHandle from "../ports/PortHandle.vue";
 import ResizeHandle from "../widgets/ResizeHandle.vue";
 

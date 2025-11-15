@@ -34,32 +34,28 @@
     </div>
 
     <!-- 右下角调整大小手柄 -->
-    <div
-      class="note-node__resize-handle nodrag nopan"
-      @mousedown.stop="handleResizeStart"
-    >
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 12 12"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M11 1L1 11M11 5L5 11M11 9L9 11"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-        />
-      </svg>
-    </div>
+    <ResizeHandle
+      ref="resizeHandleRef"
+      :node-data="props.data"
+      :resize-options="{
+        initialWidth: 200,
+        initialHeight: 120,
+        minWidth: 150,
+        minHeight: 80,
+      }"
+      :selected="selected"
+      @update:node-style="handleNodeStyleUpdate"
+      @update:is-resizing="handleIsResizingUpdate"
+      class="note-node__resize-handle"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, computed, onUnmounted, type Ref } from "vue";
-import { useVueFlow, type NodeProps } from "@vue-flow/core";
-import NodeExecutionBadge from "./NodeExecutionBadge.vue";
+import { ref, watch, nextTick, computed, type Ref } from "vue";
+import { type NodeProps } from "@vue-flow/core";
+import { NodeExecutionBadge } from "../widgets";
+import ResizeHandle from "../widgets/ResizeHandle.vue";
 
 interface NoteNodeData {
   content?: string;
@@ -71,28 +67,41 @@ type Props = NodeProps<NoteNodeData>;
 
 const props = defineProps<Props>();
 
-// 获取 VueFlow 实例以访问 zoom 等信息
-const { viewport } = useVueFlow();
-
 // 编辑状态
 const isEditing = ref(false);
-// 调整大小状态
-const isResizing = ref(false);
 // 本地内容
 const localContent = ref(props.data.content || "");
-// 本地尺寸
-const localWidth = ref(props.data.width || 200);
-const localHeight = ref(props.data.height || 120);
 // 元素引用
 const textareaRef: Ref<HTMLTextAreaElement | null> = ref(null);
 const nodeRef: Ref<HTMLElement | null> = ref(null);
+const resizeHandleRef = ref<InstanceType<typeof ResizeHandle> | null>(null);
 
-// 节点样式（响应式）
+// 节点样式状态（由 ResizeHandle 内部管理，通过事件同步）
+const nodeStyleState = ref<{ width: string; height: string }>({
+  width: `${props.data.width || 200}px`,
+  height: `${props.data.height || 120}px`,
+});
+
+const isResizingState = ref(false);
+
+// 计算样式（合并状态）
 const nodeStyle = computed(() => ({
-  width: `${localWidth.value}px`,
-  height: `${localHeight.value}px`,
+  ...nodeStyleState.value,
   cursor: isEditing.value ? "text" : "default",
 }));
+
+// 计算 isResizing
+const isResizing = computed(() => isResizingState.value);
+
+// 处理 nodeStyle 更新（通过事件同步）
+function handleNodeStyleUpdate(style: { width: string; height: string }) {
+  nodeStyleState.value = style;
+}
+
+// 处理 isResizing 更新
+function handleIsResizingUpdate(value: boolean) {
+  isResizingState.value = value;
+}
 
 // 同步 data.content 的变化
 watch(
@@ -104,18 +113,7 @@ watch(
   }
 );
 
-// 同步 data 中的尺寸变化
-watch(
-  () => [props.data.width, props.data.height],
-  ([newWidth, newHeight]) => {
-    if (newWidth !== undefined && newWidth !== localWidth.value) {
-      localWidth.value = newWidth;
-    }
-    if (newHeight !== undefined && newHeight !== localHeight.value) {
-      localHeight.value = newHeight;
-    }
-  }
-);
+// ResizeHandle 内部已经处理了尺寸同步，不需要额外的 watch
 
 // 处理双击：进入编辑模式
 async function handleDoubleClick() {
@@ -146,73 +144,7 @@ function handleEscape() {
   isEditing.value = false;
 }
 
-// 调整大小相关变量
-let resizeStartX = 0;
-let resizeStartY = 0;
-let resizeStartWidth = 0;
-let resizeStartHeight = 0;
-
-// 开始调整大小
-function handleResizeStart(event: MouseEvent) {
-  event.preventDefault();
-  event.stopPropagation();
-
-  isResizing.value = true;
-  resizeStartX = event.clientX;
-  resizeStartY = event.clientY;
-  resizeStartWidth = localWidth.value;
-  resizeStartHeight = localHeight.value;
-
-  // 添加全局鼠标移动和释放监听
-  document.addEventListener("mousemove", handleResizeMove);
-  document.addEventListener("mouseup", handleResizeEnd);
-}
-
-// 调整大小过程中
-function handleResizeMove(event: MouseEvent) {
-  if (!isResizing.value) return;
-
-  // 计算鼠标移动的屏幕像素距离
-  const deltaX = event.clientX - resizeStartX;
-  const deltaY = event.clientY - resizeStartY;
-
-  // 获取当前缩放级别
-  const zoom = viewport.value.zoom || 1;
-
-  // 将屏幕像素距离转换为画布坐标距离（考虑缩放）
-  const canvasDeltaX = deltaX / zoom;
-  const canvasDeltaY = deltaY / zoom;
-
-  // 计算新的尺寸（最小 150x80）
-  const newWidth = Math.max(150, resizeStartWidth + canvasDeltaX);
-  const newHeight = Math.max(80, resizeStartHeight + canvasDeltaY);
-
-  localWidth.value = newWidth;
-  localHeight.value = newHeight;
-}
-
-// 结束调整大小
-function handleResizeEnd() {
-  if (isResizing.value) {
-    isResizing.value = false;
-
-    // 保存尺寸到 data
-    if (props.data) {
-      props.data.width = localWidth.value;
-      props.data.height = localHeight.value;
-    }
-
-    // 移除全局监听
-    document.removeEventListener("mousemove", handleResizeMove);
-    document.removeEventListener("mouseup", handleResizeEnd);
-  }
-}
-
-// 组件卸载时清理
-onUnmounted(() => {
-  document.removeEventListener("mousemove", handleResizeMove);
-  document.removeEventListener("mouseup", handleResizeEnd);
-});
+// ResizeHandle 内部已经处理了所有 resize 逻辑，不需要额外的函数和清理
 </script>
 
 <style scoped>
@@ -295,45 +227,24 @@ onUnmounted(() => {
 
 /* 调整大小手柄 */
 .note-node__resize-handle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: nwse-resize;
+  /* ResizeHandle 组件已经有自己的样式，这里只需要覆盖特定样式 */
+}
+
+.note-node__resize-handle :deep(svg) {
   color: #a8a29e;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  background: linear-gradient(
-    135deg,
-    transparent 0%,
-    transparent 50%,
-    rgba(168, 162, 158, 0.1) 50%,
-    rgba(168, 162, 158, 0.1) 100%
-  );
 }
 
-.note-node:hover .note-node__resize-handle,
-.note-node--selected .note-node__resize-handle,
-.note-node--resizing .note-node__resize-handle {
-  opacity: 1;
-}
-
-.note-node__resize-handle:hover {
+.note-node:hover .note-node__resize-handle :deep(svg),
+.note-node--selected .note-node__resize-handle :deep(svg),
+.note-node--resizing .note-node__resize-handle :deep(svg) {
   color: #78716c;
-  background: linear-gradient(
-    135deg,
-    transparent 0%,
-    transparent 50%,
-    rgba(168, 162, 158, 0.2) 50%,
-    rgba(168, 162, 158, 0.2) 100%
-  );
 }
 
-.note-node--resizing .note-node__resize-handle {
+.note-node__resize-handle:hover :deep(svg) {
+  color: #f59e0b;
+}
+
+.note-node--resizing .note-node__resize-handle :deep(svg) {
   color: #f59e0b;
 }
 </style>

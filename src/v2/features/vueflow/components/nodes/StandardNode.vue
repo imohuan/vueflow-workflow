@@ -199,7 +199,7 @@ import { NDropdown, NIcon, NInput } from "naive-ui";
 import type { DropdownOption } from "naive-ui";
 import { PortHandle } from "../ports";
 import { NODE_SIZE, NODE_COLORS, NODE_SPACING } from "../../../../config";
-import NodeExecutionBadge from "./NodeExecutionBadge.vue";
+import { NodeExecutionBadge } from "../widgets";
 import type { NodeStyleConfig } from "workflow-flow-nodes";
 import { createNodeInstance } from "workflow-flow-nodes";
 import IconPlay from "@/icons/IconPlay.vue";

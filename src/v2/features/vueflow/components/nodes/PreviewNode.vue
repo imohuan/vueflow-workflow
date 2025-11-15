@@ -77,38 +77,29 @@
     </div>
 
     <!-- 右下角调整大小手柄 -->
-    <div
+    <ResizeHandle
       ref="resizeHandleRef"
-      class="absolute right-0 bottom-0 w-5 h-5 flex items-center justify-center cursor-nwse-resize text-gray-300 opacity-0 transition-opacity duration-200 nodrag nopan"
-      :class="{ 'opacity-100': selected || isResizing }"
-      @mousedown="handleResizeMouseDown"
-    >
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 12 12"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        class="hover:text-indigo-500"
-      >
-        <path
-          d="M11 1L1 11M11 5L5 11M11 9L9 11"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-        />
-      </svg>
-    </div>
+      :node-data="props.data"
+      :resize-options="{
+        initialWidth: 300,
+        initialHeight: 200,
+        minWidth: 200,
+        minHeight: 150,
+      }"
+      :selected="selected"
+      @update:node-style="handleNodeStyleUpdate"
+      @update:is-resizing="handleIsResizingUpdate"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, type Ref, onMounted, watchEffect, watch } from "vue";
-import { useVueFlow, type NodeProps, Position } from "@vue-flow/core";
-import { useMouse } from "@vueuse/core";
+import { ref, computed, type Ref, onMounted, watch } from "vue";
+import { type NodeProps, Position } from "@vue-flow/core";
 import { useCanvasStore } from "@/v2/stores/canvas";
-import NodeExecutionBadge from "./NodeExecutionBadge.vue";
+import { NodeExecutionBadge } from "../widgets";
 import PortHandle from "../ports/PortHandle.vue";
+import ResizeHandle from "../widgets/ResizeHandle.vue";
 
 interface ImagePreviewNodeData {
   imageUrl?: string;
@@ -126,9 +117,6 @@ interface ImagePreviewNodeData {
 type Props = NodeProps<ImagePreviewNodeData>;
 
 const props = defineProps<Props>();
-
-// 获取 VueFlow 实例
-const { viewport } = useVueFlow();
 
 // 获取 stores
 const canvasStore = useCanvasStore();
@@ -233,56 +221,33 @@ const isVideo = computed(() => {
   return mediaType.value === "video";
 });
 
-// 本地尺寸
-const localWidth = ref(props.data.width || 300);
-const localHeight = ref(props.data.height || 200);
-
 // 元素引用
 const nodeRef: Ref<HTMLElement | null> = ref(null);
-const resizeHandleRef: Ref<HTMLElement | null> = ref(null);
+const resizeHandleRef = ref<InstanceType<typeof ResizeHandle> | null>(null);
 
-// VueUse 鼠标状态
-const { x: mouseX, y: mouseY } = useMouse();
+// 节点样式状态（由 ResizeHandle 内部管理，通过事件同步）
+const nodeStyleState = ref<{ width: string; height: string }>({
+  width: `${props.data.width || 300}px`,
+  height: `${props.data.height || 200}px`,
+});
 
-// 调整大小状态
-const isResizing = ref(false);
-let resizeStartX = 0;
-let resizeStartY = 0;
-let resizeStartWidth = 0;
-let resizeStartHeight = 0;
+const isResizingState = ref(false);
 
-// 处理调整手柄的鼠标按下
-function handleResizeMouseDown(event: MouseEvent) {
-  event.preventDefault();
-  event.stopPropagation();
+// 计算样式（合并状态）
+const nodeStyle = computed(() => nodeStyleState.value);
 
-  isResizing.value = true;
-  resizeStartX = event.clientX;
-  resizeStartY = event.clientY;
-  resizeStartWidth = localWidth.value;
-  resizeStartHeight = localHeight.value;
+// 计算 isResizing
+const isResizing = computed(() => isResizingState.value);
 
-  // 添加全局鼠标释放监听
-  document.addEventListener("mouseup", handleResizeMouseUp);
+// 处理 nodeStyle 更新（通过事件同步）
+function handleNodeStyleUpdate(style: { width: string; height: string }) {
+  nodeStyleState.value = style;
 }
 
-// 处理鼠标释放
-function handleResizeMouseUp() {
-  if (isResizing.value) {
-    isResizing.value = false;
-    if (props.data) {
-      props.data.width = localWidth.value;
-      props.data.height = localHeight.value;
-    }
-  }
-  document.removeEventListener("mouseup", handleResizeMouseUp);
+// 处理 isResizing 更新
+function handleIsResizingUpdate(value: boolean) {
+  isResizingState.value = value;
 }
-
-// 节点样式（响应式）
-const nodeStyle = computed(() => ({
-  width: `${localWidth.value}px`,
-  height: `${localHeight.value}px`,
-}));
 
 // 媒体 alt 文本
 const imageAlt = computed(() => {
@@ -387,18 +352,7 @@ watch(imageUrl, (newUrl) => {
   }
 });
 
-// 同步 data 中的尺寸变化
-watch(
-  () => [props.data.width, props.data.height],
-  ([newWidth, newHeight]) => {
-    if (newWidth !== undefined && newWidth !== localWidth.value) {
-      localWidth.value = newWidth;
-    }
-    if (newHeight !== undefined && newHeight !== localHeight.value) {
-      localHeight.value = newHeight;
-    }
-  }
-);
+// ResizeHandle 内部已经处理了尺寸同步，不需要额外的 watch
 
 // 初始化媒体类型检测
 onMounted(() => {
@@ -407,20 +361,7 @@ onMounted(() => {
   }
 });
 
-// 监听鼠标移动，更新尺寸（仅在调整大小时执行）
-watchEffect(() => {
-  if (!isResizing.value) return;
-
-  const deltaX = mouseX.value - resizeStartX;
-  const deltaY = mouseY.value - resizeStartY;
-
-  const zoom = viewport.value.zoom || 1;
-  const canvasDeltaX = deltaX / zoom;
-  const canvasDeltaY = deltaY / zoom;
-
-  localWidth.value = Math.max(200, resizeStartWidth + canvasDeltaX);
-  localHeight.value = Math.max(150, resizeStartHeight + canvasDeltaY);
-});
+// ResizeHandle 内部已经处理了鼠标移动和尺寸更新，不需要 watchEffect
 
 // 处理图片加载成功
 function handleImageLoad(event: Event) {
