@@ -2,7 +2,7 @@
   <div
     ref="nodeRef"
     :style="nodeStyle"
-    class="relative bg-slate-50 border-2 border-indigo-200 rounded-lg shadow-sm flex flex-col"
+    class="relative bg-slate-50 border-2 border-indigo-200 rounded-lg shadow-sm flex flex-col variable-scroll"
     :class="{
       'border-indigo-500 shadow-md': selected,
       'bg-indigo-50': isLoading,
@@ -69,7 +69,7 @@
     </div>
 
     <!-- 数据展示区域 -->
-    <div v-else class="w-full h-full p-4 overflow-auto">
+    <div v-else class="w-full h-full p-2">
       <!-- 空状态 -->
       <div
         v-if="previewData === undefined || previewData === null"
@@ -80,18 +80,18 @@
       </div>
 
       <!-- 有数据时展示 -->
-      <div v-else class="space-y-2">
+      <div v-else class="h-full flex flex-col gap-1 overflow-hidden">
         <!-- 数据类型标签 -->
-        <div class="flex items-center gap-2 mb-2">
+        <div class="flex items-center gap-2">
           <span class="text-xs font-semibold text-gray-500">类型:</span>
           <span
-            class="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded"
+            class="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded font-mono"
           >
             {{ dataType }}
           </span>
           <span
             v-if="dataSize"
-            class="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded"
+            class="text-xs px-2 py-0.5 text-gray-700 rounded"
           >
             {{ dataSize }}
           </span>
@@ -100,7 +100,7 @@
         <!-- 字符串展示 -->
         <div
           v-if="typeof previewData === 'string'"
-          class="bg-white border border-gray-200 rounded p-3"
+          class="h-full overflow-auto variable-scroll bg-white border border-gray-200 rounded p-3"
         >
           <pre
             class="text-xs text-gray-800 whitespace-pre-wrap wrap-break-word font-mono"
@@ -111,7 +111,7 @@
         <!-- 数字展示 -->
         <div
           v-else-if="typeof previewData === 'number'"
-          class="bg-white border border-gray-200 rounded p-3"
+          class="h-full overflow-auto variable-scroll bg-white border border-gray-200 rounded p-3"
         >
           <div class="text-sm font-mono text-gray-800">
             {{ previewData }}
@@ -121,7 +121,7 @@
         <!-- 布尔值展示 -->
         <div
           v-else-if="typeof previewData === 'boolean'"
-          class="bg-white border border-gray-200 rounded p-3"
+          class="h-full overflow-auto variable-scroll bg-white border border-gray-200 rounded p-3"
         >
           <div
             class="text-sm font-semibold"
@@ -134,7 +134,7 @@
         <!-- 数组展示 -->
         <div
           v-else-if="Array.isArray(previewData)"
-          class="bg-white border border-gray-200 rounded p-3 max-h-64 overflow-auto"
+          class="h-full overflow-auto variable-scroll bg-white border border-gray-200 rounded p-3"
         >
           <div class="space-y-1">
             <div
@@ -161,7 +161,7 @@
         <!-- 对象展示 -->
         <div
           v-else-if="typeof previewData === 'object'"
-          class="bg-white border border-gray-200 rounded p-3 max-h-64 overflow-auto"
+          class="h-full overflow-auto variable-scroll bg-white border border-gray-200 rounded p-3"
         >
           <pre
             class="text-xs text-gray-800 font-mono whitespace-pre-wrap wrap-break-word"
@@ -170,7 +170,10 @@
         </div>
 
         <!-- 其他类型展示 -->
-        <div v-else class="bg-white border border-gray-200 rounded p-3">
+        <div
+          v-else
+          class="h-full overflow-auto variable-scroll bg-white border border-gray-200 rounded p-3"
+        >
           <pre class="text-xs text-gray-800 font-mono whitespace-pre-wrap">{{
             String(previewData)
           }}</pre>

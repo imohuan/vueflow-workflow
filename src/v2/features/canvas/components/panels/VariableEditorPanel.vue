@@ -75,12 +75,11 @@
                 size="tiny"
                 circle
                 secondary
-                type="error"
                 @click="deleteVariable(variable)"
                 title="删除变量"
               >
                 <template #icon>
-                  <n-icon :component="IconDelete" />
+                  <n-icon :component="IconDel" />
                 </template>
               </n-button>
             </n-space>
@@ -240,7 +239,7 @@ import { useMessage, useDialog } from "naive-ui";
 import IconSearch from "@/icons/IconSearch.vue";
 import IconAdd from "@/icons/IconAdd.vue";
 import IconEdit from "@/icons/IconEdit.vue";
-import IconDelete from "@/icons/IconDelete.vue";
+import IconDel from "@/icons/IconDel.vue";
 import IconMinus from "@/icons/IconMinus.vue";
 import IconCode from "@/icons/IconCode.vue";
 import ObjectEditor from "./components/ObjectEditor.vue";

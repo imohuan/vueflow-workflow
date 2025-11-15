@@ -143,7 +143,7 @@
 import { ref, watch } from "vue";
 import IconAdd from "@/icons/IconAdd.vue";
 import IconMinus from "@/icons/IconMinus.vue";
-import IconDelete from "@/icons/IconDelete.vue";
+import IconDelete from "@/icons/IconDel.vue";
 import IconChevronDown from "@/icons/IconChevronDown.vue";
 import IconChevronRight from "@/icons/IconChevronRight.vue";
 import ObjectEditor from "./ObjectEditor.vue";

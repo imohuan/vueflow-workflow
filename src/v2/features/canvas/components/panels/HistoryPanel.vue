@@ -54,7 +54,7 @@
                 class="opacity-0 group-hover:opacity-100"
               >
                 <template #icon>
-                  <n-icon :component="IconDelete" />
+                  <n-icon :component="IconDel" />
                 </template>
               </n-button>
             </div>
@@ -108,6 +108,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted, triggerRef } from "vue";
 import { useMessage, useDialog } from "naive-ui";
+import IconDel from "@/icons/IconDel.vue";
 import IconDelete from "@/icons/IconDelete.vue";
 import { useCanvasStore } from "@/v2/stores/canvas";
 import { useWorkflowStore } from "@/v2/stores/workflow";

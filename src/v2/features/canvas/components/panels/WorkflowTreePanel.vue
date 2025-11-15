@@ -90,7 +90,7 @@ import {
 import IconSearch from "@/icons/IconSearch.vue";
 import IconAdd from "@/icons/IconAdd.vue";
 import IconNodeEditor from "@/icons/IconNodeEditor.vue";
-import IconDelete from "@/icons/IconDelete.vue";
+import IconDelete from "@/icons/IconDel.vue";
 import IconEdit from "@/icons/IconEdit.vue";
 import IconFolder from "@/icons/IconFolder.vue";
 import { useCanvasStore } from "../../../../stores/canvas";
@@ -218,12 +218,16 @@ function renderLabel({ option }: { option: TreeOption }) {
                   onClick: (e: MouseEvent) => {
                     e.stopPropagation();
                     if (meta?.type === "workflow") {
-                      renameWorkflow(meta.workflowId, String(option.label || ""));
+                      renameWorkflow(
+                        meta.workflowId,
+                        String(option.label || "")
+                      );
                     }
                   },
                 },
                 {
-                  icon: () => h(NIcon, { component: IconEdit, class: "text-blue-500" }),
+                  icon: () =>
+                    h(NIcon, { component: IconEdit, class: "text-blue-500" }),
                 }
               ),
             default: () => "重命名工作流",

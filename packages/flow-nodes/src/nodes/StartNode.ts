@@ -50,32 +50,6 @@ export class StartNode extends BaseFlowNode {
         started: true,
         timestamp: Date.now(),
         workflowId: context.workflow?.workflowId,
-        datas: {
-          name: "John Doe",
-          age: 30,
-          address: {
-            street: "123 Main St",
-            city: "Anytown",
-          },
-        },
-        lists: [
-          {
-            name: "John Doe",
-            age: 30,
-          },
-          {
-            name: "IXOA Doe",
-            age: 10,
-          },
-          {
-            name: "UN NJH Doe",
-            age: 25,
-          },
-        ],
-        maps: {
-          name: "John Doe",
-          age: 30,
-        },
       },
     });
   }
