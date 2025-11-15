@@ -12,4 +12,5 @@ export { default as ForNode } from "./ForNode.vue";
 export { default as ForLoopContainerNode } from "./ForLoopContainerNode.vue";
 export { default as CodeNode } from "./CodeNode.vue";
 export { default as PreviewNode } from "./PreviewNode.vue";
+export { default as DataPreviewNode } from "./DataPreviewNode.vue";
 export { default as VariableAggregateNode } from "./VariableAggregateNode.vue";

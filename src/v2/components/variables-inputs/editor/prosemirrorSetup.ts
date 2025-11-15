@@ -13,10 +13,20 @@ export function createSchema(): Schema {
   return new Schema({
     nodes: {
       doc: {
-        content: "text*",
+        content: "inline*",
       },
       text: {
         inline: true,
+        group: "inline",
+      },
+      hard_break: {
+        inline: true,
+        group: "inline",
+        selectable: false,
+        parseDOM: [{ tag: "br" }],
+        toDOM() {
+          return ["br"];
+        },
       },
     },
     marks: {
@@ -47,6 +57,26 @@ export function createSchema(): Schema {
       },
     },
   });
+}
+
+function createDocFromText(schema: Schema, content: string): ProseMirrorNode {
+  const hardBreakType = schema.nodes.hard_break;
+  const normalized = content.replace(/\r\n?/g, "\n");
+  const nodes: ProseMirrorNode[] = [];
+
+  if (normalized.length > 0) {
+    const parts = normalized.split("\n");
+    parts.forEach((part, index) => {
+      if (part.length > 0) {
+        nodes.push(schema.text(part));
+      }
+      if (index < parts.length - 1 && hardBreakType) {
+        nodes.push(hardBreakType.create());
+      }
+    });
+  }
+
+  return schema.node("doc", undefined, nodes);
 }
 
 /**
@@ -228,17 +258,9 @@ export function createEditorState(
     multiline?: boolean;
   }
 ): EditorState {
-  const doc = schema.nodeFromJSON({
-    type: "doc",
-    content: initialContent
-      ? [
-          {
-            type: "text",
-            text: initialContent,
-          },
-        ]
-      : [],
-  });
+  const doc = createDocFromText(schema, initialContent);
+
+  const hardBreakType = schema.nodes.hard_break;
 
   const keyBindings: { [key: string]: any } = {
     ...baseKeymap,
@@ -249,9 +271,11 @@ export function createEditorState(
       ? {
           Enter: (state: EditorState, dispatch?: (tr: Transaction) => void) => {
             if (!dispatch) return false;
-            const { from, to } = state.selection;
-            const tr = state.tr.insertText("\n", from, to);
-            dispatch(tr.scrollIntoView());
+            if (!hardBreakType) return false;
+            const tr = state.tr
+              .replaceSelectionWith(hardBreakType.create())
+              .scrollIntoView();
+            dispatch(tr);
             return true;
           },
         }
@@ -277,9 +301,11 @@ export function createEditorState(
  */
 export function getEditorContent(state: EditorState): string {
   let content = "";
-  state.doc.forEach((node: ProseMirrorNode) => {
+  state.doc.descendants((node: ProseMirrorNode) => {
     if (node.isText) {
-      content += node.text;
+      content += node.text || "";
+    } else if (node.type.name === "hard_break") {
+      content += "\n";
     }
   });
   return content;
@@ -293,17 +319,7 @@ export function setEditorContent(
   schema: Schema,
   content: string
 ): EditorState {
-  const doc = schema.nodeFromJSON({
-    type: "doc",
-    content: content
-      ? [
-          {
-            type: "text",
-            text: content,
-          },
-        ]
-      : [],
-  });
+  const doc = createDocFromText(schema, content);
 
   return state.apply(
     state.tr.replaceWith(0, state.doc.content.size, doc.content)

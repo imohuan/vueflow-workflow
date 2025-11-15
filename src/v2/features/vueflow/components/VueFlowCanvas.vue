@@ -88,6 +88,11 @@
         <PreviewNode v-bind="nodeProps" />
       </template>
 
+      <!-- Data Preview 数据预览节点插槽 -->
+      <template #node-dataPreview="nodeProps">
+        <DataPreviewNode v-bind="nodeProps" />
+      </template>
+
       <!-- 变量聚合节点插槽 -->
       <template #node-variableAggregate="nodeProps">
         <VariableAggregateNode v-bind="nodeProps" />
@@ -178,6 +183,7 @@ import CodeNode from "./nodes/CodeNode.vue";
 import CustomConnectionEdge from "./edges/CustomConnectionEdge.vue";
 import CustomEdge from "./edges/CustomEdge.vue";
 import PreviewNode from "./nodes/PreviewNode.vue";
+import DataPreviewNode from "./nodes/DataPreviewNode.vue";
 import VariableAggregateNode from "./nodes/VariableAggregateNode.vue";
 
 import {
@@ -279,6 +285,7 @@ const nodeTypes = {
   forLoopContainer: () => ForLoopContainerNode,
   code: () => CodeNode,
   preview: () => PreviewNode,
+  dataPreview: () => DataPreviewNode,
   variableAggregate: () => VariableAggregateNode,
 };
 
