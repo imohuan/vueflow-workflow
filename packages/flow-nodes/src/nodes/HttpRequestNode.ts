@@ -1,3 +1,4 @@
+import axios, { AxiosRequestConfig, AxiosError } from "axios";
 import {
   BaseFlowNode,
   type PortConfig,
@@ -39,7 +40,7 @@ export class HttpRequestNode extends BaseFlowNode {
         name: "headers",
         type: "object",
         description: "请求头（JSON 对象）",
-        defaultValue: {},
+        defaultValue: "{}",
       },
       {
         name: "body",
@@ -51,6 +52,18 @@ export class HttpRequestNode extends BaseFlowNode {
         type: "number",
         description: "超时时间（毫秒）",
         defaultValue: 30000,
+      },
+      {
+        name: "retryCount",
+        type: "number",
+        description: "重试次数（失败时自动重试）",
+        defaultValue: 0,
+      },
+      {
+        name: "retryDelay",
+        type: "number",
+        description: "重试间隔时间（毫秒），0 表示使用指数退避",
+        defaultValue: 0,
       },
     ];
   }
@@ -106,6 +119,8 @@ export class HttpRequestNode extends BaseFlowNode {
       );
       const body = this.getInput(inputs, "body");
       const timeout = this.getInput<number>(inputs, "timeout", 30000);
+      const retryCount = this.getInput<number>(inputs, "retryCount", 0);
+      const retryDelay = this.getInput<number>(inputs, "retryDelay", 0);
 
       // 验证必填参数
       const validation = this.validateInputs(inputs);
@@ -118,9 +133,11 @@ export class HttpRequestNode extends BaseFlowNode {
         return this.createError("请求已中止");
       }
 
-      // 构造请求配置
-      const fetchOptions: RequestInit = {
-        method,
+      // 构造 axios 请求配置
+      const axiosConfig: AxiosRequestConfig = {
+        method: method.toLowerCase() as any,
+        url,
+        timeout,
         headers: {
           "Content-Type": "application/json",
           ...headers,
@@ -130,221 +147,114 @@ export class HttpRequestNode extends BaseFlowNode {
 
       // 添加请求体（仅对 POST/PUT/PATCH）
       if (["POST", "PUT", "PATCH"].includes(method) && body !== undefined) {
-        fetchOptions.body =
-          typeof body === "string" ? body : JSON.stringify(body);
+        axiosConfig.data = body;
       }
 
-      // 创建超时控制器
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      // 实现重试逻辑
+      let lastError: Error | null = null;
+      for (let attempt = 0; attempt <= retryCount; attempt++) {
+        try {
+          // 检查是否中止
+          if (context.signal?.aborted) {
+            return this.createError("请求已中止");
+          }
 
-      try {
-        // 发送请求
-        const response = await fetch(url, {
-          ...fetchOptions,
-          signal: controller.signal,
-        });
+          // 发送请求
+          const response = await axios(axiosConfig);
 
-        clearTimeout(timeoutId);
+          // 获取响应数据
+          const data = response.data;
 
-        // 解析响应
-        let data: any;
-        const contentType = response.headers.get("content-type");
+          // 获取响应头
+          const responseHeaders: Record<string, string> = {};
+          Object.keys(response.headers).forEach((key) => {
+            const value = response.headers[key];
+            if (typeof value === "string") {
+              responseHeaders[key] = value;
+            } else if (Array.isArray(value) && value.length > 0) {
+              responseHeaders[key] = value[0];
+            }
+          });
 
-        if (contentType?.includes("application/json")) {
-          data = await response.json();
-        } else if (contentType?.includes("text/")) {
-          data = await response.text();
-        } else {
-          data = await response.blob();
-        }
+          // 判断是否成功（状态码 2xx）
+          const isSuccess = response.status >= 200 && response.status < 300;
 
-        // 获取响应头
-        const responseHeaders: Record<string, string> = {};
-        response.headers.forEach((value, key) => {
-          responseHeaders[key] = value;
-        });
-
-        // 判断是否成功
-        const isSuccess = response.ok; // status 在 200-299 范围
-
-        return this.createOutput(
-          {
+          return this.createOutput(
+            {
+              data,
+              status: response.status,
+              headers: responseHeaders,
+              success: isSuccess,
+            },
             data,
-            status: response.status,
-            headers: responseHeaders,
-            success: isSuccess,
-          },
-          data,
-          `${method} ${url} - ${response.status} ${response.statusText}`
-        );
-      } catch (error) {
-        clearTimeout(timeoutId);
+            `${method} ${url} - ${response.status} ${response.statusText || ""}`
+          );
+        } catch (error) {
+          lastError = error as Error;
 
-        if ((error as Error).name === "AbortError") {
-          return this.createError("请求超时");
+          // 如果是最后一次尝试，直接抛出错误
+          if (attempt === retryCount) {
+            break;
+          }
+
+          // 检查错误类型，决定是否重试
+          const axiosError = error as AxiosError;
+          if (axiosError.response) {
+            // 有响应的情况，根据状态码决定是否重试
+            const status = axiosError.response.status;
+            // 只对服务器错误（5xx）或请求过快（429）进行重试
+            if (status < 500 && status !== 429) {
+              break;
+            }
+          } else if (axiosError.code === "ECONNABORTED") {
+            // 超时错误，可以重试
+          } else if (axiosError.code === "ERR_NETWORK") {
+            // 网络错误，可以重试
+          } else if (axiosError.code === "ERR_CANCELED") {
+            // 请求被取消，不重试
+            return this.createError("请求已中止");
+          } else {
+            // 其他错误，根据具体情况决定是否重试
+            // 默认不重试
+            break;
+          }
+
+          // 等待后重试
+          if (attempt < retryCount) {
+            let delay: number;
+            if (retryDelay > 0) {
+              // 使用配置的固定延迟时间
+              delay = retryDelay;
+            } else {
+              // 使用指数退避算法（默认）
+              delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+            }
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
         }
-
-        throw error;
       }
+
+      // 所有重试都失败，返回错误
+      if (lastError) {
+        const axiosError = lastError as AxiosError;
+        if (axiosError.response) {
+          return this.createError(
+            `请求失败: ${axiosError.response.status} ${
+              axiosError.response.statusText || ""
+            }`
+          );
+        } else if (axiosError.code === "ECONNABORTED") {
+          return this.createError("请求超时");
+        } else if (axiosError.code === "ERR_NETWORK") {
+          return this.createError("网络错误");
+        } else {
+          return this.createError(axiosError.message || "请求失败");
+        }
+      }
+
+      return this.createError("请求失败");
     } catch (error) {
       return this.createError(error as Error);
     }
-  }
-}
-
-/**
- * JSON 解析节点
- */
-export class JsonParseNode extends BaseFlowNode {
-  readonly type = "json-parse";
-  readonly label = "JSON 解析";
-  readonly description = "将 JSON 字符串解析为对象";
-  readonly category = "数据处理";
-
-  protected defineInputs(): PortConfig[] {
-    return [
-      {
-        name: "json",
-        type: "string",
-        description: "JSON 字符串",
-        required: true,
-      },
-    ];
-  }
-
-  protected defineOutputs(): PortConfig[] {
-    return [
-      {
-        name: "data",
-        type: "object",
-        description: "解析后的对象",
-      },
-    ];
-  }
-
-  protected getStyleConfig(): NodeStyleConfig {
-    return {
-      headerColor: "#8b5cf6",
-      icon: "📋",
-      showIcon: true,
-    };
-  }
-
-  async execute(
-    inputs: Record<string, any>,
-    context: NodeExecutionContext
-  ): Promise<NodeExecutionResult> {
-    try {
-      const json = this.getInput<string>(inputs, "json", "");
-
-      const validation = this.validateInputs(inputs);
-      if (!validation.valid) {
-        return this.createError(validation.errors.join("; "));
-      }
-
-      const data = JSON.parse(json);
-
-      return this.createOutput(data, data, "解析成功");
-    } catch (error) {
-      return this.createError(`JSON 解析失败: ${(error as Error).message}`);
-    }
-  }
-}
-
-/**
- * 对象取值节点
- */
-export class ObjectGetNode extends BaseFlowNode {
-  readonly type = "object-get";
-  readonly label = "对象取值";
-  readonly description = "从对象中提取指定路径的值";
-  readonly category = "数据处理";
-
-  protected defineInputs(): PortConfig[] {
-    return [
-      {
-        name: "object",
-        type: "object",
-        description: "输入对象",
-        required: true,
-      },
-      {
-        name: "path",
-        type: "string",
-        description: '对象路径（如 "user.name" 或 "items[0].id"）',
-        required: true,
-      },
-      {
-        name: "defaultValue",
-        type: "any",
-        description: "默认值（路径不存在时返回）",
-      },
-    ];
-  }
-
-  protected defineOutputs(): PortConfig[] {
-    return [
-      {
-        name: "value",
-        type: "any",
-        description: "提取的值",
-      },
-    ];
-  }
-
-  protected getStyleConfig(): NodeStyleConfig {
-    return {
-      headerColor: "#f59e0b",
-      icon: "🔑",
-      showIcon: true,
-    };
-  }
-
-  async execute(
-    inputs: Record<string, any>,
-    context: NodeExecutionContext
-  ): Promise<NodeExecutionResult> {
-    try {
-      const object = this.getInput<Record<string, any>>(inputs, "object");
-      const path = this.getInput<string>(inputs, "path", "");
-      const defaultValue = this.getInput(inputs, "defaultValue");
-
-      const validation = this.validateInputs(inputs);
-      if (!validation.valid) {
-        return this.createError(validation.errors.join("; "));
-      }
-
-      // 解析路径并获取值
-      const value = this.getValueByPath(object, path, defaultValue);
-
-      return this.createOutput(value, value, `提取路径: ${path}`);
-    } catch (error) {
-      return this.createError(error as Error);
-    }
-  }
-
-  /**
-   * 通过路径获取对象的值
-   * 支持点号和方括号语法，如 "user.name" 或 "items[0].id"
-   */
-  private getValueByPath(obj: any, path: string, defaultValue?: any): any {
-    if (!obj || !path) return defaultValue;
-
-    // 将路径拆分为数组，支持 "a.b" 和 "a[0].b" 语法
-    const keys = path
-      .replace(/\[(\w+)\]/g, ".$1") // 将 [0] 转换为 .0
-      .split(".")
-      .filter((key) => key.length > 0);
-
-    let result = obj;
-    for (const key of keys) {
-      if (result === null || result === undefined) {
-        return defaultValue;
-      }
-      result = result[key];
-    }
-
-    return result === undefined ? defaultValue : result;
   }
 }

@@ -14,7 +14,7 @@
           v-model="config.baseUrl"
           placeholder="https://api.openai.com/v1"
           :show-border="isDraggingVariable"
-          preview-mode="bottom"
+          preview-mode="dropdown"
           @update:model-value="
             (val) => {
               config.baseUrl = val;
@@ -32,7 +32,7 @@
           placeholder="输入 API Key"
           :show-border="isDraggingVariable"
           :multiline="true"
-          preview-mode="bottom"
+          preview-mode="dropdown"
           @update:model-value="
             (val) => {
               config.apiKey = val;

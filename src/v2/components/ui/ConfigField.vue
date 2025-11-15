@@ -28,7 +28,7 @@
           :disabled="field.disabled"
           :multiline="true"
           :show-border="isDraggingVariable"
-          preview-mode="bottom"
+          preview-mode="dropdown"
           @update:model-value="handleUpdate"
         />
 
@@ -39,7 +39,7 @@
           :disabled="field.disabled"
           :multiline="false"
           :show-border="isDraggingVariable"
-          preview-mode="bottom"
+          preview-mode="dropdown"
           @update:model-value="handleUpdate"
         />
       </template>
@@ -133,7 +133,7 @@
         :placeholder="field.placeholder || '输入 JSON 数据...'"
         :disabled="field.disabled"
         :multiline="true"
-        preview-mode="bottom"
+        preview-mode="dropdown"
         @update:model-value="handleJsonUpdate"
       />
 
@@ -144,7 +144,7 @@
         :placeholder="field.placeholder || '输入代码...'"
         :disabled="field.disabled"
         :multiline="true"
-        preview-mode="bottom"
+        preview-mode="dropdown"
         @update:model-value="handleUpdate"
       />
 
