@@ -14,7 +14,7 @@ export class StartNode extends BaseFlowNode {
   readonly type = "start";
   readonly label = "开始";
   readonly description = "工作流程的起始节点";
-  readonly category = "控制流";
+  readonly category = "流程控制";
 
   protected defineInputs(): PortConfig[] {
     // 开始节点没有输入端口
@@ -34,6 +34,7 @@ export class StartNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: ["#10b981", "#059669"],
+      icon: "start",
       showIcon: true,
     };
   }

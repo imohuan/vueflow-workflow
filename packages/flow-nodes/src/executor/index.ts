@@ -43,4 +43,5 @@ export {
   buildVariableContext,
   buildVariableContextFromExecutionContext,
   resolveConfigWithVariables,
+  resolveTemplateString
 } from "./VariableResolver";

@@ -29,7 +29,7 @@ export class NoteNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: "#fbbf24",
-      icon: "📝",
+      icon: "edit",
       showIcon: true,
     };
   }

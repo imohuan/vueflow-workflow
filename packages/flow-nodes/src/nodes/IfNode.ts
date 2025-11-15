@@ -288,7 +288,7 @@ export class IfNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: ["#8b5cf6", "#7c3aed"],
-      icon: "❓",
+      icon: "question",
       showIcon: true,
     };
   }

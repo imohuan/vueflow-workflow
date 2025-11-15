@@ -112,7 +112,7 @@ export class OpenAILlmNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: ["#10b981", "#059669"], // 绿色渐变
-      icon: "🤖",
+      icon: "ai",
       showIcon: true,
     };
   }

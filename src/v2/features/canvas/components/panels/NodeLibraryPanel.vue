@@ -150,6 +150,7 @@ import IconWidget from "@/icons/IconWidget.vue";
 import IconCode from "@/icons/IconCode.vue";
 import IconServer from "@/icons/IconServer.vue";
 import IconSettings from "@/icons/IconSettings.vue";
+import IconAI from "@/icons/IconAI.vue";
 
 import { useCanvasStore } from "../../../../stores/canvas";
 import type { NodeMetadataItem } from "../../../vueflow/executor/types";
@@ -217,6 +218,7 @@ const categoryIconMap: Record<string, { icon: Component; color: string }> = {
   数据处理: { icon: markRaw(IconCode), color: "#10b981" },
   文本工具: { icon: markRaw(IconServer), color: "#f59e0b" },
   工具: { icon: markRaw(IconSettings), color: "#8b5cf6" },
+  AI: { icon: markRaw(IconAI), color: "#9333ea" },
 };
 
 // 从 Canvas Store 获取节点列表并构建分类（节点列表已在 CanvasView 中初始化）

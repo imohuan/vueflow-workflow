@@ -69,6 +69,7 @@ export class CodeNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: ["#8b5cf6", "#7c3aed"],
+      icon: "code",
       showIcon: true,
     };
   }

@@ -13,7 +13,7 @@ export class TextProcessNode extends BaseFlowNode {
   readonly type = "text-process";
   readonly label = "文本处理";
   readonly description = "对输入文本进行转换处理";
-  readonly category = "文本工具";
+  readonly category = "工具";
 
   protected defineInputs(): PortConfig[] {
     return [
@@ -61,7 +61,7 @@ export class TextProcessNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: "#3b82f6",
-      icon: "📝",
+      icon: "edit",
       showIcon: true,
       bodyStyle: {
         minWidth: "200px",

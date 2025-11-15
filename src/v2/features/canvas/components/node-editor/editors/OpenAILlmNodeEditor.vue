@@ -288,7 +288,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, h } from "vue";
+import { ref, watch, computed, h, inject, type ComputedRef } from "vue";
 import { NButton, NInputNumber, NSlider, NSelect, useMessage } from "naive-ui";
 import type { SelectOption } from "naive-ui";
 import type { Node } from "@vue-flow/core";
@@ -300,6 +300,7 @@ import IconPlus from "@/icons/IconPlus.vue";
 import IconDelete from "@/icons/IconDelete.vue";
 import IconPlay from "@/icons/IconPlay.vue";
 import { useVariableDrag } from "../composables/useVariableDrag";
+import { resolveTemplateString } from "workflow-flow-nodes";
 
 interface Message {
   role: "system" | "user" | "assistant";
@@ -338,6 +339,12 @@ const message = useMessage();
 
 // 使用变量拖拽 hooks
 const { isDraggingVariable } = useVariableDrag();
+
+// 注入变量上下文映射
+const contextMap = inject<ComputedRef<Map<string, unknown>>>(
+  "variableContextMap",
+  computed(() => new Map())
+);
 
 const activeTab = ref<"config" | "prompts">("config");
 
@@ -489,6 +496,43 @@ function renderModelOption({
   ]);
 }
 
+/**
+ * 解析变量字符串为实际值
+ * @param value 可能包含变量的字符串，如 "{{ 全局变量.AI_MODEL.baseUrl }}"
+ * @returns 解析后的实际值，如果解析失败则返回原值
+ */
+function resolveVariable(value: string): string {
+  if (!value || typeof value !== "string") {
+    return value;
+  }
+
+  // 如果没有 contextMap，返回原值
+  if (!contextMap.value || contextMap.value.size === 0) {
+    return value;
+  }
+
+  try {
+    // 使用 resolveTemplateString 解析变量
+    const resolved = resolveTemplateString(value, contextMap.value);
+
+    // 如果解析后的值是字符串，返回字符串值
+    if (typeof resolved === "string") {
+      return resolved;
+    }
+
+    // 如果解析后的值不是字符串（可能是对象、数组等），转换为字符串
+    if (resolved !== null && resolved !== undefined) {
+      return String(resolved);
+    }
+
+    // 如果解析失败，返回原值
+    return value;
+  } catch (error) {
+    console.error("[OpenAILlmNodeEditor] 解析变量失败:", error);
+    return value;
+  }
+}
+
 // 补全 URL，如果没有 /v1 则补全
 function normalizeBaseUrl(url: string): string {
   let normalized = url.replace(/\/$/, "");
@@ -521,12 +565,21 @@ async function loadModels() {
   modelError.value = "";
 
   try {
-    const baseUrl = normalizeBaseUrl(config.value.baseUrl);
+    // 解析变量
+    const resolvedBaseUrl = resolveVariable(config.value.baseUrl);
+    const resolvedApiKey = resolveVariable(config.value.apiKey);
+
+    if (!resolvedBaseUrl || !resolvedApiKey) {
+      modelError.value = "Base URL 或 API Key 解析失败，请检查变量配置";
+      return;
+    }
+
+    const baseUrl = normalizeBaseUrl(resolvedBaseUrl);
     const response = await fetch(`${baseUrl}/models`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${config.value.apiKey}`,
+        Authorization: `Bearer ${resolvedApiKey}`,
       },
     });
 
@@ -602,9 +655,22 @@ async function testModel() {
   testResult.value = null;
 
   try {
-    const baseUrl = normalizeBaseUrl(config.value.baseUrl);
+    // 解析变量
+    const resolvedBaseUrl = resolveVariable(config.value.baseUrl);
+    const resolvedApiKey = resolveVariable(config.value.apiKey);
+    const resolvedModel = resolveVariable(config.value.model);
+
+    if (!resolvedBaseUrl || !resolvedApiKey || !resolvedModel) {
+      testResult.value = {
+        success: false,
+        message: "配置参数解析失败，请检查变量配置",
+      };
+      return;
+    }
+
+    const baseUrl = normalizeBaseUrl(resolvedBaseUrl);
     const requestBody = {
-      model: config.value.model,
+      model: resolvedModel,
       messages: [
         {
           role: "user",
@@ -618,7 +684,7 @@ async function testModel() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${config.value.apiKey}`,
+        Authorization: `Bearer ${resolvedApiKey}`,
       },
       body: JSON.stringify(requestBody),
     });
@@ -642,7 +708,7 @@ async function testModel() {
     await response.json();
     testResult.value = {
       success: true,
-      message: `测试成功！模型 ${config.value.model} 可用`,
+      message: `测试成功！模型 ${resolvedModel} 可用`,
     };
     message.success("模型测试成功");
   } catch (error) {

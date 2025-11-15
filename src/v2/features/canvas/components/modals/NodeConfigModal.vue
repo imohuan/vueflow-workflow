@@ -230,7 +230,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount, provide } from "vue";
 import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
 import type { Node } from "@vue-flow/core";
@@ -270,7 +270,10 @@ const canvasStore = useCanvasStore();
 const message = useMessage();
 const { findNode } = useVueFlow();
 const { selectedNodeId } = storeToRefs(uiStore);
-const { variableTree: availableVariables } = useVariableContext();
+const { variableTree: availableVariables, contextMap } = useVariableContext();
+
+// 提供变量上下文给子组件使用
+provide("variableContextMap", contextMap);
 
 // 事件系统
 const events = useVueFlowEvents();

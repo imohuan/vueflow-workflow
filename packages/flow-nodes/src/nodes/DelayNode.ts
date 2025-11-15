@@ -14,7 +14,7 @@ export class DelayNode extends BaseFlowNode {
   readonly type = "delay";
   readonly label = "延迟";
   readonly description = "暂停工作流执行指定的时间";
-  readonly category = "控制流";
+  readonly category = "流程控制";
 
   protected defineInputs(): PortConfig[] {
     return [
@@ -41,7 +41,7 @@ export class DelayNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: ["#f59e0b", "#d97706"],
-      icon: "⏱️",
+      icon: "clock",
       showIcon: true,
     };
   }

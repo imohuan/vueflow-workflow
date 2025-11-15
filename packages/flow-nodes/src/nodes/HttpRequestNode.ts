@@ -96,7 +96,7 @@ export class HttpRequestNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: ["#3b82f6", "#06b6d4"], // 蓝色到青色渐变
-      icon: "🌐",
+      icon: "globe",
       showIcon: true,
       bodyStyle: {
         minWidth: "240px",

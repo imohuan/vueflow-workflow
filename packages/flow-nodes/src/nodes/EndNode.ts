@@ -14,7 +14,7 @@ export class EndNode extends BaseFlowNode {
   readonly type = "end";
   readonly label = "结束";
   readonly description = "工作流程的结束节点";
-  readonly category = "控制流";
+  readonly category = "流程控制";
 
   protected defineInputs(): PortConfig[] {
     return [
@@ -35,7 +35,7 @@ export class EndNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: ["#ef4444", "#dc2626"],
-      icon: "⏹️",
+      icon: "stop",
       showIcon: true,
     };
   }

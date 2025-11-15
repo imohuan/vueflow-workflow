@@ -84,6 +84,7 @@ export class ForNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: ["#f97316", "#ea580c"],
+      icon: "repeat",
       showIcon: true,
     };
   }

@@ -211,6 +211,7 @@ import IconCopy from "@/icons/IconCopy.vue";
 import IconExecutionStart from "@/icons/IconExecutionStart.vue";
 import { eventBusUtils } from "../../events";
 import StandardNodeContent from "./StandardNodeContent.vue";
+import { getNodeIcon } from "./nodeIcons";
 import "../ports/portStyles.css";
 
 interface Props {
@@ -553,6 +554,14 @@ const iconComponent = computed<Component | null>(() => {
     return icon as Component;
   }
 
+  // 如果是字符串，尝试通过名称获取图标组件
+  if (typeof icon === "string") {
+    const namedIcon = getNodeIcon(icon);
+    if (namedIcon) {
+      return namedIcon;
+    }
+  }
+
   // 否则返回 null（使用 iconText）
   return null;
 });
@@ -567,10 +576,12 @@ const iconText = computed(() => {
     return null;
   }
 
-  // 如果是组件名称，返回 null（应该使用 iconComponent）
-  // 这里可以根据实际情况判断是否为组件名称
+  // 如果是图标名称且已映射到组件，返回 null（应该使用 iconComponent）
+  if (getNodeIcon(icon)) {
+    return null;
+  }
 
-  // 否则作为文本返回
+  // 否则作为文本返回（如 emoji）
   return icon;
 });
 

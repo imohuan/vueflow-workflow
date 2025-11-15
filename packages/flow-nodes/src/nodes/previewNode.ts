@@ -15,7 +15,7 @@ export class ImagePreviewNode extends BaseFlowNode {
   readonly type = "preview";
   readonly label = "图片预览";
   readonly description = "预览图片，支持完整 URL 或相对路径";
-  readonly category = "调试工具";
+  readonly category = "工具";
 
   protected defineInputs(): PortConfig[] {
     return [
@@ -52,7 +52,7 @@ export class ImagePreviewNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: ["#8b5cf6", "#7c3aed"], // 紫色渐变
-      icon: "🖼️",
+      icon: "image",
       showIcon: true,
       bodyStyle: {
         minWidth: "300px",

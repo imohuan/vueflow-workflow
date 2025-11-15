@@ -14,7 +14,7 @@ export class DataPreviewNode extends BaseFlowNode {
   readonly type = "dataPreview";
   readonly label = "数据预览";
   readonly description = "预览任意数据，支持查看各种数据类型的输出结果";
-  readonly category = "调试工具";
+  readonly category = "工具";
 
   protected defineInputs(): PortConfig[] {
     return [
@@ -40,7 +40,7 @@ export class DataPreviewNode extends BaseFlowNode {
   protected getStyleConfig(): NodeStyleConfig {
     return {
       headerColor: ["#06b6d4", "#0891b2"], // 青色渐变
-      icon: "👁️",
+      icon: "eye",
       showIcon: true,
       bodyStyle: {
         minWidth: "300px",
