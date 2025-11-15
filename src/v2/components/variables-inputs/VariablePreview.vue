@@ -3,7 +3,10 @@
   <div
     v-if="inline && resolvedValue"
     class="text-xs text-slate-700 whitespace-pre-wrap wrap-break-word"
-    style="font-family: 'Fira Code', 'Courier New', 'Microsoft YaHei', 'SimHei', monospace"
+    style="
+      font-family: 'Fira Code', 'Courier New', 'Microsoft YaHei', 'SimHei',
+        monospace;
+    "
     v-html="resolvedValueHtml"
   ></div>
 
@@ -20,7 +23,10 @@
     </div>
     <div
       class="text-xs text-slate-700 whitespace-pre-wrap wrap-break-word max-h-32 overflow-y-auto variable-scroll"
-      style="font-family: 'Fira Code', 'Courier New', 'Microsoft YaHei', 'SimHei', monospace"
+      style="
+        font-family: 'Fira Code', 'Courier New', 'Microsoft YaHei', 'SimHei',
+          monospace;
+      "
       v-html="resolvedValueHtml"
     ></div>
   </div>
@@ -54,19 +60,24 @@ const resolvedValue = computed(() => {
 
   // 检查是否包含变量
   const hasVariable = /\{\{\s*\$?[^{}]+?\s*\}\}/.test(value);
-  if (!hasVariable) return "";
 
-  // 如果没有 contextMap，说明没有选中节点
-  if (!contextMap.value || contextMap.value.size === 0) return "";
+  // 如果没有变量，直接返回原值
+  if (!hasVariable) return value;
+
+  // 如果没有 contextMap，说明没有选中节点，返回原值
+  if (!contextMap.value || contextMap.value.size === 0) return value;
 
   try {
     // 解析变量
-    const resolved = resolveConfigWithVariables({ preview: value }, contextMap.value);
+    const resolved = resolveConfigWithVariables(
+      { preview: value },
+      contextMap.value
+    );
 
     const result = resolved.preview;
 
-    // 如果解析后的值和原值一样，说明变量没有被替换（可能不存在）
-    if (result === value) return "";
+    // 如果解析后的值和原值一样，说明变量没有被替换（可能不存在），返回原值
+    if (result === value) return value;
 
     // 如果指定了 currentItemIndex，且结果是数组，返回对应项
     if (
@@ -90,18 +101,26 @@ const resolvedValueHtml = computed(() => {
   if (!value || typeof value !== "string") return "";
 
   const hasVariable = /\{\{\s*\$?[^{}]+?\s*\}\}/.test(value);
-  if (!hasVariable) return "";
 
-  // 如果没有 contextMap，说明没有选中节点
-  if (!contextMap.value || contextMap.value.size === 0) return "";
+  // 如果没有变量，直接返回转义后的原值
+  if (!hasVariable) return escapeHtml(value);
+
+  // 如果没有 contextMap，说明没有选中节点，返回转义后的原值
+  if (!contextMap.value || contextMap.value.size === 0)
+    return escapeHtml(value);
 
   try {
     // 统一使用 highlightResolvedVariables，如果指定了 currentItemIndex 则传入
-    return highlightResolvedVariables(
+    const highlighted = highlightResolvedVariables(
       value,
       contextMap.value,
       props.currentItemIndex
     );
+
+    // 如果高亮后的结果为空（可能所有变量都解析失败），返回转义后的原值
+    if (!highlighted) return escapeHtml(value);
+
+    return highlighted;
   } catch (error) {
     return escapeHtml(`解析错误: ${error}`);
   }
@@ -119,37 +138,56 @@ function highlightResolvedVariables(
   let lastIndex = 0;
   let result = "";
   let match: RegExpExecArray | null;
+  let hasMatched = false;
 
   while ((match = tokenRegex.exec(original)) !== null) {
+    hasMatched = true;
     const token = match[0];
     const start = match.index;
 
     // 添加变量前的普通文本
     result += escapeHtml(original.slice(lastIndex, start));
 
-    // 解析单个变量的值
-    const tempConfig = { temp: token };
-    const tempResolved = resolveConfigWithVariables(tempConfig, contextMap);
+    try {
+      // 解析单个变量的值
+      const tempConfig = { temp: token };
+      const tempResolved = resolveConfigWithVariables(tempConfig, contextMap);
 
-    // 如果指定了 itemIndex 且解析结果是数组，取对应索引的值
-    let variableValue: string;
-    if (itemIndex !== undefined && Array.isArray(tempResolved.temp)) {
-      variableValue = formatValue(tempResolved.temp[itemIndex]);
-    } else {
-      variableValue = formatValue(tempResolved.temp);
+      // 如果指定了 itemIndex 且解析结果是数组，取对应索引的值
+      let variableValue: string;
+      if (itemIndex !== undefined && Array.isArray(tempResolved.temp)) {
+        if (tempResolved.temp[itemIndex] !== undefined) {
+          variableValue = formatValue(tempResolved.temp[itemIndex]);
+        } else {
+          // 如果数组索引不存在，显示原变量
+          variableValue = token;
+        }
+      } else {
+        variableValue = formatValue(tempResolved.temp);
+      }
+
+      // 如果解析后的值和原变量一样，说明变量没有被替换，显示原变量（不高亮）
+      if (variableValue === token || tempResolved.temp === token) {
+        result += escapeHtml(token);
+      } else {
+        // 用高亮样式包裹解析后的变量值
+        result += `<span class="inline-flex items-baseline mx-[1px] bg-indigo-100/80 text-[12px] font-medium text-indigo-700 shadow-sm" title="${escapeHtml(
+          token
+        )}">${escapeHtml(variableValue)}</span>`;
+      }
+    } catch (error) {
+      // 解析失败，显示原变量
+      result += escapeHtml(token);
     }
-
-    // 用高亮样式包裹解析后的变量值
-    result += `<span class="inline-flex items-baseline mx-[1px] bg-indigo-100/80 text-[12px] font-medium text-indigo-700 shadow-sm" title="${escapeHtml(
-      token
-    )}">${escapeHtml(variableValue)}</span>`;
 
     lastIndex = start + token.length;
   }
 
   // 添加剩余的普通文本
   result += escapeHtml(original.slice(lastIndex));
-  return result;
+
+  // 如果没有匹配到任何变量，返回空字符串（这种情况不应该发生，因为调用前已经检查过）
+  return hasMatched ? result : escapeHtml(original);
 }
 
 /**

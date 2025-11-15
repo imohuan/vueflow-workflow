@@ -7,15 +7,20 @@
     />
 
     <!-- 编辑器容器 -->
-    <Dropdown
-      v-model="showDropdown"
-      :width-mode="previewMode === 'dropdown' ? 'trigger' : 'auto'"
+    <n-popover
+      v-if="previewMode === 'dropdown'"
+      ref="popoverRef"
+      v-model:show="showDropdown"
+      trigger="manual"
       placement="bottom-start"
-      :offset="4"
+      :width="previewMode === 'dropdown' ? 'trigger' : undefined"
+      :raw="true"
+      style="padding: 0"
     >
       <!-- 触发器插槽 -->
       <template #trigger>
         <div
+          ref="triggerContainerRef"
           :class="[
             'variable-text-input',
             'relative flex items-stretch h-full rounded-md border transition-all duration-200',
@@ -78,83 +83,148 @@
       </template>
 
       <!-- 下拉预览面板 -->
-      <template #default>
-        <div v-if="previewMode === 'dropdown'" class="overflow-hidden">
-          <!-- 标题栏 -->
+      <div
+        v-if="previewMode === 'dropdown'"
+        class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
+        @mousedown.prevent
+      >
+        <!-- 标题栏 -->
+        <div
+          class="flex items-center justify-between border-b border-slate-100 bg-slate-50/90 px-2 py-1.5"
+        >
           <div
-            class="flex items-center justify-between border-b border-slate-100 bg-slate-50/90 px-2 py-1.5"
+            class="text-[10px] font-semibold uppercase tracking-wide text-slate-500"
           >
-            <div
-              class="text-[10px] font-semibold uppercase tracking-wide text-slate-500"
-            >
-              Result
-            </div>
-            <div class="flex items-center gap-1 text-[10px] text-slate-500">
-              <span class="font-medium">Page</span>
-              <input
-                :value="pageInput"
-                type="text"
-                inputmode="numeric"
-                pattern="[0-9]*"
-                placeholder="0"
-                :disabled="!previewItems.length"
-                class="h-5 w-7 rounded bg-white px-1 text-center text-[10px] font-medium text-slate-600 shadow-inner ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-slate-100 disabled:text-slate-400"
-                @input="handlePageInputChange"
-                @blur="handlePageInputCommit"
-                @keydown="handlePageInputKeydown"
-              />
-              <span>/ {{ previewItems.length || 0 }}</span>
-              <button
-                type="button"
-                class="flex h-5 w-5 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
-                :disabled="!canNavigatePrev"
-                aria-label="上一页"
-                @click.stop="goPrevItem"
-              >
-                <IconChevronRight class="h-3 w-3 -rotate-180" />
-              </button>
-              <button
-                type="button"
-                class="flex h-5 w-5 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
-                :disabled="!canNavigateNext"
-                aria-label="下一页"
-                @click.stop="goNextItem"
-              >
-                <IconChevronRight class="h-3 w-3" />
-              </button>
-            </div>
+            Result
           </div>
-
-          <!-- 预览内容 -->
-          <div class="max-h-56 overflow-y-auto variable-scroll px-2 py-2">
-            <VariablePreview
-              v-if="previewItems.length"
-              :value="internalValue"
-              :current-item-index="currentPreviewIndex"
-              inline
+          <div class="flex items-center gap-1 text-[10px] text-slate-500">
+            <span class="font-medium">Page</span>
+            <input
+              :value="pageInput"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              placeholder="0"
+              :disabled="!previewItems.length"
+              class="h-5 w-7 rounded bg-white px-1 text-center text-[10px] font-medium text-slate-600 shadow-inner ring-1 ring-inset ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-slate-100 disabled:text-slate-400"
+              @input="handlePageInputChange"
+              @blur="handlePageInputCommit"
+              @keydown="handlePageInputKeydown"
             />
-            <p v-else class="text-xs text-slate-400">
-              <span class="font-mono bg-gray-100">[empty]</span>
-              <!-- 暂无可预览数据 -->
-            </p>
-          </div>
-
-          <!-- 提示信息 -->
-          <div
-            v-if="showTip"
-            class="border-t border-slate-100 bg-slate-50 px-2 py-1.5"
-          >
-            <p class="text-[10px] leading-tight text-slate-400">
-              Tip: 支持拖拽变量插入，变量以
-              <span class="font-mono text-emerald-600"
-                >&#123;&#123; 节点名.字段 &#125;&#125;</span
-              >
-              形式表示
-            </p>
+            <span>/ {{ previewItems.length || 0 }}</span>
+            <button
+              type="button"
+              class="flex h-5 w-5 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
+              :disabled="!canNavigatePrev"
+              aria-label="上一页"
+              @click.stop="goPrevItem"
+            >
+              <IconChevronRight class="h-3 w-3 -rotate-180" />
+            </button>
+            <button
+              type="button"
+              class="flex h-5 w-5 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
+              :disabled="!canNavigateNext"
+              aria-label="下一页"
+              @click.stop="goNextItem"
+            >
+              <IconChevronRight class="h-3 w-3" />
+            </button>
           </div>
         </div>
-      </template>
-    </Dropdown>
+
+        <!-- 预览内容 -->
+        <div class="max-h-56 overflow-y-auto variable-scroll px-2 py-2">
+          <VariablePreview
+            v-if="previewItems.length"
+            :value="internalValue"
+            :current-item-index="currentPreviewIndex"
+            inline
+          />
+          <p v-else class="text-xs text-slate-400">
+            <span class="font-mono bg-gray-100">[empty]</span>
+            <!-- 暂无可预览数据 -->
+          </p>
+        </div>
+
+        <!-- 提示信息 -->
+        <div
+          v-if="showTip"
+          class="border-t border-slate-100 bg-slate-50 px-2 py-1.5"
+        >
+          <p class="text-[10px] leading-tight text-slate-400">
+            Tip: 支持拖拽变量插入，变量以
+            <span class="font-mono text-emerald-600"
+              >&#123;&#123; 节点名.字段 &#125;&#125;</span
+            >
+            形式表示
+          </p>
+        </div>
+      </div>
+    </n-popover>
+
+    <!-- 非下拉模式时，直接显示输入框 -->
+    <div
+      v-else
+      :class="[
+        'variable-text-input',
+        'relative flex items-stretch h-full rounded-md border transition-all duration-200',
+        showBorder
+          ? 'border-dashed border-red-600'
+          : isFocused
+          ? 'border-slate-400 ring-2 ring-slate-200'
+          : 'border-slate-200',
+      ]"
+    >
+      <!-- FX 图标 - 左侧铺满整个输入框高度 -->
+      <div
+        class="pointer-events-none flex items-center justify-center w-7 text-gray-600 rounded-l-md shrink-0 border-r border-gray-200"
+        style="background-color: #f1f3f9"
+      >
+        <IconFx class="w-4 h-4" />
+      </div>
+
+      <!-- 编辑器包裹容器 -->
+      <div class="relative flex-1 min-w-0">
+        <!-- Placeholder -->
+        <span
+          v-if="showPlaceholder"
+          :class="[
+            'pointer-events-none absolute select-none text-slate-400 z-10',
+            density === 'compact'
+              ? 'left-2 top-1 text-xs'
+              : 'left-2 top-2 text-sm',
+          ]"
+        >
+          {{ placeholder }}
+        </span>
+
+        <!-- ProseMirror 编辑器 -->
+        <VariableEditor
+          ref="editorRef"
+          :model-value="internalValue"
+          :multiline="multiline"
+          :density="density"
+          class="w-full"
+          @update:model-value="handleEditorUpdate"
+          @focus="handleFocus"
+          @blur="handleBlur"
+          @variable-drop="handleVariableDrop"
+        />
+      </div>
+
+      <!-- 打开变量编辑器按钮 - 右侧紧贴 -->
+      <div class="absolute right-0 bottom-0 w-5 h-8 pt-3">
+        <button
+          type="button"
+          class="flex items-center justify-center w-full h-full border-l rounded-tl-md border-t border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-700 hover:bg-slate-100 rounded-r-md shrink-0"
+          @click.stop="openVariableEditor"
+          title="打开变量编辑器"
+        >
+          <IconExternalLink class="h-3 w-3" />
+        </button>
+      </div>
+    </div>
 
     <!-- 底部预览 -->
     <VariablePreview
@@ -177,11 +247,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from "vue";
 import IconChevronRight from "@/icons/IconChevronRight.vue";
 import IconFx from "@/icons/IconFx.vue";
 import IconExternalLink from "@/icons/IconExternalLink.vue";
-import Dropdown from "../common/Dropdown.vue";
+import { NPopover } from "naive-ui";
+import type { PopoverInst } from "naive-ui";
 import VariablePreview from "./VariablePreview.vue";
 import VariableEditor from "./editor/VariableEditor.vue";
 import { storeToRefs } from "pinia";
@@ -224,11 +295,14 @@ const emit = defineEmits<{
 }>();
 
 const editorRef = ref<InstanceType<typeof VariableEditor> | null>(null);
+const popoverRef = ref<PopoverInst | null>(null);
+const triggerContainerRef = ref<HTMLElement | null>(null);
 const internalValue = ref(normalizeValue(props.modelValue));
 const showDropdown = ref(false);
 const currentPreviewIndex = ref(0);
 const pageInput = ref("0");
 const isFocused = ref(false);
+let resizeObserver: ResizeObserver | null = null;
 
 const uiStore = useUiStore();
 const { selectedNodeId } = storeToRefs(uiStore);
@@ -248,6 +322,18 @@ watch(
     }
   }
 );
+
+// 监听 showDropdown 变化，同步 isFocused 状态并同步位置
+watch(showDropdown, (value) => {
+  if (!value && props.previewMode === "dropdown") {
+    isFocused.value = false;
+  } else if (value && props.previewMode === "dropdown") {
+    // 当下拉框显示时，同步位置
+    nextTick(() => {
+      syncPopoverPosition();
+    });
+  }
+});
 
 // 检查是否包含变量
 const hasVariable = computed(() => {
@@ -338,6 +424,19 @@ function normalizeValue(value: string | number | undefined): string {
 }
 
 /**
+ * 同步 Popover 位置
+ */
+function syncPopoverPosition() {
+  if (popoverRef.value && showDropdown.value) {
+    try {
+      popoverRef.value.syncPosition();
+    } catch (error) {
+      // 忽略同步错误
+    }
+  }
+}
+
+/**
  * 处理焦点事件
  */
 function handleFocus() {
@@ -345,6 +444,10 @@ function handleFocus() {
   if (props.previewMode === "dropdown") {
     currentPreviewIndex.value = 0;
     showDropdown.value = true;
+    // 延迟同步位置，确保 DOM 已更新
+    nextTick(() => {
+      syncPopoverPosition();
+    });
   }
 }
 
@@ -352,7 +455,46 @@ function handleFocus() {
  * 处理失焦事件
  */
 function handleBlur() {
+  // 延迟关闭下拉框，以便点击下拉框内容时不会立即关闭
+  setTimeout(() => {
+    isFocused.value = false;
+    if (props.previewMode === "dropdown") {
+      showDropdown.value = false;
+    }
+  }, 200);
+}
+
+/**
+ * 处理点击外部事件
+ */
+function handleClickOutside(event: MouseEvent) {
+  if (props.previewMode !== "dropdown" || !showDropdown.value) return;
+
+  const target = event.target as Node;
+  const trigger = triggerContainerRef.value;
+
+  // 检查点击目标是否在 trigger 容器内（包括编辑器）
+  if (trigger && trigger.contains(target)) {
+    // 点击在容器内，不关闭下拉框
+    return;
+  }
+
+  // 检查点击目标是否在下拉预览面板内
+  if (popoverRef.value) {
+    const popoverEl = (popoverRef.value as any).$el;
+    if (popoverEl) {
+      // 查找 popover 的内容容器
+      const contentEl = popoverEl.querySelector(".n-popover__content-wrapper");
+      if (contentEl && contentEl.contains(target)) {
+        // 点击在下拉面板内，不关闭下拉框
+        return;
+      }
+    }
+  }
+
+  // 真正点击外部，关闭下拉框
   isFocused.value = false;
+  showDropdown.value = false;
 }
 
 /**
@@ -441,6 +583,99 @@ function openVariableEditor() {
     handleEditorUpdate(value);
   });
 }
+
+/**
+ * 处理滚动事件
+ */
+function handleScroll() {
+  if (showDropdown.value && props.previewMode === "dropdown") {
+    requestAnimationFrame(() => {
+      syncPopoverPosition();
+    });
+  }
+}
+
+/**
+ * 设置 ResizeObserver
+ */
+function setupResizeObserver() {
+  // 先清理旧的 observer
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
+
+  // 如果是 dropdown 模式且有容器引用，则设置新的 observer
+  if (props.previewMode === "dropdown" && triggerContainerRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      if (showDropdown.value) {
+        // 使用 requestAnimationFrame 确保在浏览器重绘前执行
+        requestAnimationFrame(() => {
+          syncPopoverPosition();
+        });
+      }
+    });
+    resizeObserver.observe(triggerContainerRef.value);
+  }
+}
+
+// 监听容器高度变化
+onMounted(() => {
+  // 延迟设置，确保 DOM 已渲染
+  nextTick(() => {
+    setupResizeObserver();
+  });
+
+  // 监听滚动事件，实时更新下拉框位置
+  if (props.previewMode === "dropdown") {
+    window.addEventListener("scroll", handleScroll, true);
+    document.addEventListener("scroll", handleScroll, true);
+    // 使用 capture 阶段监听 mousedown，确保即使事件被 stopPropagation 也能捕获
+    document.addEventListener("mousedown", handleClickOutside, true);
+  }
+});
+
+// 监听 previewMode 变化，重新设置 ResizeObserver 和滚动监听
+watch(
+  () => props.previewMode,
+  (newMode, oldMode) => {
+    nextTick(() => {
+      setupResizeObserver();
+
+      // 如果从非 dropdown 切换到 dropdown，添加滚动监听和点击监听
+      if (newMode === "dropdown" && oldMode !== "dropdown") {
+        window.addEventListener("scroll", handleScroll, true);
+        document.addEventListener("scroll", handleScroll, true);
+        document.addEventListener("mousedown", handleClickOutside, true);
+      }
+      // 如果从 dropdown 切换到非 dropdown，移除滚动监听和点击监听
+      else if (newMode !== "dropdown" && oldMode === "dropdown") {
+        window.removeEventListener("scroll", handleScroll, true);
+        document.removeEventListener("scroll", handleScroll, true);
+        document.removeEventListener("mousedown", handleClickOutside, true);
+      }
+    });
+  }
+);
+
+// 监听 triggerContainerRef 变化，重新设置 ResizeObserver
+watch(triggerContainerRef, () => {
+  if (props.previewMode === "dropdown") {
+    nextTick(() => {
+      setupResizeObserver();
+    });
+  }
+});
+
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
+  window.removeEventListener("scroll", handleScroll, true);
+  document.removeEventListener("scroll", handleScroll, true);
+  document.removeEventListener("mousedown", handleClickOutside, true);
+});
 </script>
 
 <style scoped>
