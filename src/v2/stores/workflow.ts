@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, ref, toRaw, watch } from "vue";
 import type { TreeOption } from "naive-ui";
 import type { Workflow } from "workflow-flow-nodes";
 import { getContext } from "@/v2/context";
@@ -964,7 +964,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
 
   function getGlobalVariableJson(): Record<string, any> {
     return globalVariables.value.reduce((acc, variable) => {
-      acc[variable.key] = variable.value;
+      acc[variable.key] = toRaw(variable.value);
       return acc;
     }, {} as Record<string, any>);
   }
