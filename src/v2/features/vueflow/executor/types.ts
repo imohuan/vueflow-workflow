@@ -134,7 +134,7 @@ export type ExecutionCommand =
       type: "GET_HISTORY";
       payload: {
         requestId: string;
-        workflowId?: string;
+        executionId?: string;
         page?: number;
         pageSize?: number;
       };

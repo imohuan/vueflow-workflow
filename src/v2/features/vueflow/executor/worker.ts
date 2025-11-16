@@ -122,18 +122,49 @@ function addExecutionHistory(
  */
 function getExecutionHistory(
   requestId: string,
-  workflowId?: string,
+  executionId?: string,
   page: number = 1,
   pageSize: number = 20
 ): void {
   try {
     let history = getHistoryFromStorage();
 
-    // 按工作流ID过滤
-    if (workflowId) {
-      history = history.filter((record) => record.workflowId === workflowId);
+    // 如果指定了 executionId，直接查找单条记录
+    if (executionId) {
+      const record = history.find(
+        (record) => record.executionId === executionId
+      );
+      if (record) {
+        // 返回单条记录，包含完整的 nodes 和 edges
+        postMessageToMain({
+          type: "HISTORY_DATA",
+          payload: {
+            requestId,
+            history: [record],
+            total: 1,
+            page: 1,
+            pageSize: 1,
+          },
+        });
+        console.log(`${loggerPrefix} 已返回执行历史:`, executionId);
+      } else {
+        // 未找到记录
+        postMessageToMain({
+          type: "HISTORY_DATA",
+          payload: {
+            requestId,
+            history: [],
+            total: 0,
+            page: 1,
+            pageSize: 1,
+          },
+        });
+        console.log(`${loggerPrefix} 未找到执行历史:`, executionId);
+      }
+      return;
     }
 
+    // 未指定 executionId，返回所有历史记录（不包含 nodes、edges、nodeResults）
     // 按时间倒序排序（最新的在前）
     history.sort((a, b) => b.startTime - a.startTime);
 
@@ -144,11 +175,17 @@ function getExecutionHistory(
     const endIndex = startIndex + pageSize;
     const paginatedHistory = history.slice(startIndex, endIndex);
 
+    // 移除 nodes、edges、nodeResults 以减少数据传输
+    const processedHistory = paginatedHistory.map((record) => {
+      const { nodes, edges, nodeResults, ...rest } = record;
+      return rest;
+    });
+
     postMessageToMain({
       type: "HISTORY_DATA",
       payload: {
         requestId,
-        history: paginatedHistory,
+        history: processedHistory,
         total,
         page,
         pageSize,
@@ -156,8 +193,7 @@ function getExecutionHistory(
     });
 
     console.log(
-      `${loggerPrefix} 已返回历史记录，第 ${page} 页，共 ${paginatedHistory.length} 条（总计 ${total} 条）`,
-      workflowId ? `(工作流: ${workflowId})` : "(全部)"
+      `${loggerPrefix} 已返回历史记录，第 ${page} 页，共 ${paginatedHistory.length} 条（总计 ${total} 条）`
     );
   } catch (error) {
     console.error(`${loggerPrefix} 获取执行历史失败:`, error);
@@ -607,7 +643,7 @@ self.addEventListener(
         case "GET_HISTORY":
           getExecutionHistory(
             message.payload.requestId,
-            message.payload.workflowId,
+            message.payload.executionId,
             message.payload.page,
             message.payload.pageSize
           );

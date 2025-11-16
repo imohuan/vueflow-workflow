@@ -273,10 +273,15 @@ export class WebSocketExecutorClient {
   /**
    * 获取执行历史
    */
-  getHistory(requestId: string, workflowId?: string, page?: number, pageSize?: number): void {
+  getHistory(
+    requestId: string,
+    executionId?: string,
+    page?: number,
+    pageSize?: number
+  ): void {
     this.sendCommand({
       type: "GET_HISTORY",
-      payload: { requestId, workflowId, page, pageSize },
+      payload: { requestId, executionId, page, pageSize },
     });
   }
 

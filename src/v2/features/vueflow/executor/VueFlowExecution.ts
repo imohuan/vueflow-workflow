@@ -241,7 +241,7 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
             case "GET_HISTORY":
               wsClient.getHistory(
                 command.payload.requestId,
-                command.payload.workflowId,
+                command.payload.executionId,
                 command.payload.page,
                 command.payload.pageSize
               );
@@ -389,7 +389,7 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
   }
 
   async function getHistory(
-    workflowId?: string,
+    executionId?: string,
     page: number = 1,
     pageSize: number = 20
   ): Promise<{
@@ -412,7 +412,7 @@ export function useVueFlowExecution(config?: Partial<ExecutionConfig>) {
 
       channel!.send({
         type: "GET_HISTORY",
-        payload: { requestId, workflowId, page, pageSize },
+        payload: { requestId, executionId, page, pageSize },
       });
     });
   }
