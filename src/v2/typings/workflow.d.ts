@@ -10,6 +10,8 @@ export interface WorkflowMetadata {
   description?: string;
   createdAt: number;
   updatedAt: number;
+  /** 排序顺序，数值越小越靠前，默认为 0 */
+  order?: number;
 }
 
 /**

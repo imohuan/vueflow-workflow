@@ -41,6 +41,7 @@
     <!-- 工作流树 -->
     <div class="p-3 workflow-tree">
       <n-tree
+        v-if="treeData.length > 0"
         :data="filteredTreeData"
         :expanded-keys="expandedKeys"
         :selected-keys="selectedKeys"
@@ -57,11 +58,7 @@
       />
 
       <!-- 空状态 -->
-      <n-empty
-        v-if="treeData.length === 0"
-        description="暂无工作流"
-        class="mt-8"
-      >
+      <n-empty v-else description="暂无工作流" class="mt-8">
         <template #extra>
           <n-button size="small" @click="createWorkflow">
             创建第一个工作流
@@ -97,7 +94,6 @@ import { useCanvasStore } from "../../../../stores/canvas";
 import {
   useWorkflowStore,
   type WorkflowTreeMeta,
-  type WorkflowFolder,
 } from "../../../../stores/workflow";
 
 const message = useMessage();
@@ -114,15 +110,41 @@ const expandedKeys = ref<string[]>([]);
 // 选中的节点
 const selectedKeys = ref<string[]>([]);
 
-// 从 workflow store 获取树数据
-const treeData = computed(() => workflowStore.treeData);
+// 将 WorkflowTreeMeta 转换为 TreeOption
+function convertToTreeOption(meta: WorkflowTreeMeta): TreeOption {
+  if (meta.kind === "folder") {
+    // 文件夹节点
+    const children = (meta.children || []).map(convertToTreeOption);
+    return {
+      key: meta.path,
+      label: meta.path.split("/").pop() || meta.path,
+      children: children.length > 0 ? children : undefined,
+      meta: meta,
+    };
+  } else {
+    // 工作流节点
+    return {
+      key: meta.workflow_id,
+      label: meta.name,
+      meta: meta,
+    };
+  }
+}
+
+// 从 workflow store 获取树数据并转换为 TreeOption
+const treeData = computed(() =>
+  workflowStore.treeData.map(convertToTreeOption)
+);
 
 watch(
   () => treeData.value,
   (nodes) => {
     if (expandedKeys.value.length > 0) return;
-    const firstFolder = nodes.find((node) => !node.isLeaf);
-    if (firstFolder) {
+    // 自动展开第一个文件夹
+    const firstFolder = nodes.find(
+      (node) => node.children && node.children.length > 0
+    );
+    if (firstFolder && firstFolder.key) {
       expandedKeys.value = [String(firstFolder.key)];
     }
   },
@@ -143,7 +165,7 @@ watch(
 );
 
 const folderSelectOptions = computed(() => {
-  const options = workflowStore.folderPathList.map((path) => ({
+  const options = workflowStore.allFolderPaths.map((path) => ({
     label: path,
     value: path,
   }));
@@ -184,8 +206,8 @@ const filteredTreeData = computed(() => {
  */
 function renderLabel({ option }: { option: TreeOption }) {
   const meta = option.meta as WorkflowTreeMeta | undefined;
-  const isWorkflow = meta?.type === "workflow";
-  const isFolder = meta?.type === "folder";
+  const isWorkflow = meta?.kind === "workflow";
+  const isFolder = meta?.kind === "folder";
 
   return h(
     "div",
@@ -194,7 +216,7 @@ function renderLabel({ option }: { option: TreeOption }) {
     },
     [
       h("span", { class: "flex-1" }, String(option.label || "")),
-      meta?.type === "workflow" &&
+      meta?.kind === "workflow" &&
         meta.updatedAt &&
         h(
           "span",
@@ -217,9 +239,9 @@ function renderLabel({ option }: { option: TreeOption }) {
                     "opacity-0 group-hover:opacity-100 transition-opacity ml-2",
                   onClick: (e: MouseEvent) => {
                     e.stopPropagation();
-                    if (meta?.type === "workflow") {
+                    if (meta?.kind === "workflow") {
                       renameWorkflow(
-                        meta.workflowId,
+                        meta.workflow_id,
                         String(option.label || "")
                       );
                     }
@@ -239,8 +261,8 @@ function renderLabel({ option }: { option: TreeOption }) {
           NPopconfirm,
           {
             onPositiveClick: () => {
-              if (meta?.type === "workflow") {
-                workflowStore.deleteWorkflow(meta.workflowId);
+              if (meta?.kind === "workflow") {
+                workflowStore.deleteWorkflow(meta.workflow_id);
                 message?.success(`工作流 "${option.label}" 已删除`);
               }
             },
@@ -273,12 +295,9 @@ function renderLabel({ option }: { option: TreeOption }) {
         h(
           NPopconfirm,
           {
-            onPositiveClick: () => {
-              if (meta?.type === "folder") {
-                handleDeleteFolder(
-                  meta.folderId,
-                  String(option.label || "未命名文件夹")
-                );
+            onPositiveClick: async () => {
+              if (meta?.kind === "folder") {
+                await handleDeleteFolder(meta.path);
               }
             },
             positiveText: "删除",
@@ -303,7 +322,7 @@ function renderLabel({ option }: { option: TreeOption }) {
                 }
               ),
             default: () =>
-              `确定要删除文件夹 "${option.label}" 吗？如果不为空将一并删除所有内容。`,
+              `确定要删除文件夹 "${option.label}" 吗？文件夹下的所有工作流将被移动到根目录。`,
           }
         ),
     ]
@@ -314,8 +333,10 @@ function renderLabel({ option }: { option: TreeOption }) {
  * 渲染树节点前缀图标
  */
 function renderPrefix({ option }: { option: TreeOption }) {
-  const icon = option.isLeaf ? IconNodeEditor : IconFolder;
-  const color = option.isLeaf ? "text-blue-500" : "text-amber-500";
+  const meta = option.meta as WorkflowTreeMeta | undefined;
+  const isWorkflow = meta?.kind === "workflow";
+  const icon = isWorkflow ? IconNodeEditor : IconFolder;
+  const color = isWorkflow ? "text-blue-500" : "text-amber-500";
   return h(NIcon, { component: icon, class: `${color} text-base` });
 }
 
@@ -364,26 +385,9 @@ function toggleExpanded(key: string | number) {
   }
 }
 
-function expandFolderPath(folderId: string) {
-  let current: string | null = folderId;
-  const visited = new Set<string>();
-
-  while (current) {
-    const key = `folder-${current}`;
-    if (!expandedKeys.value.includes(key)) {
-      expandedKeys.value.push(key);
-    }
-
-    const folder = (workflowStore.folders as WorkflowFolder[]).find(
-      (item) => item.id === current
-    );
-    if (!folder || !folder.parentId || visited.has(folder.parentId)) {
-      break;
-    }
-    visited.add(current);
-    current = folder.parentId;
-  }
-}
+// 已弃用：expandFolderPath 函数
+// 新的树形结构不再需要此函数，因为 children 已经包含在节点中
+// function expandFolderPath(folderId: string) { ... }
 
 /**
  * 处理节点选择 - 加载工作流到画布
@@ -403,9 +407,9 @@ function handleSelect(keys: string[]) {
 
   // 只加载工作流类型的节点
   const meta = selectedNode.meta as WorkflowTreeMeta | undefined;
-  if (meta?.type === "workflow") {
+  if (meta?.kind === "workflow") {
     // 从 workflow store 加载工作流
-    canvasStore.loadWorkflowById(meta.workflowId);
+    canvasStore.loadWorkflowById(meta.workflow_id);
   }
 }
 
@@ -441,40 +445,180 @@ function allowDrop({
 /**
  * 处理拖拽放置
  */
-function handleDrop({
+async function handleDrop({
   node,
   dragNode,
   dropPosition,
+  event: _event,
 }: {
   node: TreeOption;
   dragNode: TreeOption;
   dropPosition: "before" | "after" | "inside";
+  event: DragEvent;
 }) {
   const dragMeta = dragNode.meta as WorkflowTreeMeta | undefined;
   const targetMeta = node.meta as WorkflowTreeMeta | undefined;
 
   if (!dragMeta || !targetMeta) return;
 
-  workflowStore.handleTreeDrop({
-    dragMeta,
-    targetMeta,
-    dropPosition,
-  });
-
-  if (dropPosition === "inside" && targetMeta.type === "folder") {
-    expandFolderPath(targetMeta.folderId);
+  // 不能拖到自己上
+  if (dragMeta.kind === "folder" && targetMeta.kind === "folder") {
+    if (dragMeta.path === targetMeta.path) return;
+    // 不能将文件夹拖到自己的子文件夹中
+    if (targetMeta.path.startsWith(dragMeta.path + "/")) {
+      message?.warning("不能将文件夹移动到自己的子文件夹中");
+      return;
+    }
   }
 
-  message?.success("排序已更新");
+  try {
+    if (dragMeta.kind === "workflow") {
+      // 拖拽工作流
+      await handleWorkflowDrop(dragMeta, targetMeta, dropPosition);
+    } else if (dragMeta.kind === "folder") {
+      // 拖拽文件夹
+      await handleFolderDrop(dragMeta, targetMeta, dropPosition);
+    }
+  } catch (error) {
+    console.error("[WorkflowTreePanel] 拖拽失败:", error);
+    message?.error("拖拽操作失败");
+  }
+}
+
+/**
+ * 处理工作流拖拽
+ */
+async function handleWorkflowDrop(
+  dragMeta: Extract<WorkflowTreeMeta, { kind: "workflow" }>,
+  targetMeta: WorkflowTreeMeta,
+  dropPosition: "before" | "after" | "inside"
+) {
+  let targetFolderPath = "";
+
+  if (targetMeta.kind === "folder") {
+    // 拖到文件夹内
+    if (dropPosition === "inside") {
+      targetFolderPath = targetMeta.path;
+    } else {
+      // before/after：放到文件夹的父级
+      const parts = targetMeta.path.split("/").filter(Boolean);
+      if (parts.length > 0) {
+        parts.pop();
+      }
+      targetFolderPath = parts.join("/");
+    }
+  } else if (targetMeta.kind === "workflow") {
+    // 拖到工作流的前后：放到工作流的父级文件夹
+    const parts = targetMeta.path.split("/").filter(Boolean);
+    if (parts.length > 1) {
+      parts.pop();
+      targetFolderPath = parts.join("/");
+    } else {
+      targetFolderPath = ""; // 根目录
+    }
+  }
+
+  // 如果目标路径和当前路径相同，不执行操作
+  const currentParentPath = dragMeta.path.includes("/")
+    ? dragMeta.path.substring(0, dragMeta.path.lastIndexOf("/"))
+    : "";
+  if (currentParentPath === targetFolderPath) {
+    return;
+  }
+
+  const success = await workflowStore.moveWorkflow(
+    dragMeta.workflow_id,
+    targetFolderPath
+  );
+
+  if (success) {
+    message?.success(`工作流已移动到 "${targetFolderPath || "根目录"}"`);
+  } else {
+    message?.error("移动工作流失败");
+  }
+}
+
+/**
+ * 处理文件夹拖拽
+ */
+async function handleFolderDrop(
+  dragMeta: Extract<WorkflowTreeMeta, { kind: "folder" }>,
+  targetMeta: WorkflowTreeMeta,
+  dropPosition: "before" | "after" | "inside"
+) {
+  let targetParentPath = "";
+  let newFolderName = dragMeta.path.split("/").pop() || "";
+
+  if (targetMeta.kind === "folder") {
+    if (dropPosition === "inside") {
+      // 拖到文件夹内：成为其子文件夹
+      targetParentPath = targetMeta.path;
+    } else {
+      // before/after：与目标文件夹同级
+      const parts = targetMeta.path.split("/").filter(Boolean);
+      if (parts.length > 0) {
+        parts.pop();
+      }
+      targetParentPath = parts.join("/");
+    }
+  } else if (targetMeta.kind === "workflow") {
+    // 拖到工作流的前后：放到工作流的父级文件夹
+    const parts = targetMeta.path.split("/").filter(Boolean);
+    if (parts.length > 1) {
+      parts.pop();
+      targetParentPath = parts.join("/");
+    } else {
+      targetParentPath = ""; // 根目录
+    }
+  }
+
+  const newPath = targetParentPath
+    ? `${targetParentPath}/${newFolderName}`
+    : newFolderName;
+
+  // 如果新路径和当前路径相同，不执行操作
+  if (newPath === dragMeta.path) {
+    return;
+  }
+
+  // 检查新路径是否已存在（包括显式和隐含的文件夹）
+  const allFolders = new Set(workflowStore.allFolderPaths);
+  if (allFolders.has(newPath)) {
+    message?.warning("目标位置已存在同名文件夹");
+    return;
+  }
+
+  // 移动文件夹：重命名文件夹路径，并更新所有相关工作流的路径
+  const success = await workflowStore.moveFolder(dragMeta.path, newPath);
+
+  if (success) {
+    message?.success(`文件夹已移动到 "${newPath}"`);
+  } else {
+    message?.error("移动文件夹失败");
+  }
 }
 
 /**
  * 显示右键菜单
  */
 function showContextMenu(option: TreeOption, event: MouseEvent) {
-  // 这里可以使用 Naive UI 的 Dropdown 组件实现右键菜单
-  console.log("右键菜单:", option, event);
-  // message?.info(`右键菜单：${option.label}`);
+  const meta = option.meta as WorkflowTreeMeta | undefined;
+  if (!meta) return;
+
+  // 阻止默认右键菜单
+  event.preventDefault();
+
+  // 这里可以后续使用 Naive UI 的 Dropdown 组件实现更完整的右键菜单
+  // 目前先通过双击等方式操作，右键菜单功能可以在后续版本中完善
+  if (meta.kind === "workflow") {
+    // 右键工作流：可以快速打开
+    loadWorkflow(option);
+  } else if (meta.kind === "folder") {
+    // 右键文件夹：切换展开/折叠
+    if (option.key) {
+      toggleExpanded(option.key);
+    }
+  }
 }
 
 /**
@@ -482,8 +626,8 @@ function showContextMenu(option: TreeOption, event: MouseEvent) {
  */
 function loadWorkflow(option: TreeOption) {
   const meta = option.meta as WorkflowTreeMeta | undefined;
-  if (meta?.type === "workflow") {
-    canvasStore.loadWorkflowById(meta.workflowId);
+  if (meta?.kind === "workflow") {
+    canvasStore.loadWorkflowById(meta.workflow_id);
   }
 }
 
@@ -534,26 +678,24 @@ function createWorkflow() {
       ),
     positiveText: "创建",
     negativeText: "取消",
-    onPositiveClick: () => {
+    onPositiveClick: async () => {
       if (!nameRef.value.trim()) {
         message?.warning("工作流名称不能为空");
         return false;
       }
 
-      const workflow = workflowStore.createWorkflow(
+      const workflow = await workflowStore.createWorkflow(
         nameRef.value.trim(),
         folderRef.value
       );
-      canvasStore.loadWorkflowById(workflow.workflow_id);
-      message?.success(`工作流 "${nameRef.value}" 创建成功`);
 
-      // 自动展开工作流所在的文件夹
-      if (workflow.folderId) {
-        expandFolderPath(workflow.folderId);
+      if (workflow) {
+        canvasStore.loadWorkflowById(workflow.workflow_id);
+        message?.success(`工作流 "${nameRef.value}" 创建成功`);
+        selectedKeys.value = [workflow.workflow_id];
+      } else {
+        message?.error("创建工作流失败");
       }
-
-      // 选中新创建的工作流
-      selectedKeys.value = [workflow.workflow_id];
     },
   });
 }
@@ -601,7 +743,7 @@ function createFolder() {
       ),
     positiveText: "创建",
     negativeText: "取消",
-    onPositiveClick: () => {
+    onPositiveClick: async () => {
       if (!nameRef.value.trim()) {
         message?.warning("文件夹名称不能为空");
         return false;
@@ -612,18 +754,16 @@ function createFolder() {
       const expectedPath = parentPath
         ? `${parentPath}/${normalizedName}`
         : normalizedName;
-      const existedBefore = workflowStore.folderPathList.includes(expectedPath);
+      const existedBefore = workflowStore.allFolderPaths.includes(expectedPath);
 
-      const folder = workflowStore.createFolder(normalizedName, parentPath);
+      const success = await workflowStore.createFolder(expectedPath);
 
-      expandFolderPath(folder.id);
-
-      const folderPath =
-        workflowStore.buildFolderPath(folder.id) || folder.name;
-      if (existedBefore) {
-        message?.info(`文件夹 "${folderPath}" 已存在`);
+      if (success && !existedBefore) {
+        message?.success(`文件夹 "${expectedPath}" 创建成功`);
+      } else if (existedBefore) {
+        message?.info(`文件夹 "${expectedPath}" 已存在`);
       } else {
-        message?.success(`文件夹 "${folderPath}" 创建成功`);
+        message?.error(`文件夹 "${expectedPath}" 创建失败`);
       }
     },
   });
@@ -690,20 +830,37 @@ function renameWorkflow(workflowId: string, currentName: string) {
 /**
  * 删除文件夹
  */
-function handleDeleteFolder(folderId: string, folderName: string) {
-  const result = workflowStore.deleteFolder(folderId, true);
+async function handleDeleteFolder(folderPath: string) {
+  // 检查文件夹下是否有工作流
+  const workflowsInFolder = workflowStore.workflowList.filter((w) =>
+    w.path.startsWith(folderPath + "/")
+  );
 
-  if (result.success) {
-    const count = result.deletedCount;
-    if (count && (count.folders > 1 || count.workflows > 0)) {
-      message?.success(
-        `已删除文件夹 "${folderName}" 及其内容：${count.folders} 个文件夹，${count.workflows} 个工作流`
-      );
+  if (workflowsInFolder.length > 0) {
+    // 如果有工作流，需要先将它们移动到根目录
+    const movedCount = workflowsInFolder.length;
+
+    for (const workflow of workflowsInFolder) {
+      await workflowStore.moveWorkflow(workflow.workflow_id, "");
+    }
+
+    // 删除文件夹
+    const success = await workflowStore.deleteFolder(folderPath);
+
+    if (success) {
+      message?.success(`文件夹已删除，${movedCount} 个工作流已移动到根目录`);
     } else {
-      message?.success(`文件夹 "${folderName}" 已删除`);
+      message?.error("删除文件夹失败");
     }
   } else {
-    message?.error(result.message);
+    // 文件夹为空，直接删除
+    const success = await workflowStore.deleteFolder(folderPath);
+
+    if (success) {
+      message?.success(`文件夹 "${folderPath}" 已删除`);
+    } else {
+      message?.error("删除文件夹失败");
+    }
   }
 }
 </script>

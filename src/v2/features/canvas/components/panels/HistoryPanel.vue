@@ -273,18 +273,13 @@ async function viewDetails(record: ExecutionRecord) {
   try {
     console.log("查看详情:", record);
 
-    // 获取完整的历史记录（包含执行结果和工作流结构）
-    // 获取该工作流的所有历史记录（不分页，获取第一页大量数据）
-    const result = await canvasStore.vueFlowExecution.getHistory(
-      record.workflowId,
-      1,
-      1000
-    );
+    // 直接通过 executionId 获取完整的历史记录（包含执行结果和工作流结构）
+    const result = await canvasStore.vueFlowExecution.getHistory(record.id);
 
-    // 查找匹配的历史记录
-    const historyRecord = result.history.find(
-      (h: ExecutionHistoryRecord) => h.executionId === record.id
-    );
+    console.log("[HistoryPanel] 加载历史记录:", result);
+
+    // 获取单条记录
+    const historyRecord = result.history[0];
 
     if (!historyRecord) {
       message?.warning("未找到该执行记录的详细数据");
