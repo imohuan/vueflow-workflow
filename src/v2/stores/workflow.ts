@@ -113,6 +113,7 @@ function buildTreeData(
       description: workflow.description,
       createdAt: workflow.createdAt,
       updatedAt: workflow.updatedAt,
+      order: workflow.order ?? 0,
     };
 
     if (parentPath) {
@@ -126,6 +127,51 @@ function buildTreeData(
       // 根级工作流，稍后添加到结果中
       folderMap.set(`__root__${workflow.workflow_id}`, workflowNode);
     }
+  }
+
+  // 对每个文件夹下的子节点进行排序
+  // 排序规则：文件夹在前，工作流在后；文件夹按 folderPaths 顺序，工作流按 order 排序
+  function sortChildren(children: WorkflowTreeMeta[]) {
+    if (!children || children.length === 0) return;
+
+    // 分离文件夹和工作流
+    const folders: WorkflowTreeMeta[] = [];
+    const workflows: WorkflowTreeMeta[] = [];
+
+    for (const child of children) {
+      if (child.kind === "folder") {
+        folders.push(child);
+      } else {
+        workflows.push(child);
+      }
+    }
+
+    // 文件夹按 folderPaths 中的顺序排序
+    folders.sort((a, b) => {
+      if (a.kind !== "folder" || b.kind !== "folder") return 0;
+      const indexA = folderPaths.indexOf(a.path);
+      const indexB = folderPaths.indexOf(b.path);
+      // 如果都在 folderPaths 中，按索引排序
+      if (indexA >= 0 && indexB >= 0) return indexA - indexB;
+      // 如果只有一个在 folderPaths 中，在 folderPaths 中的排在前面
+      if (indexA >= 0) return -1;
+      if (indexB >= 0) return 1;
+      // 都不在 folderPaths 中，按路径字符串排序
+      return a.path.localeCompare(b.path);
+    });
+
+    // 工作流按 order 排序，order 相同时按名称排序
+    workflows.sort((a, b) => {
+      if (a.kind !== "workflow" || b.kind !== "workflow") return 0;
+      const orderA = a.order ?? 0;
+      const orderB = b.order ?? 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name);
+    });
+
+    // 合并：文件夹在前，工作流在后
+    children.length = 0;
+    children.push(...folders, ...workflows);
   }
 
   // 建立文件夹的父子关系
@@ -157,25 +203,52 @@ function buildTreeData(
         addFolderAndChildren(childPath);
       }
     }
+
+    // 对当前文件夹的 children 进行排序
+    if (folder.children) {
+      sortChildren(folder.children);
+    }
   }
 
   // 添加根级文件夹（parentPath === ""）
-  for (const folderPath of allFolders) {
-    if (getParentPath(folderPath) === "") {
-      addFolderAndChildren(folderPath);
-      const folder = folderMap.get(folderPath);
-      if (folder) {
-        result.push(folder);
-      }
+  // 按照 folderPaths 的顺序添加根级文件夹
+  const rootFolders = Array.from(allFolders).filter(
+    (path) => getParentPath(path) === ""
+  );
+
+  // 按 folderPaths 顺序排序根级文件夹
+  rootFolders.sort((a, b) => {
+    const indexA = folderPaths.indexOf(a);
+    const indexB = folderPaths.indexOf(b);
+    if (indexA >= 0 && indexB >= 0) return indexA - indexB;
+    if (indexA >= 0) return -1;
+    if (indexB >= 0) return 1;
+    return a.localeCompare(b);
+  });
+
+  for (const folderPath of rootFolders) {
+    addFolderAndChildren(folderPath);
+    const folder = folderMap.get(folderPath);
+    if (folder) {
+      result.push(folder);
     }
   }
 
-  // 添加根级工作流
+  // 添加根级工作流，按 order 排序
+  const rootWorkflows: WorkflowTreeMeta[] = [];
   for (const [key, node] of folderMap) {
     if (key.startsWith("__root__")) {
-      result.push(node);
+      rootWorkflows.push(node);
     }
   }
+  rootWorkflows.sort((a, b) => {
+    if (a.kind !== "workflow" || b.kind !== "workflow") return 0;
+    const orderA = a.order ?? 0;
+    const orderB = b.order ?? 0;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.name.localeCompare(b.name);
+  });
+  result.push(...rootWorkflows);
 
   return result;
 }
@@ -193,6 +266,7 @@ function toV2Workflow(workflow: any): Workflow {
     edges: workflow.edges || [],
     createdAt: workflow.createdAt || Date.now(),
     updatedAt: workflow.updatedAt || Date.now(),
+    order: workflow.order ?? 0,
   };
 }
 
@@ -209,6 +283,7 @@ function toExecutorWorkflow(workflow: Workflow): any {
     edges: workflow.edges,
     createdAt: workflow.createdAt,
     updatedAt: workflow.updatedAt,
+    order: workflow.order ?? 0,
   };
 }
 
@@ -400,6 +475,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
         description: v2Workflow.description,
         createdAt: v2Workflow.createdAt,
         updatedAt: v2Workflow.updatedAt,
+        order: v2Workflow.order ?? 0,
       });
 
       // 设置为当前工作流
@@ -498,6 +574,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
           description: wf.description,
           createdAt: wf.createdAt,
           updatedAt: wf.updatedAt,
+          order: wf.order ?? 0,
         };
       }
     } catch (error) {
@@ -616,6 +693,47 @@ export const useWorkflowStore = defineStore("workflow", () => {
   }
 
   /**
+   * 更新工作流的 order 属性
+   */
+  async function updateWorkflowOrder(
+    workflowId: string,
+    newOrder: number
+  ): Promise<boolean> {
+    try {
+      const ctx = getContext();
+
+      // 获取工作流
+      const workflow = await ctx.workflow.get(workflowId);
+      if (!workflow) return false;
+
+      const v2Wf = toV2Workflow(workflow);
+      v2Wf.order = newOrder;
+
+      // 保存
+      const toSave = toExecutorWorkflow(v2Wf);
+      await ctx.workflow.save(toSave);
+
+      // 更新本地列表
+      const idx = workflowList.value.findIndex(
+        (w) => w.workflow_id === workflowId
+      );
+      if (idx >= 0) {
+        workflowList.value[idx]!.order = newOrder;
+      }
+
+      // 如果当前工作流，也更新
+      if (currentWorkflowId.value === workflowId && currentWorkflow.value) {
+        currentWorkflow.value!.order = newOrder;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("[WorkflowStore] 更新工作流顺序失败:", error);
+      return false;
+    }
+  }
+
+  /**
    * 复制工作流
    */
   async function duplicateWorkflow(
@@ -662,6 +780,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
         description: v2Created.description,
         createdAt: v2Created.createdAt,
         updatedAt: v2Created.updatedAt,
+        order: v2Created.order ?? 0,
       });
 
       return v2Created;
@@ -720,6 +839,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
         description: v2Created.description,
         createdAt: v2Created.createdAt,
         updatedAt: v2Created.updatedAt,
+        order: v2Created.order ?? 0,
       });
 
       return v2Created;
@@ -741,8 +861,10 @@ export const useWorkflowStore = defineStore("workflow", () => {
         return false;
       }
 
-      folderPaths.value.push(folderPath);
-      folderPaths.value.sort();
+      // 保持 folderPaths 的顺序，不进行排序
+      if (!folderPaths.value.includes(folderPath)) {
+        folderPaths.value.push(folderPath);
+      }
 
       // 保存到 config
       const ctx = getContext();
@@ -803,6 +925,102 @@ export const useWorkflowStore = defineStore("workflow", () => {
       return await moveFolder(oldPath, newPath);
     } catch (error) {
       console.error("[WorkflowStore] 重命名文件夹失败:", error);
+      return false;
+    }
+  }
+
+  /**
+   * 更新文件夹在 folderPaths 中的顺序
+   * @param folderPath 要移动的文件夹路径
+   * @param targetFolderPath 目标位置（before/after 这个文件夹，或同级）
+   * @param position 'before' | 'after' - 相对于目标文件夹的位置
+   */
+  async function updateFolderOrder(
+    folderPath: string,
+    targetFolderPath: string | null,
+    position: "before" | "after"
+  ): Promise<boolean> {
+    try {
+      // 获取文件夹的父路径
+      const getParentPath = (path: string): string => {
+        if (!path) return "";
+        const parts = path.split("/").filter(Boolean);
+        if (parts.length <= 1) return "";
+        return parts.slice(0, -1).join("/");
+      };
+
+      const parentPath = getParentPath(folderPath);
+
+      // 从 folderPaths 中移除当前文件夹
+      const currentIndex = folderPaths.value.indexOf(folderPath);
+      if (currentIndex < 0) {
+        console.warn("[WorkflowStore] 文件夹不在 folderPaths 中:", folderPath);
+        return false;
+      }
+      folderPaths.value.splice(currentIndex, 1);
+
+      // 找到所有同级文件夹在 folderPaths 中的位置
+      const siblingIndices: number[] = [];
+      for (let i = 0; i < folderPaths.value.length; i++) {
+        const p = folderPaths.value[i];
+        if (p && getParentPath(p) === parentPath) {
+          siblingIndices.push(i);
+        }
+      }
+
+      // 计算插入位置
+      let insertIndex: number;
+
+      if (targetFolderPath) {
+        // 找到目标文件夹在 folderPaths 中的位置
+        const targetIndex = folderPaths.value.indexOf(targetFolderPath);
+        if (targetIndex < 0) {
+          // 目标文件夹不在 folderPaths 中，放到同级最后
+          if (siblingIndices.length > 0) {
+            const lastIndex = siblingIndices[siblingIndices.length - 1];
+            if (lastIndex !== undefined) {
+              insertIndex = lastIndex + 1;
+            } else {
+              insertIndex = folderPaths.value.length;
+            }
+          } else {
+            insertIndex = folderPaths.value.length;
+          }
+        } else {
+          // 根据 position 计算插入位置
+          if (position === "before") {
+            insertIndex = targetIndex;
+          } else {
+            insertIndex = targetIndex + 1;
+          }
+        }
+      } else {
+        // 没有目标文件夹，放到同级最后
+        if (siblingIndices.length > 0) {
+          const lastIndex = siblingIndices[siblingIndices.length - 1];
+          if (lastIndex !== undefined) {
+            insertIndex = lastIndex + 1;
+          } else {
+            insertIndex = folderPaths.value.length;
+          }
+        } else {
+          insertIndex = folderPaths.value.length;
+        }
+      }
+
+      // 插入到正确位置
+      folderPaths.value.splice(insertIndex, 0, folderPath);
+
+      // 保存到 config
+      const ctx = getContext();
+      await ctx.config.set(
+        `${NAMESPACE}:${FOLDER_PATHS_KEY}`,
+        folderPaths.value
+      );
+
+      return true;
+    } catch (error) {
+      console.error("[WorkflowStore] 更新文件夹顺序失败:", error);
       return false;
     }
   }
@@ -870,7 +1088,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
           folderPaths.value[subIdx] = newFolderPath;
         }
       }
-      folderPaths.value.sort();
+      // 保持 folderPaths 的顺序，不进行排序
 
       // 更新所有在该文件夹下及其子文件夹的工作流 path
       // 按路径长度降序排序，确保先更新深层路径
@@ -1063,6 +1281,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
     updateWorkflow,
     renameWorkflow,
     moveWorkflow,
+    updateWorkflowOrder,
     duplicateWorkflow,
     exportWorkflow,
     importWorkflow,
@@ -1075,6 +1294,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
     deleteFolder,
     renameFolder,
     moveFolder,
+    updateFolderOrder,
 
     // 全局变量
     addGlobalVariable,

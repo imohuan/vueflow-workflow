@@ -435,10 +435,18 @@ function allowDrop({
   dropPosition: string;
   node: TreeOption;
 }) {
+  const meta = node.meta as WorkflowTreeMeta | undefined;
+
   // 不允许拖拽到叶子节点内部（只能拖到文件夹内）
   if (dropPosition === "inside" && node.isLeaf) {
     return false;
   }
+
+  // 不允许拖拽到工作流内部（工作流不能嵌套）
+  if (dropPosition === "inside" && meta?.kind === "workflow") {
+    return false;
+  }
+
   return true;
 }
 
@@ -460,6 +468,15 @@ async function handleDrop({
   const targetMeta = node.meta as WorkflowTreeMeta | undefined;
 
   if (!dragMeta || !targetMeta) return;
+
+  // 工作流不能拖到工作流内部（禁止嵌套）
+  if (dragMeta.kind === "workflow" && targetMeta.kind === "workflow") {
+    if (dropPosition === "inside") {
+      message?.warning("工作流不能嵌套，只能进行同级排序");
+      return;
+    }
+    // 允许工作流拖到工作流的前后（同级排序）
+  }
 
   // 不能拖到自己上
   if (dragMeta.kind === "folder" && targetMeta.kind === "folder") {
@@ -494,11 +511,45 @@ async function handleWorkflowDrop(
   dropPosition: "before" | "after" | "inside"
 ) {
   let targetFolderPath = "";
+  let targetOrder: number | null = null;
+
+  // 获取当前工作流的父路径
+  const getParentPath = (path: string): string => {
+    if (!path) return "";
+    const parts = path.split("/").filter(Boolean);
+    if (parts.length <= 1) return "";
+    return parts.slice(0, -1).join("/");
+  };
+
+  // 获取同级工作流列表（用于计算 order），排除被拖拽的工作流
+  const getSiblingWorkflows = (
+    folderPath: string,
+    excludeWorkflowId?: string
+  ) => {
+    return workflowStore.workflowList.filter((w) => {
+      if (excludeWorkflowId && w.workflow_id === excludeWorkflowId) {
+        return false;
+      }
+      const parentPath = getParentPath(w.path);
+      return parentPath === folderPath;
+    });
+  };
 
   if (targetMeta.kind === "folder") {
     // 拖到文件夹内
     if (dropPosition === "inside") {
       targetFolderPath = targetMeta.path;
+      // 计算该文件夹下最后一个工作流的 order + 10
+      const siblings = getSiblingWorkflows(
+        targetFolderPath,
+        dragMeta.workflow_id
+      );
+      if (siblings.length > 0) {
+        const maxOrder = Math.max(...siblings.map((w) => w.order ?? 0));
+        targetOrder = maxOrder + 10;
+      } else {
+        targetOrder = 0;
+      }
     } else {
       // before/after：放到文件夹的父级
       const parts = targetMeta.path.split("/").filter(Boolean);
@@ -516,25 +567,92 @@ async function handleWorkflowDrop(
     } else {
       targetFolderPath = ""; // 根目录
     }
+
+    // 计算目标工作流的 order
+    const targetWorkflow = workflowStore.workflowList.find(
+      (w) => w.workflow_id === targetMeta.workflow_id
+    );
+    const targetWorkflowOrder = targetWorkflow?.order ?? 0;
+
+    // 获取同级工作流（排除被拖拽的工作流）
+    const siblings = getSiblingWorkflows(
+      targetFolderPath,
+      dragMeta.workflow_id
+    );
+
+    if (dropPosition === "before") {
+      // 拖到目标工作流之前
+      // 找到目标工作流之前的工作流，计算新的 order
+      const beforeSiblings = siblings.filter((w) => {
+        const order = w.order ?? 0;
+        return order < targetWorkflowOrder;
+      });
+
+      if (beforeSiblings.length > 0) {
+        const maxBeforeOrder = Math.max(
+          ...beforeSiblings.map((w) => w.order ?? 0)
+        );
+        targetOrder =
+          maxBeforeOrder + (targetWorkflowOrder - maxBeforeOrder) / 2;
+      } else {
+        // 如果没有前面的工作流，设置为目标工作流的 order - 10
+        targetOrder = targetWorkflowOrder - 10;
+      }
+    } else if (dropPosition === "after") {
+      // 拖到目标工作流之后
+      // 找到目标工作流之后的工作流，计算新的 order
+      const afterSiblings = siblings.filter((w) => {
+        const order = w.order ?? 0;
+        return order > targetWorkflowOrder;
+      });
+
+      if (afterSiblings.length > 0) {
+        const minAfterOrder = Math.min(
+          ...afterSiblings.map((w) => w.order ?? 0)
+        );
+        targetOrder =
+          targetWorkflowOrder + (minAfterOrder - targetWorkflowOrder) / 2;
+      } else {
+        // 如果没有后面的工作流，设置为目标工作流的 order + 10
+        targetOrder = targetWorkflowOrder + 10;
+      }
+    }
   }
 
-  // 如果目标路径和当前路径相同，不执行操作
-  const currentParentPath = dragMeta.path.includes("/")
-    ? dragMeta.path.substring(0, dragMeta.path.lastIndexOf("/"))
-    : "";
-  if (currentParentPath === targetFolderPath) {
+  // 如果目标路径和当前路径相同，只更新 order
+  const currentParentPath = getParentPath(dragMeta.path);
+  if (currentParentPath === targetFolderPath && targetOrder !== null) {
+    const success = await workflowStore.updateWorkflowOrder(
+      dragMeta.workflow_id,
+      targetOrder
+    );
+    if (success) {
+      message?.success("工作流顺序已更新");
+    } else {
+      message?.error("更新工作流顺序失败");
+    }
     return;
   }
 
-  const success = await workflowStore.moveWorkflow(
-    dragMeta.workflow_id,
-    targetFolderPath
-  );
+  // 需要移动文件夹
+  if (currentParentPath !== targetFolderPath) {
+    const success = await workflowStore.moveWorkflow(
+      dragMeta.workflow_id,
+      targetFolderPath
+    );
 
-  if (success) {
-    message?.success(`工作流已移动到 "${targetFolderPath || "根目录"}"`);
-  } else {
-    message?.error("移动工作流失败");
+    if (success) {
+      // 如果指定了 order，更新它
+      if (targetOrder !== null) {
+        await workflowStore.updateWorkflowOrder(
+          dragMeta.workflow_id,
+          targetOrder
+        );
+      }
+      message?.success(`工作流已移动到 "${targetFolderPath || "根目录"}"`);
+    } else {
+      message?.error("移动工作流失败");
+    }
   }
 }
 
@@ -546,23 +664,33 @@ async function handleFolderDrop(
   targetMeta: WorkflowTreeMeta,
   dropPosition: "before" | "after" | "inside"
 ) {
+  // 获取文件夹的父路径
+  const getParentPath = (path: string): string => {
+    if (!path) return "";
+    const parts = path.split("/").filter(Boolean);
+    if (parts.length <= 1) return "";
+    return parts.slice(0, -1).join("/");
+  };
+
+  const dragParentPath = getParentPath(dragMeta.path);
   let targetParentPath = "";
-  let newFolderName = dragMeta.path.split("/").pop() || "";
+  let targetFolderPath: string | null = null;
 
   if (targetMeta.kind === "folder") {
     if (dropPosition === "inside") {
-      // 拖到文件夹内：成为其子文件夹
+      // 拖到文件夹内：成为其子文件夹，需要移动路径
       targetParentPath = targetMeta.path;
     } else {
-      // before/after：与目标文件夹同级
+      // before/after：与目标文件夹同级，只更新顺序
       const parts = targetMeta.path.split("/").filter(Boolean);
       if (parts.length > 0) {
         parts.pop();
       }
       targetParentPath = parts.join("/");
+      targetFolderPath = targetMeta.path;
     }
   } else if (targetMeta.kind === "workflow") {
-    // 拖到工作流的前后：放到工作流的父级文件夹
+    // 拖到工作流的前后：放到工作流的父级文件夹，只更新顺序
     const parts = targetMeta.path.split("/").filter(Boolean);
     if (parts.length > 1) {
       parts.pop();
@@ -570,31 +698,53 @@ async function handleFolderDrop(
     } else {
       targetParentPath = ""; // 根目录
     }
+    // 对于工作流，没有目标文件夹，放到同级最后
+    targetFolderPath = null;
   }
 
-  const newPath = targetParentPath
-    ? `${targetParentPath}/${newFolderName}`
-    : newFolderName;
+  // 如果只是改变顺序（同级内拖拽）
+  if (dragParentPath === targetParentPath && dropPosition !== "inside") {
+    const success = await workflowStore.updateFolderOrder(
+      dragMeta.path,
+      targetFolderPath,
+      dropPosition as "before" | "after"
+    );
 
-  // 如果新路径和当前路径相同，不执行操作
-  if (newPath === dragMeta.path) {
+    if (success) {
+      message?.success("文件夹顺序已更新");
+    } else {
+      message?.error("更新文件夹顺序失败");
+    }
     return;
   }
 
-  // 检查新路径是否已存在（包括显式和隐含的文件夹）
-  const allFolders = new Set(workflowStore.allFolderPaths);
-  if (allFolders.has(newPath)) {
-    message?.warning("目标位置已存在同名文件夹");
-    return;
-  }
+  // 需要移动文件夹（改变路径）
+  if (dropPosition === "inside" || dragParentPath !== targetParentPath) {
+    const newFolderName = dragMeta.path.split("/").pop() || "";
+    const newPath = targetParentPath
+      ? `${targetParentPath}/${newFolderName}`
+      : newFolderName;
 
-  // 移动文件夹：重命名文件夹路径，并更新所有相关工作流的路径
-  const success = await workflowStore.moveFolder(dragMeta.path, newPath);
+    // 如果新路径和当前路径相同，不执行操作
+    if (newPath === dragMeta.path) {
+      return;
+    }
 
-  if (success) {
-    message?.success(`文件夹已移动到 "${newPath}"`);
-  } else {
-    message?.error("移动文件夹失败");
+    // 检查新路径是否已存在（包括显式和隐含的文件夹）
+    const allFolders = new Set(workflowStore.allFolderPaths);
+    if (allFolders.has(newPath)) {
+      message?.warning("目标位置已存在同名文件夹");
+      return;
+    }
+
+    // 移动文件夹：重命名文件夹路径，并更新所有相关工作流的路径
+    const success = await workflowStore.moveFolder(dragMeta.path, newPath);
+
+    if (success) {
+      message?.success(`文件夹已移动到 "${newPath}"`);
+    } else {
+      message?.error("移动文件夹失败");
+    }
   }
 }
 
