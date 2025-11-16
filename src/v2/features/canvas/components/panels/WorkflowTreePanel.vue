@@ -42,6 +42,7 @@
     <div class="p-3 workflow-tree">
       <n-tree
         v-if="treeData.length > 0"
+        :key="treeKey"
         :data="filteredTreeData"
         :expanded-keys="expandedKeys"
         :selected-keys="selectedKeys"
@@ -134,6 +135,21 @@ function convertToTreeOption(meta: WorkflowTreeMeta): TreeOption {
 // 从 workflow store 获取树数据并转换为 TreeOption
 const treeData = computed(() =>
   workflowStore.treeData.map(convertToTreeOption)
+);
+
+// 树组件的 key，用于强制更新
+const treeKey = ref(0);
+
+// 监听 workflowList 和 folderPaths 变化，强制更新树组件
+// 因为 treeData 是 computed，依赖于这两个值
+watch(
+  [
+    () => workflowStore.workflowList.map((m) => m.path),
+    () => workflowStore.folderPaths,
+  ],
+  () => {
+    treeKey.value += 1;
+  }
 );
 
 watch(
@@ -510,6 +526,18 @@ async function handleWorkflowDrop(
   targetMeta: WorkflowTreeMeta,
   dropPosition: "before" | "after" | "inside"
 ) {
+  // 从 store 重新获取最新的工作流数据，确保使用最新信息
+  const latestWorkflow = workflowStore.workflowList.find(
+    (w) => w.workflow_id === dragMeta.workflow_id
+  );
+  if (!latestWorkflow) {
+    message?.error("工作流不存在");
+    return;
+  }
+
+  // 使用最新的 path 信息
+  const currentPath = latestWorkflow.path;
+
   let targetFolderPath = "";
   let targetOrder: number | null = null;
 
@@ -620,13 +648,15 @@ async function handleWorkflowDrop(
   }
 
   // 如果目标路径和当前路径相同，只更新 order
-  const currentParentPath = getParentPath(dragMeta.path);
+  const currentParentPath = getParentPath(currentPath);
   if (currentParentPath === targetFolderPath && targetOrder !== null) {
     const success = await workflowStore.updateWorkflowOrder(
       dragMeta.workflow_id,
       targetOrder
     );
     if (success) {
+      // 拖拽操作后刷新工作流列表，确保目录树更新
+      await workflowStore.refreshWorkflowList();
       message?.success("工作流顺序已更新");
     } else {
       message?.error("更新工作流顺序失败");
@@ -649,6 +679,9 @@ async function handleWorkflowDrop(
           targetOrder
         );
       }
+
+      // 拖拽操作后刷新工作流列表，确保目录树更新
+      await workflowStore.refreshWorkflowList();
       message?.success(`工作流已移动到 "${targetFolderPath || "根目录"}"`);
     } else {
       message?.error("移动工作流失败");
@@ -711,6 +744,8 @@ async function handleFolderDrop(
     );
 
     if (success) {
+      // 拖拽操作后刷新工作流列表，确保目录树更新
+      await workflowStore.refreshWorkflowList();
       message?.success("文件夹顺序已更新");
     } else {
       message?.error("更新文件夹顺序失败");
@@ -741,6 +776,8 @@ async function handleFolderDrop(
     const success = await workflowStore.moveFolder(dragMeta.path, newPath);
 
     if (success) {
+      // 拖拽操作后刷新工作流列表，确保目录树更新
+      await workflowStore.refreshWorkflowList();
       message?.success(`文件夹已移动到 "${newPath}"`);
     } else {
       message?.error("移动文件夹失败");

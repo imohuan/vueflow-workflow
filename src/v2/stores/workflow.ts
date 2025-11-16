@@ -415,7 +415,8 @@ export const useWorkflowStore = defineStore("workflow", () => {
     try {
       const ctx = getContext();
       const list = await ctx.workflow.getList();
-      workflowList.value = list;
+      // 创建新数组引用，确保触发响应式更新
+      workflowList.value = [...list];
     } catch (error) {
       console.error("[WorkflowStore] 刷新工作流列表失败:", error);
     }
@@ -552,6 +553,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
 
   /**
    * 更新当前工作流（高频操作，使用防抖）
+   * 注意：只保存工作流数据，不更新 workflowList（列表只在拖拽、删除、添加、初始化时刷新）
    */
   const debouncedSaveWorkflow = debounce(async () => {
     if (!currentWorkflow.value) return;
@@ -560,23 +562,8 @@ export const useWorkflowStore = defineStore("workflow", () => {
       const ctx = getContext();
       const toSave = toExecutorWorkflow(currentWorkflow.value!);
       await ctx.workflow.save(toSave);
-
-      // 更新列表中的元数据
-      const idx = workflowList.value.findIndex(
-        (w) => w.workflow_id === currentWorkflow.value!.workflow_id
-      );
-      if (idx >= 0) {
-        const wf = currentWorkflow.value!;
-        workflowList.value[idx] = {
-          workflow_id: wf.workflow_id,
-          name: wf.name,
-          path: wf.path,
-          description: wf.description,
-          createdAt: wf.createdAt,
-          updatedAt: wf.updatedAt,
-          order: wf.order ?? 0,
-        };
-      }
+      // 不更新 workflowList，避免不必要的响应式更新
+      // workflowList 只在拖拽、删除、添加、初始化时刷新
     } catch (error) {
       console.error("[WorkflowStore] 保存工作流失败:", error);
     }
