@@ -354,7 +354,7 @@ export function createWorkflowServer(config: ServerConfig) {
             if (historyHandlers) {
               try {
                 const result = await historyHandlers.getHistory(
-                  message.payload.workflowId,
+                  message.payload.executionId,
                   message.payload.page,
                   message.payload.pageSize
                 );
@@ -368,7 +368,9 @@ export function createWorkflowServer(config: ServerConfig) {
                     pageSize: result.pageSize,
                   },
                 });
-                logMessage(`已返回历史记录，第 ${result.page} 页，共 ${result.history.length} 条（总计 ${result.total} 条）`);
+                logMessage(
+                  `已返回历史记录，第 ${result.page} 页，共 ${result.history.length} 条（总计 ${result.total} 条）`
+                );
               } catch (err) {
                 errorMessage("获取历史记录失败:", err);
                 sendMessage({

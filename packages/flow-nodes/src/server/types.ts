@@ -53,7 +53,7 @@ export type ClientMessage =
       type: "GET_HISTORY";
       payload: {
         requestId: string;
-        workflowId?: string;
+        executionId?: string;
         page?: number;
         pageSize?: number;
       };
@@ -191,7 +191,7 @@ export type ServerMessage =
 export interface HistoryHandlers {
   /** 获取历史记录 */
   getHistory: (
-    workflowId?: string,
+    executionId?: string,
     page?: number,
     pageSize?: number
   ) => Promise<{

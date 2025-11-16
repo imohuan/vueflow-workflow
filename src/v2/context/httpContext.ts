@@ -13,7 +13,7 @@ import type {
 async function invoke<T>(channel: string, ...args: any[]): Promise<T> {
   // 这里的实现假设全局有一个通用的 HTTP 调用函数，或者直接使用 fetch
   // 这部分逻辑与 cache-handler-client.ts 类似
-  const response = await fetch("/api/invoke", {
+  const response = await fetch((window as any).httpApi.url + "/api/invoke", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -29,8 +29,8 @@ async function invoke<T>(channel: string, ...args: any[]): Promise<T> {
   }
 
   const result = await response.json();
-  if (result.success) {
-    return result.value;
+  if (result.success && result.data.success) {
+    return result.data?.data;
   } else {
     throw new Error(result.error || "Unknown error from server");
   }
