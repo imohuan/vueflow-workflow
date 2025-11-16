@@ -11,7 +11,6 @@ import {
   type WorkflowNode,
   type WorkflowEdge,
 } from "workflow-flow-nodes";
-import type { GlobalVariable } from "@/v2/stores/workflow";
 
 /**
  * 将 VueFlow Node 转换为 WorkflowNode

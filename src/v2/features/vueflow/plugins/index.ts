@@ -9,7 +9,6 @@ import type { VueFlowPlugin, PluginContext, PluginSharedState } from "./types";
 export * from "./types";
 export { createCopyPastePlugin } from "./copyPastePlugin";
 export { createConfigSyncPlugin } from "./configSyncPlugin";
-export { createCanvasPersistencePlugin } from "./canvasPersistencePlugin";
 export { createMultiSelectPlugin } from "./multiSelectPlugin";
 export { createHistoryPlugin } from "./historyPlugin";
 export { createEdgeEditPlugin } from "./edgeEditPlugin";

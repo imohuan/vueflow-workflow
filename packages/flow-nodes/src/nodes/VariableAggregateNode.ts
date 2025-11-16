@@ -68,7 +68,6 @@ export class VariableAggregateNode extends BaseFlowNode {
       // 聚合数据：key为分组名称，value为第一个有数据的值
       const aggregated: Record<string, any> = {};
 
-      debugger;
       for (const group of data) {
         // 验证分组结构
         if (!group || typeof group !== "object") {

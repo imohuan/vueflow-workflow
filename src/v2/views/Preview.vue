@@ -55,9 +55,7 @@ const currentPath = ref<string>("#/preview/ui-shell");
 
 onMounted(async () => {
   const ctx = getContext();
-  const saved = await ctx.cache.read<string>(STORAGE_KEY, {
-    namespace: NAMESPACE,
-  });
+  const saved = await ctx.config.get<string>(`${NAMESPACE}:${STORAGE_KEY}`);
   if (saved) currentPath.value = saved;
 });
 
@@ -71,7 +69,7 @@ watch(
   currentPath,
   async (val) => {
     const ctx = getContext();
-    await ctx.cache.save(STORAGE_KEY, val, { namespace: NAMESPACE });
+    await ctx.config.set(`${NAMESPACE}:${STORAGE_KEY}`, val);
   },
   { flush: "post" }
 );

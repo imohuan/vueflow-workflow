@@ -134,9 +134,9 @@ const NAMESPACE = "v2";
 async function loadConfigFromStorageAsync(): Promise<EditorConfig> {
   try {
     const ctx = getContext();
-    const saved = await ctx.cache.read<EditorConfig>(STORAGE_KEY, {
-      namespace: NAMESPACE,
-    });
+    const saved = await ctx.config.get<EditorConfig>(
+      `${NAMESPACE}:${STORAGE_KEY}`
+    );
     if (saved) {
       return { ...DEFAULT_EDITOR_CONFIG, ...saved };
     }
@@ -152,7 +152,7 @@ async function loadConfigFromStorageAsync(): Promise<EditorConfig> {
 async function saveConfigToStorageAsync(config: EditorConfig): Promise<void> {
   try {
     const ctx = getContext();
-    await ctx.cache.save(STORAGE_KEY, config, { namespace: NAMESPACE });
+    await ctx.config.set(`${NAMESPACE}:${STORAGE_KEY}`, config);
   } catch (error) {
     console.error("[EditorConfig Store] 保存配置失败:", error);
   }
@@ -240,7 +240,7 @@ export const useEditorConfigStore = defineStore("editorConfig", () => {
    */
   async function ready(): Promise<boolean> {
     while (!init.value) {
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
     }
     return true;
   }

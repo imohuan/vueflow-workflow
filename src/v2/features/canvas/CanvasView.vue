@@ -127,14 +127,14 @@ uiStore.activeTab = "node-library";
 function ensureCurrentWorkflow() {
   // 等待 store 数据加载完成（异步初始化）
   setTimeout(() => {
-    const { currentWorkflow, workflows, setCurrentWorkflow } = workflowStore;
+    const { currentWorkflow, workflowList, setCurrentWorkflow } = workflowStore;
 
     // currentWorkflow 是 computed，如果为 null 说明：
     // 1. 没有设置当前工作流 ID，或
     // 2. 当前工作流 ID 对应的工作流不存在
     if (!currentWorkflow) {
       // 不存在当前工作流，默认显示第一个工作流
-      const firstWorkflow = workflows[0];
+      const firstWorkflow = workflowList[0];
       if (firstWorkflow) {
         console.log("[CanvasView] 没有当前工作流，默认显示第一个工作流");
         setCurrentWorkflow(firstWorkflow.workflow_id);
@@ -352,7 +352,7 @@ async function handleExecute(selectedNodeIds?: string[]) {
     // 构建 Workflow 对象并移除 Vue 响应式代理
     // 使用 JSON 序列化来移除 Proxy 和不可序列化的对象
     const workflowData: Workflow = {
-      workflow_id: currentWorkflow.workflow_id,
+      workflow_id: currentWorkflow.workflow_id!,
       name: currentWorkflow.name,
       description: currentWorkflow.description,
       selectedNodeIds: finalSelectedNodeIds,
@@ -626,12 +626,6 @@ events.on("execution:node:complete", ({ nodeId, result }) => {
       executionStatus: "success",
       executionResult: result,
     },
-  });
-
-  // 添加到执行结果预览
-  canvasStore.pushNodeResult({
-    id: nodeId,
-    preview: JSON.stringify(result, null, 2).slice(0, 200),
   });
 
   // 如果当前预览的节点就是执行完成的节点，更新预览数据

@@ -58,16 +58,6 @@ export const NODE_COLORS = {
 } as const;
 
 /**
- * 节点状态颜色配置
- */
-export const NODE_STATUS_COLORS = {
-  pending: "#e2e8f0",
-  running: "#fef3c7",
-  success: "#ffffff",
-  error: "#fecaca",
-} as const;
-
-/**
  * 容器节点配置（For 循环容器）
  */
 export const CONTAINER_CONFIG = {
@@ -86,6 +76,7 @@ export const CONTAINER_CONFIG = {
   minHeight: 200,
 } as const;
 
+// --------------------------下面是么有被使用的
 /**
  * 节点端口配置
  */
@@ -96,6 +87,15 @@ export const NODE_PORT = {
   borderWidth: 2,
   /** 端口激活时的大小 */
   activeSize: 16,
+} as const;
+/**
+ * 节点状态颜色配置
+ */
+export const NODE_STATUS_COLORS = {
+  pending: "#e2e8f0",
+  running: "#fef3c7",
+  success: "#ffffff",
+  error: "#fecaca",
 } as const;
 
 /**

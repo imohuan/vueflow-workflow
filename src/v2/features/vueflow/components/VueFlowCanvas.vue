@@ -191,7 +191,6 @@ import {
   PLUGIN_MANAGER_KEY,
   createConfigSyncPlugin,
   createCopyPastePlugin,
-  createCanvasPersistencePlugin,
   createMultiSelectPlugin,
   createHistoryPlugin,
   createEdgeEditPlugin,
@@ -1053,9 +1052,6 @@ onMounted(() => {
     allowReconnectToOriginal: true,
   });
   pluginManager.register(edgeEditPlugin);
-
-  const canvasPersistencePlugin = createCanvasPersistencePlugin();
-  pluginManager.register(canvasPersistencePlugin);
 
   const ctrlConnectPlugin = createCtrlConnectPlugin({
     debug: true, // 开启调试模式，可以在控制台看到日志

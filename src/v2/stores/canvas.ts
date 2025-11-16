@@ -26,11 +26,6 @@ export const useCanvasStore = defineStore("newCanvas", () => {
   /** 是否正在执行工作流 */
   const isExecuting = ref(false);
 
-  /** 最近的节点执行结果（用于预览面板） */
-  const lastNodeResults = ref<
-    Array<{ id: string; timestamp: string; preview: string }>
-  >([]);
-
   /** 画布 FPS（性能监控） */
   const fps = ref(0);
 
@@ -108,24 +103,6 @@ export const useCanvasStore = defineStore("newCanvas", () => {
    */
   function setExecuting(value: boolean) {
     isExecuting.value = value;
-  }
-
-  /**
-   * 添加节点执行结果到预览列表
-   */
-  function pushNodeResult(entry: { id: string; preview: string }) {
-    const timestamp = new Date().toLocaleTimeString();
-    lastNodeResults.value = [
-      { ...entry, timestamp },
-      ...lastNodeResults.value,
-    ].slice(0, 10);
-  }
-
-  /**
-   * 清空执行结果预览
-   */
-  function clearResults() {
-    lastNodeResults.value = [];
   }
 
   // ===== 节点操作（直接操作 workflow store）=====
@@ -236,7 +213,6 @@ export const useCanvasStore = defineStore("newCanvas", () => {
    */
   function loadWorkflowById(workflowId: string) {
     workflowStore.setCurrentWorkflow(workflowId);
-    clearResults(); // 清空执行结果
   }
 
   /**
@@ -249,7 +225,6 @@ export const useCanvasStore = defineStore("newCanvas", () => {
       nodes: [],
       edges: [],
     });
-    clearResults();
   }
 
   /**
@@ -497,13 +472,10 @@ export const useCanvasStore = defineStore("newCanvas", () => {
 
     // ===== 视图状态 =====
     isExecuting,
-    lastNodeResults,
     fps,
 
     // ===== 执行状态方法 =====
     setExecuting,
-    pushNodeResult,
-    clearResults,
 
     // ===== 节点操作 =====
     getNodeById,

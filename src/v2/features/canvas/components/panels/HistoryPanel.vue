@@ -292,36 +292,27 @@ async function viewDetails(record: ExecutionRecord) {
     }
 
     // 查找或创建临时工作流用于显示历史记录
-    // 临时工作流名称固定为"临时工作流"，如果已存在则删除后重新创建
+    // 临时工作流名称固定为"临时工作流"，使用 forceRecreate=true 确保只有一个
     const TEMP_WORKFLOW_NAME = "临时工作流";
     const HISTORY_FOLDER_PATH = "历史记录";
 
-    // 先确保"历史记录"文件夹存在（通过 ensureFolderPath）
-    // 注意：这里不直接调用，因为 createWorkflow 内部会调用 ensureFolderPath
-    // 但我们需要先找到文件夹ID来查找临时工作流
-    const historyFolderId = workflowStore.ensureFolderPath(HISTORY_FOLDER_PATH);
+    // 先确保"历史记录"文件夹存在
+    await workflowStore.createFolder(HISTORY_FOLDER_PATH);
 
-    // 查找"历史记录"文件夹中的"临时工作流"
-    const existingTempWorkflow = workflowStore.workflows.find(
-      (w) => w.name === TEMP_WORKFLOW_NAME && w.folderId === historyFolderId
-    );
-
-    // 如果已存在临时工作流，先删除
-    if (existingTempWorkflow) {
-      workflowStore.deleteWorkflow(existingTempWorkflow.workflow_id);
-    }
-
-    // 创建新的临时工作流
-    const tempWorkflow = workflowStore.createWorkflow(
+    // 创建或重新创建临时工作流（forceRecreate=true 会删除已存在的同名工作流）
+    const tempWorkflow = await workflowStore.createWorkflow(
       TEMP_WORKFLOW_NAME,
       HISTORY_FOLDER_PATH,
       `执行ID: ${record.id}\n执行时间: ${new Date(
         record.startTime
-      ).toLocaleString("zh-CN")}\n原始工作流: ${record.workflowName}`
+      ).toLocaleString("zh-CN")}\n原始工作流: ${record.workflowName}`,
+      true // forceRecreate: 如果已存在则删除后重新创建
     );
 
     // 选中临时工作流（loadExecutionStatus 会更新当前工作流的结构）
-    workflowStore.setCurrentWorkflow(tempWorkflow.workflow_id);
+    if (tempWorkflow) {
+      await workflowStore.setCurrentWorkflow(tempWorkflow.workflow_id);
+    }
 
     // 构造 ExecutionResult 对象用于恢复状态
     const executionResult: ExecutionResult = {
