@@ -13,7 +13,7 @@ import type { GraphNode, Node, Rect } from "@vue-flow/core";
 import { getRectOfNodes } from "@vue-flow/core";
 import { debounce } from "lodash-es";
 import { onKeyStroke } from "@vueuse/core";
-import { NODE_SIZE } from "../../../config";
+import { GROUP_CONTAINER_CONFIG } from "../../../config/nodeConfig";
 import { useCanvasStore } from "../../../stores/canvas";
 import type { NodeMetadataItem } from "../executor/types";
 
@@ -21,15 +21,12 @@ interface GroupPluginOptions {
   enableShortcut?: ComputedRef<boolean>;
 }
 
-const MIN_GROUP_WIDTH = 200;
-const MIN_GROUP_HEIGHT = 200;
-const GROUP_SYNC_DELAY = 150;
-const GROUP_PADDING = {
-  top: NODE_SIZE.headerHeight + 16,
-  right: 24,
-  bottom: 24,
-  left: 24,
-};
+const MIN_GROUP_WIDTH = GROUP_CONTAINER_CONFIG.minWidth;
+const MIN_GROUP_HEIGHT = GROUP_CONTAINER_CONFIG.minHeight;
+const GROUP_SYNC_DELAY = GROUP_CONTAINER_CONFIG.syncDelay;
+const GROUP_PADDING = GROUP_CONTAINER_CONFIG.padding;
+const GROUP_HEADER_HEIGHT = GROUP_CONTAINER_CONFIG.headerHeight;
+const GROUP_TOP_OFFSET = GROUP_HEADER_HEIGHT + GROUP_PADDING.top;
 
 function getNodeMetadataByType(nodeType: string): NodeMetadataItem | null {
   try {
@@ -189,9 +186,9 @@ function buildGroupNode(bounds: Rect): Node {
 
   const expandedBounds = {
     x: bounds.x - GROUP_PADDING.left,
-    y: bounds.y - GROUP_PADDING.top,
+    y: bounds.y - GROUP_TOP_OFFSET,
     width: bounds.width + GROUP_PADDING.left + GROUP_PADDING.right,
-    height: bounds.height + GROUP_PADDING.top + GROUP_PADDING.bottom,
+    height: bounds.height + GROUP_TOP_OFFSET + GROUP_PADDING.bottom,
   };
 
   const normalized = {
@@ -407,8 +404,8 @@ function updateGroupChildren(context: PluginContext, groupId: string) {
 
   let hasChanges = false;
 
-  updateNodes((allNodes: Node[]) =>
-    allNodes.map((node) => {
+  updateNodes((allNodes: Node[]) => {
+    const nextNodes = allNodes.map((node) => {
       if (node.id === groupId) return node;
 
       // 禁止 group 嵌套：如果节点是 group 类型，跳过
@@ -436,6 +433,8 @@ function updateGroupChildren(context: PluginContext, groupId: string) {
         currentParent === groupId
       );
 
+      let nextNode = node;
+
       // 如果节点应该在分组内，且没有任何 parent，则设置
       // 如果节点已经有其他 parent，则不更新
       if (isInGroup && !currentParent) {
@@ -452,18 +451,16 @@ function updateGroupChildren(context: PluginContext, groupId: string) {
           `[GroupPlugin] 坐标转换 - 节点 ${node.id}: 绝对 (${node.position.x}, ${node.position.y}) -> 相对 (${relativeX}, ${relativeY})`
         );
 
-        return {
-          ...node,
+        nextNode = {
+          ...nextNode,
           parentNode: groupId,
           position: { x: relativeX, y: relativeY },
         };
-      }
-
-      // 如果节点有该分组作为 parent，检查是否移出了分组
-      if (currentParent === groupId) {
+      } else if (currentParent === groupId) {
+        // 如果节点有该分组作为 parent，检查是否移出了分组
         // 检查节点是否与分组有交集（节点坐标是相对的）
         const hasIntersection = hasNodeGroupIntersection(
-          node,
+          nextNode,
           groupNode,
           context.vueflow
         );
@@ -480,17 +477,18 @@ function updateGroupChildren(context: PluginContext, groupId: string) {
             `[GroupPlugin] 坐标转换 - 节点 ${node.id}: 相对 (${node.position.x}, ${node.position.y}) -> 绝对 (${absoluteX}, ${absoluteY})`
           );
 
-          return {
-            ...node,
+          nextNode = {
+            ...nextNode,
             parentNode: undefined,
             position: { x: absoluteX, y: absoluteY },
           };
         }
       }
 
-      return node;
-    })
-  );
+      return nextNode;
+    });
+    return nextNodes;
+  });
 
   if (!hasChanges) {
     console.log("[GroupPlugin] 没有需要更新的节点");

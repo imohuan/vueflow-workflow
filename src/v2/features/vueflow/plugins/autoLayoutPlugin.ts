@@ -8,7 +8,10 @@ import type { VueFlowPlugin, PluginContext } from "./types";
 import type { Node, Edge } from "@vue-flow/core";
 import { nextTick } from "vue";
 import dagre from "@dagrejs/dagre";
-import { CONTAINER_CONFIG } from "../../../config/nodeConfig";
+import {
+  CONTAINER_CONFIG,
+  GROUP_CONTAINER_CONFIG,
+} from "../../../config/nodeConfig";
 
 /** Dagre 布局方向 */
 export type DagreLayoutDirection = "TB" | "BT" | "LR" | "RL";
@@ -41,6 +44,51 @@ export interface AutoLayoutOptions {
   fitViewDuration?: number;
 }
 
+interface ContainerLayoutConfig {
+  headerHeight: number;
+  padding: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
+  minWidth: number;
+  minHeight: number;
+}
+
+const DEFAULT_CONTAINER_LAYOUT: ContainerLayoutConfig = {
+  headerHeight: CONTAINER_CONFIG.headerHeight,
+  padding: {
+    top: CONTAINER_CONFIG.padding.top,
+    right: CONTAINER_CONFIG.padding.right,
+    bottom: CONTAINER_CONFIG.padding.bottom,
+    left: CONTAINER_CONFIG.padding.left,
+  },
+  minWidth: CONTAINER_CONFIG.minWidth,
+  minHeight: CONTAINER_CONFIG.minHeight,
+};
+
+const GROUP_CONTAINER_LAYOUT: ContainerLayoutConfig = {
+  headerHeight: GROUP_CONTAINER_CONFIG.headerHeight,
+  padding: {
+    top: GROUP_CONTAINER_CONFIG.padding.top,
+    right: GROUP_CONTAINER_CONFIG.padding.right,
+    bottom: GROUP_CONTAINER_CONFIG.padding.bottom,
+    left: GROUP_CONTAINER_CONFIG.padding.left,
+  },
+  minWidth: GROUP_CONTAINER_CONFIG.minWidth,
+  minHeight: GROUP_CONTAINER_CONFIG.minHeight,
+};
+
+function getContainerLayoutConfig(
+  container?: Node | null
+): ContainerLayoutConfig {
+  if (container?.type === "group") {
+    return GROUP_CONTAINER_LAYOUT;
+  }
+  return DEFAULT_CONTAINER_LAYOUT;
+}
+
 /**
  * 创建自动布局插件
  */
@@ -50,22 +98,36 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
   /**
    * 获取节点的近似宽度
    */
+  function parseDimension(value: unknown): number | null {
+    if (typeof value === "number" && !Number.isNaN(value)) {
+      return value;
+    }
+    if (typeof value === "string") {
+      const parsed = parseFloat(value);
+      if (!Number.isNaN(parsed)) {
+        return parsed;
+      }
+    }
+    return null;
+  }
+
   function getNodeApproxWidth(node: Node): number {
-    // 优先使用实际测量的宽度
-    if ((node as any).dimensions?.width) {
-      return (node as any).dimensions.width;
+    const nodeAny = node as any;
+    const parsedWidth =
+      parseDimension(nodeAny?.dimensions?.width) ??
+      parseDimension(nodeAny?.width) ??
+      parseDimension(nodeAny?.data?.style?.bodyStyle?.width) ??
+      parseDimension(nodeAny?.data?.width);
+
+    if (parsedWidth != null) {
+      return parsedWidth;
     }
-    // 如果有 width 属性
-    if ((node as any).width) {
-      return (node as any).width;
-    }
-    // 如果有 data.width
-    if ((node as any).data?.width) {
-      return (node as any).data.width;
-    }
-    // 根据节点类型返回默认宽度
+
     if (node.type === "loopContainer") {
       return 400;
+    }
+    if (node.type === "group") {
+      return GROUP_CONTAINER_CONFIG.minWidth;
     }
     return 260;
   }
@@ -74,21 +136,22 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
    * 获取节点的近似高度
    */
   function getNodeApproxHeight(node: Node): number {
-    // 优先使用实际测量的高度
-    if ((node as any).dimensions?.height) {
-      return (node as any).dimensions.height;
+    const nodeAny = node as any;
+    const parsedHeight =
+      parseDimension(nodeAny?.dimensions?.height) ??
+      parseDimension(nodeAny?.height) ??
+      parseDimension(nodeAny?.data?.style?.bodyStyle?.height) ??
+      parseDimension(nodeAny?.data?.height);
+
+    if (parsedHeight != null) {
+      return parsedHeight;
     }
-    // 如果有 height 属性
-    if ((node as any).height) {
-      return (node as any).height;
-    }
-    // 如果有 data.height
-    if ((node as any).data?.height) {
-      return (node as any).data.height;
-    }
-    // 根据节点类型返回默认高度
+
     if (node.type === "loopContainer" || node.type === "forLoopContainer") {
       return 300;
+    }
+    if (node.type === "group") {
+      return GROUP_CONTAINER_CONFIG.minHeight;
     }
     return 160;
   }
@@ -102,7 +165,7 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
    * @returns 子节点的相对位置映射
    */
   function layoutContainerChildren(
-    containerId: string,
+    container: Node,
     nodes: Node[],
     edges: Edge[],
     options: {
@@ -110,8 +173,13 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
       nodesep: number;
       ranksep: number;
     },
+    layoutConfig: ContainerLayoutConfig,
     allowedNodeIds?: Set<string>
-  ): Map<string, { x: number; y: number }> {
+  ): {
+    positions: Map<string, { x: number; y: number }>;
+    requiredSize: { width: number; height: number } | null;
+  } {
+    const containerId = container.id;
     const result = new Map<string, { x: number; y: number }>();
 
     // 获取容器内的所有子节点
@@ -122,7 +190,7 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
     );
 
     if (childNodes.length === 0) {
-      return result;
+      return { positions: result, requiredSize: null };
     }
 
     // 创建 Dagre 图用于子节点布局
@@ -163,6 +231,8 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
     // 计算子节点的边界框
     let minX = Number.POSITIVE_INFINITY;
     let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
 
     childNodes.forEach((node) => {
       const dagreNode = graph.node(node.id);
@@ -172,13 +242,21 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
       const height = dagreNode.height;
       const left = dagreNode.x - width / 2;
       const top = dagreNode.y - height / 2;
+      const right = dagreNode.x + width / 2;
+      const bottom = dagreNode.y + height / 2;
 
       minX = Math.min(minX, left);
       minY = Math.min(minY, top);
+      maxX = Math.max(maxX, right);
+      maxY = Math.max(maxY, bottom);
     });
 
     const baseX = Number.isFinite(minX) ? minX : 0;
     const baseY = Number.isFinite(minY) ? minY : 0;
+    const contentWidth =
+      Number.isFinite(maxX) && Number.isFinite(minX) ? maxX - minX : 0;
+    const contentHeight =
+      Number.isFinite(maxY) && Number.isFinite(minY) ? maxY - minY : 0;
 
     // 计算相对位置（相对于容器左上角，考虑容器的 padding 和 header）
     childNodes.forEach((node) => {
@@ -186,21 +264,33 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
       if (!dagreNode) return;
 
       const relativeX =
-        dagreNode.x -
-        dagreNode.width / 2 -
-        baseX +
-        CONTAINER_CONFIG.padding.left;
+        dagreNode.x - dagreNode.width / 2 - baseX + layoutConfig.padding.left;
       const relativeY =
         dagreNode.y -
         dagreNode.height / 2 -
         baseY +
-        CONTAINER_CONFIG.headerHeight +
-        CONTAINER_CONFIG.padding.top;
+        layoutConfig.headerHeight +
+        layoutConfig.padding.top;
 
       result.set(node.id, { x: relativeX, y: relativeY });
     });
 
-    return result;
+    return {
+      positions: result,
+      requiredSize: {
+        width: Math.max(
+          contentWidth + layoutConfig.padding.left + layoutConfig.padding.right,
+          layoutConfig.minWidth
+        ),
+        height: Math.max(
+          contentHeight +
+            layoutConfig.headerHeight +
+            layoutConfig.padding.top +
+            layoutConfig.padding.bottom,
+          layoutConfig.minHeight
+        ),
+      },
+    };
   }
 
   /**
@@ -236,6 +326,18 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
     const allowedNodeIds = new Set(
       (partialLayout ? selectedNodes : nodes.value).map((n) => n.id)
     );
+    const nodeMap = new Map(
+      nodes.value.map((node) => [node.id, node] as const)
+    );
+    const groupNodeIds = new Set(
+      nodes.value.filter((node) => node.type === "group").map((node) => node.id)
+    );
+    const childToGroupMap = new Map<string, string>();
+    nodes.value.forEach((node) => {
+      if (node.parentNode && groupNodeIds.has(node.parentNode)) {
+        childToGroupMap.set(node.id, node.parentNode);
+      }
+    });
 
     // ========== 第一步：识别 for 节点及其容器 ==========
     const forNodeContainerMap = new Map<string, string>();
@@ -258,6 +360,10 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
       string,
       Map<string, { x: number; y: number }>
     >();
+    const containerSizeRequirements = new Map<
+      string,
+      { width: number; height: number }
+    >();
 
     const containersToLayout = new Set<string>();
     nodes.value.forEach((n) => {
@@ -267,8 +373,17 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
     });
 
     containersToLayout.forEach((containerId) => {
-      const childPositions = layoutContainerChildren(
+      const containerNode = nodeMap.get(containerId);
+      if (!containerNode) {
+        return;
+      }
+      console.log(
+        "[AutoLayout Plugin] 处理容器布局",
         containerId,
+        containerNode.type
+      );
+      const childLayout = layoutContainerChildren(
+        containerNode,
         nodes.value,
         partialLayout
           ? edges.value.filter(
@@ -281,13 +396,30 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
           nodesep: nodesep * 0.8,
           ranksep: ranksep * 0.7,
         },
+        getContainerLayoutConfig(containerNode),
         allowedNodeIds
       );
-      containerChildPositions.set(containerId, childPositions);
+      containerChildPositions.set(containerId, childLayout.positions);
+
+      if (
+        !partialLayout &&
+        containerNode.type === "group" &&
+        childLayout.requiredSize
+      ) {
+        containerSizeRequirements.set(containerId, childLayout.requiredSize);
+        console.log(
+          "[AutoLayout Plugin] 分组尺寸需求",
+          containerId,
+          childLayout.requiredSize
+        );
+      }
     });
 
     // 应用容器内子节点的位置
     if (containerChildPositions.size > 0) {
+      const resizedGroups = new Set<string>();
+
+      // 先更新子节点位置
       core.updateNodes((currentNodes: Node[]) => {
         return currentNodes.map((node) => {
           if (
@@ -314,8 +446,48 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
         });
       });
 
+      // 然后单独更新分组节点尺寸（使用 vueflow.updateNode 确保 VueFlow 正确识别）
+      containerSizeRequirements.forEach((targetSize, groupId) => {
+        const groupNode = nodeMap.get(groupId);
+        if (
+          groupNode &&
+          groupNode.type === "group" &&
+          (!partialLayout || allowedNodeIds.has(groupId))
+        ) {
+          console.log(
+            "[AutoLayout Plugin] 调整分组尺寸",
+            groupId,
+            "目标",
+            targetSize,
+            "当前",
+            {
+              width: (groupNode as any).width,
+              height: (groupNode as any).height,
+              dataWidth: (groupNode as any)?.data?.style?.bodyStyle?.width,
+              dataHeight: (groupNode as any)?.data?.style?.bodyStyle?.height,
+            }
+          );
+
+          // 使用 vueflow.updateNode 更新节点，只更新 width 和 height
+          // 不修改 data.style.bodyStyle，避免干扰拖拽调整大小的功能
+          vueflow.updateNode?.(groupId, {
+            width: targetSize.width,
+            height: targetSize.height,
+          });
+
+          resizedGroups.add(groupId);
+        }
+      });
+
       // 等待 DOM 更新
       await nextTick();
+
+      // 触发 updateNodeInternals 让 VueFlow 重新计算节点内部结构
+      if (resizedGroups.size > 0) {
+        vueflow.updateNodeInternals?.(Array.from(resizedGroups));
+        // 再次等待确保 DOM 完全更新
+        await nextTick();
+      }
 
       console.log(
         `[AutoLayout Plugin] 容器内节点布局完成，共 ${Array.from(
@@ -333,7 +505,14 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
     ) {
       containerChildPositions.forEach((_pos, containerId) => {
         if (!partialLayout || allowedNodeIds.has(containerId)) {
-          forLoopPlugin.updateContainerBounds(containerId);
+          const containerNode = nodeMap.get(containerId);
+          if (
+            containerNode &&
+            (containerNode.type === "forLoopContainer" ||
+              containerNode.type === "loopContainer")
+          ) {
+            forLoopPlugin.updateContainerBounds(containerId);
+          }
         }
       });
 
@@ -388,12 +567,39 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
             allowedNodeIds.has(e.source) && allowedNodeIds.has(e.target)
         )
       : edges.value;
+
+    const resolveTopLevelNodeId = (nodeId: string): string | null => {
+      const groupId = childToGroupMap.get(nodeId);
+      if (groupId) {
+        if (partialLayout && !allowedNodeIds.has(groupId)) {
+          return null;
+        }
+        return groupId;
+      }
+
+      if (!topLevelNodeIds.has(nodeId)) {
+        return null;
+      }
+
+      if (partialLayout && !allowedNodeIds.has(nodeId)) {
+        return null;
+      }
+
+      return nodeId;
+    };
+
     edgeSource.forEach((edge: Edge) => {
+      const sourceId = resolveTopLevelNodeId(edge.source);
+      const targetId = resolveTopLevelNodeId(edge.target);
+
       if (
-        topLevelNodeIds.has(edge.source) &&
-        topLevelNodeIds.has(edge.target)
+        sourceId &&
+        targetId &&
+        sourceId !== targetId &&
+        topLevelNodeIds.has(sourceId) &&
+        topLevelNodeIds.has(targetId)
       ) {
-        graph.setEdge(edge.source, edge.target);
+        graph.setEdge(sourceId, targetId);
       }
     });
 

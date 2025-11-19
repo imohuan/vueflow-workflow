@@ -76,6 +76,27 @@ export const CONTAINER_CONFIG = {
   minHeight: 200,
 } as const;
 
+/**
+ * 分组节点容器配置
+ */
+export const GROUP_CONTAINER_CONFIG = {
+  /** 分组标题栏高度（沿用普通节点标题高度） */
+  headerHeight: NODE_SIZE.headerHeight,
+  /** 分组容器内边距（顶部为正文与标题之间的额外留白） */
+  padding: {
+    top: 16,
+    right: 24,
+    bottom: 24,
+    left: 24,
+  },
+  /** 分组容器最小宽度 */
+  minWidth: 200,
+  /** 分组容器最小高度 */
+  minHeight: 200,
+  /** 分组节点刷新 parent 关系的延迟（毫秒） */
+  syncDelay: 150,
+} as const;
+
 // --------------------------下面是么有被使用的
 /**
  * 节点端口配置
