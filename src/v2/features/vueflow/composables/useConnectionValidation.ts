@@ -34,11 +34,14 @@ export function validateContainerConnection(
     return false;
   }
 
-  const sourceNode = nodes.find((n) => n.id === connection.source);
-  const targetNode = nodes.find((n) => n.id === connection.target);
-
+  const map = new Map<string, Node>();
+  nodes.forEach((n) => map.set(n.id, n));
+  const sourceNode = map.get(connection.source);
+  const targetNode = map.get(connection.target);
   const sourceParentId = get(sourceNode, "parentNode", "");
   const targetParentId = get(targetNode, "parentNode", "");
+  const sourceParentNode = sourceParentId ? map.get(sourceParentId) : null;
+  const targetParentNode = targetParentId ? map.get(targetParentId) : null;
 
   // 如果有任一节点在容器内
   if (sourceParentId || targetParentId) {
@@ -65,10 +68,17 @@ export function validateContainerConnection(
       return true;
     }
 
-    // 其他情况都不允许（容器内节点不能连接外部节点）
+    // 允许 group 节点互相连接， group 中的节点就和普通节点相同
+    const isSourceGroup = sourceParentId
+      ? sourceParentNode?.type === "group"
+      : true;
+    const isTargetGroup = targetParentId
+      ? targetParentNode?.type === "group"
+      : true;
+    if (isSourceGroup && isTargetGroup) return true;
+
     return false;
   }
-
   return true;
 }
 

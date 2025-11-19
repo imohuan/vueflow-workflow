@@ -187,6 +187,11 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
+  const container = nodeRef.value?.closest(
+    ".vue-flow__container"
+  ) as HTMLElement | null;
+  if (container) container.style.zIndex = "-1";
+
   window.addEventListener("keydown", handleGlobalKeydown);
 });
 
