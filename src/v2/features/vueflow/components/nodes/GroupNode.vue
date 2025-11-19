@@ -48,10 +48,7 @@
       ref="resizeHandleRef"
       :node-id="id"
       :node-data="props.data"
-      :resize-options="{
-        minWidth: 200,
-        minHeight: 150,
-      }"
+      :resize-options="resizeOptions"
       :selected="selected"
       @update:node-style11="handleNodeStyleUpdate"
       @update:is-resizing="handleIsResizingUpdate"
@@ -72,6 +69,7 @@ import {
 } from "vue";
 import { type NodeProps } from "@vue-flow/core";
 import { NODE_SIZE, NODE_SPACING } from "../../../../config";
+import { useBodyStyleResizeOptions } from "../../composables/useBodyStyleResizeOptions";
 import { NodeExecutionBadge } from "../widgets";
 import ResizeHandle from "../widgets/ResizeHandle.vue";
 
@@ -120,6 +118,14 @@ const headerStyle = computed(() => ({
   paddingTop: `${NODE_SPACING.headerPadding.vertical}px`,
   paddingBottom: `${NODE_SPACING.headerPadding.vertical}px`,
 }));
+
+const resizeOptions = useBodyStyleResizeOptions(
+  () => (props.data as any)?.style?.bodyStyle,
+  {
+    minWidth: 200,
+    minHeight: 150,
+  }
+);
 
 function focusTitleInput() {
   nextTick(() => {

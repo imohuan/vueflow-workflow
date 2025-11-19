@@ -80,10 +80,7 @@
     <ResizeHandle
       ref="resizeHandleRef"
       :node-id="id"
-      :resize-options="{
-        minWidth: 300,
-        minHeight: 200,
-      }"
+      :resize-options="resizeOptions"
       :selected="selected"
       @update:is-resizing="handleIsResizingUpdate"
     />
@@ -97,6 +94,7 @@ import { useCanvasStore } from "@/v2/stores/canvas";
 import { NodeExecutionBadge } from "../widgets";
 import PortHandle from "../ports/PortHandle.vue";
 import ResizeHandle from "../widgets/ResizeHandle.vue";
+import { useBodyStyleResizeOptions } from "../../composables/useBodyStyleResizeOptions";
 
 interface ImagePreviewNodeData {
   imageUrl?: string;
@@ -225,6 +223,13 @@ const isResizingState = ref(false);
 
 // 计算 isResizing
 const isResizing = computed(() => isResizingState.value);
+const resizeOptions = useBodyStyleResizeOptions(
+  () => (props.data as any)?.style?.bodyStyle,
+  {
+    minWidth: 300,
+    minHeight: 200,
+  }
+);
 
 // 处理 isResizing 更新
 function handleIsResizingUpdate(value: boolean) {

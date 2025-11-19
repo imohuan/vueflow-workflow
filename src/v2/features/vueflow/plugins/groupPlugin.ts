@@ -80,38 +80,29 @@ function isNodeCompletelyInGroup(
 }
 
 /**
- * 检查节点是否与分组有交集（AABB 碰撞检测）
- * 对于有 parent 的节点，坐标是相对的，需要先转换为绝对坐标
+ * 检查节点是否与分组有交集
+ * 直接使用 VueFlow 实例提供的 getIntersectingNodes
  */
 function hasNodeGroupIntersection(
   node: Node,
   groupNode: Node,
-  isRelativeCoords: boolean = false
+  vueflowApi: any
 ): boolean {
-  // 计算节点的绝对坐标
-  let nodeX = node.position.x;
-  let nodeY = node.position.y;
+  if (node.id === groupNode.id) return false;
 
-  if (isRelativeCoords) {
-    // 如果是相对坐标，需要加上 parent 的绝对坐标
-    nodeX = groupNode.position.x + node.position.x;
-    nodeY = groupNode.position.y + node.position.y;
-  }
-
-  // 获取节点的宽高
-  const nodeWidth = typeof node.width === "number" ? node.width : 300;
-  const nodeHeight = typeof node.height === "number" ? node.height : 200;
-
-  // 获取分组的边界信息
-  const groupBounds = getNodeBounds(groupNode);
-
-  // AABB 碰撞检测：检查是否有交集
-  return (
-    nodeX < groupBounds.x + groupBounds.width &&
-    nodeX + nodeWidth > groupBounds.x &&
-    nodeY < groupBounds.y + groupBounds.height &&
-    nodeY + nodeHeight > groupBounds.y
+  const intersectingNodes = vueflowApi.getIntersectingNodes?.(groupNode) || [];
+  const isIntersecting = intersectingNodes.some(
+    (intersectingNode: Node) => intersectingNode.id === node.id
   );
+
+  console.log(`[GroupPlugin] 检查节点与分组交集`, {
+    nodeId: node.id,
+    groupId: groupNode.id,
+    intersectingCount: intersectingNodes.length,
+    isIntersecting,
+  });
+
+  return isIntersecting;
 }
 
 /**
@@ -194,7 +185,11 @@ function updateGroupChildren(context: PluginContext, groupId: string) {
       // 如果节点有该分组作为 parent，检查是否移出了分组
       if (currentParent === groupId) {
         // 检查节点是否与分组有交集（节点坐标是相对的）
-        const hasIntersection = hasNodeGroupIntersection(node, groupNode, true);
+        const hasIntersection = hasNodeGroupIntersection(
+          node,
+          groupNode,
+          context.vueflow
+        );
 
         if (!hasIntersection) {
           console.log(`[GroupPlugin] 移除节点 ${node.id} 的 parent`);

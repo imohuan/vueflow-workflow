@@ -37,10 +37,7 @@
     <ResizeHandle
       ref="resizeHandleRef"
       :node-id="id"
-      :resize-options="{
-        minWidth: 150,
-        minHeight: 80,
-      }"
+      :resize-options="resizeOptions"
       :selected="selected"
       @update:is-resizing="handleIsResizingUpdate"
       class="note-node__resize-handle"
@@ -53,6 +50,7 @@ import { ref, watch, nextTick, computed, type Ref } from "vue";
 import { type NodeProps } from "@vue-flow/core";
 import { NodeExecutionBadge } from "../widgets";
 import ResizeHandle from "../widgets/ResizeHandle.vue";
+import { useBodyStyleResizeOptions } from "../../composables/useBodyStyleResizeOptions";
 
 interface NoteNodeData {
   content?: string;
@@ -76,6 +74,13 @@ const isResizingState = ref(false);
 
 // 计算 isResizing
 const isResizing = computed(() => isResizingState.value);
+const resizeOptions = useBodyStyleResizeOptions(
+  () => (props.data as any)?.style?.bodyStyle,
+  {
+    minWidth: 150,
+    minHeight: 80,
+  }
+);
 
 // 处理 isResizing 更新
 function handleIsResizingUpdate(value: boolean) {
@@ -202,11 +207,6 @@ function handleEscape() {
 .note-node__textarea::placeholder {
   color: #a8a29e;
   font-style: italic;
-}
-
-/* 调整大小手柄 */
-.note-node__resize-handle {
-  /* ResizeHandle 组件已经有自己的样式，这里只需要覆盖特定样式 */
 }
 
 .note-node__resize-handle :deep(svg) {
