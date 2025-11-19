@@ -261,4 +261,5 @@ export interface NodeMetadataItem {
     type: string;
     description?: string;
   }[];
+  style?: any;
 }

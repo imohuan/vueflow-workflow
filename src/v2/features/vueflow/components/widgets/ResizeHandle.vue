@@ -24,15 +24,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watchEffect, watch } from "vue";
-import { useVueFlow } from "@vue-flow/core";
-import { useMouse } from "@vueuse/core";
+import { ref, computed, watch, onMounted } from "vue";
+import { useVueFlowEvents } from "../../events/useVueFlowEvents";
+import { useVueFlowCore } from "../../core/useVueFlowCore";
 
 export interface ResizeOptions {
-  /** 初始宽度 */
-  initialWidth?: number;
-  /** 初始高度 */
-  initialHeight?: number;
   /** 最小宽度 */
   minWidth?: number;
   /** 最小高度 */
@@ -42,8 +38,8 @@ export interface ResizeOptions {
 }
 
 interface Props {
-  /** 节点数据对象（包含 width 和 height） */
-  nodeData?: { width?: number; height?: number };
+  /** 节点 ID（必需，用于更新节点尺寸） */
+  nodeId: string;
   /** Resize 配置选项 */
   resizeOptions?: ResizeOptions;
   /** 是否显示（通常与 selected 绑定），如果不提供则自动根据 isResizing 显示 */
@@ -61,30 +57,24 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  "update:nodeStyle": [style: { width: string; height: string }];
   "update:isResizing": [isResizing: boolean];
-  "resize-start": [event: MouseEvent];
 }>();
 
-// 如果提供了 nodeData，则内部处理 resize 逻辑
-const shouldHandleResize = !!props.nodeData;
+// 简化：nodeId 必需，所以总是处理 resize 逻辑
+const shouldHandleResize = true;
 const resizeEnabled = props.resizeOptions?.enabled ?? true;
 
 // Resize 配置
-const {
-  initialWidth = 300,
-  initialHeight = 200,
-  minWidth = 200,
-  minHeight = 150,
-} = props.resizeOptions || {};
+const { minWidth = 200, minHeight = 150 } = props.resizeOptions || {};
 
-// 获取 VueFlow 实例
-const { viewport } = useVueFlow();
-const { x: mouseX, y: mouseY } = useMouse();
+// 获取 VueFlow 实例和事件系统
+const { viewport } = useVueFlowCore();
+const events = useVueFlowEvents();
+const vueFlowCore = useVueFlowCore();
 
 // 本地尺寸状态
-const width = ref(props.nodeData?.width ?? initialWidth);
-const height = ref(props.nodeData?.height ?? initialHeight);
+const width = ref(0);
+const height = ref(0);
 const isResizing = ref(false);
 
 // Resize 状态变量
@@ -92,6 +82,36 @@ let resizeStartX = 0;
 let resizeStartY = 0;
 let resizeStartWidth = 0;
 let resizeStartHeight = 0;
+
+function updateNode() {
+  // 直接修改 node.width/height，以便实时显示 resize 效果
+  if (props.nodeId) {
+    console.log("[update]", width.value, height.value);
+
+    vueFlowCore.updateNode(props.nodeId, {
+      width: width.value,
+      height: height.value,
+    });
+  }
+}
+
+// 处理鼠标移动（更新尺寸）
+function handleMouseMove(event: MouseEvent) {
+  if (!isResizing.value || !resizeEnabled) return;
+
+  const deltaX = event.clientX - resizeStartX;
+  const deltaY = event.clientY - resizeStartY;
+
+  const zoom = viewport.value.zoom || 1;
+  const canvasDeltaX = deltaX / zoom;
+  const canvasDeltaY = deltaY / zoom;
+
+  width.value = Math.max(minWidth, resizeStartWidth + canvasDeltaX);
+  height.value = Math.max(minHeight, resizeStartHeight + canvasDeltaY);
+
+  // 直接修改 node.width/height，以便实时显示 resize 效果
+  updateNode();
+}
 
 // 处理调整开始
 function handleResizeStart(event: MouseEvent) {
@@ -106,7 +126,8 @@ function handleResizeStart(event: MouseEvent) {
   resizeStartWidth = width.value;
   resizeStartHeight = height.value;
 
-  // 添加全局鼠标释放监听
+  // 添加全局鼠标移动和释放监听
+  document.addEventListener("mousemove", handleMouseMove);
   document.addEventListener("mouseup", handleResizeEnd);
 }
 
@@ -114,44 +135,33 @@ function handleResizeStart(event: MouseEvent) {
 function handleResizeEnd() {
   if (isResizing.value) {
     isResizing.value = false;
-    // 同步到 nodeData
-    if (props.nodeData) {
-      props.nodeData.width = width.value;
-      props.nodeData.height = height.value;
+
+    // 发送 resize 结束事件
+    if (props.nodeId) {
+      events.emit("group-node:drag-end", {
+        nodeId: props.nodeId,
+      });
     }
   }
+  document.removeEventListener("mousemove", handleMouseMove);
   document.removeEventListener("mouseup", handleResizeEnd);
 }
 
-// 监听鼠标移动，更新尺寸（仅在调整大小时执行）
-if (shouldHandleResize) {
-  watchEffect(() => {
-    if (!isResizing.value || !resizeEnabled) return;
-
-    const deltaX = mouseX.value - resizeStartX;
-    const deltaY = mouseY.value - resizeStartY;
-
-    const zoom = viewport.value.zoom || 1;
-    const canvasDeltaX = deltaX / zoom;
-    const canvasDeltaY = deltaY / zoom;
-
-    width.value = Math.max(minWidth, resizeStartWidth + canvasDeltaX);
-    height.value = Math.max(minHeight, resizeStartHeight + canvasDeltaY);
-  });
-
-  // 同步外部尺寸变化
-  watch(
-    () => [props.nodeData?.width, props.nodeData?.height],
-    ([newWidth, newHeight]) => {
-      if (newWidth !== undefined && newWidth !== width.value) {
-        width.value = newWidth;
-      }
-      if (newHeight !== undefined && newHeight !== height.value) {
-        height.value = newHeight;
-      }
+// 同步外部尺寸变化
+watch(
+  () => {
+    const node = vueFlowCore.nodes.value.find((n) => n.id === props.nodeId);
+    return [node?.width, node?.height];
+  },
+  ([newWidth, newHeight]) => {
+    if (newWidth !== undefined && newWidth !== width.value) {
+      width.value = newWidth as number;
     }
-  );
-}
+    if (newHeight !== undefined && newHeight !== height.value) {
+      height.value = newHeight as number;
+    }
+  }
+);
 
 // 计算节点样式（响应式）
 const nodeStyle = computed(() => ({
@@ -164,11 +174,7 @@ const displayVisible = computed(() => {
   if (props.visible !== undefined) {
     return props.visible;
   }
-  // 如果使用内部 resize 逻辑，则根据 selected 和 isResizing 自动显示
-  if (shouldHandleResize) {
-    return props.selected || isResizing.value;
-  }
-  return false;
+  return props.selected || isResizing.value;
 });
 
 // 处理鼠标按下
@@ -178,30 +184,13 @@ function handleMouseDown(event: MouseEvent) {
   event.preventDefault();
   event.stopPropagation();
 
-  if (shouldHandleResize) {
-    // 使用内部 resize 逻辑
-    handleResizeStart(event);
-  } else {
-    // 发出事件，让父组件处理（向后兼容）
-    emit("resize-start", event);
-  }
+  handleResizeStart(event);
 }
 
-// 监听 nodeStyle 变化，发出更新事件
-if (shouldHandleResize) {
-  watch(
-    nodeStyle,
-    (newStyle) => {
-      emit("update:nodeStyle", newStyle);
-    },
-    { deep: true, immediate: true }
-  );
-
-  // 监听 isResizing 变化
-  watch(isResizing, (newValue) => {
-    emit("update:isResizing", newValue);
-  });
-}
+// 监听 isResizing 变化
+watch(isResizing, (newValue) => {
+  emit("update:isResizing", newValue);
+});
 
 // 暴露方法给父组件（如果父组件需要访问）
 defineExpose({

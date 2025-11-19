@@ -98,6 +98,11 @@
         <VariableAggregateNode v-bind="nodeProps" />
       </template>
 
+      <!-- 分组节点插槽 -->
+      <template #node-group="nodeProps">
+        <GroupNode v-bind="nodeProps" />
+      </template>
+
       <!-- 自定义连接线（拖拽时的临时连接线） -->
       <template #connection-line="connectionLineProps">
         <CustomConnectionEdge v-bind="connectionLineProps" />
@@ -185,6 +190,7 @@ import CustomEdge from "./edges/CustomEdge.vue";
 import PreviewNode from "./nodes/PreviewNode.vue";
 import DataPreviewNode from "./nodes/DataPreviewNode.vue";
 import VariableAggregateNode from "./nodes/VariableAggregateNode.vue";
+import GroupNode from "./nodes/GroupNode.vue";
 
 import {
   PluginManager,
@@ -199,6 +205,7 @@ import {
   createDeletePlugin,
   createAutoReconnectPlugin,
   createForLoopPlugin,
+  createGroupPlugin,
 } from "../plugins";
 
 // 配置 Store
@@ -286,6 +293,7 @@ const nodeTypes = {
   preview: () => PreviewNode,
   dataPreview: () => DataPreviewNode,
   variableAggregate: () => VariableAggregateNode,
+  group: () => GroupNode,
 };
 
 // 边类型映射
@@ -316,6 +324,21 @@ const NODE_TYPE_SPECIFIC_DATA: Record<string, Record<string, any>> = {
           ],
         },
       ],
+    },
+  },
+  group: {
+    params: {
+      title: "分组", // 分组标题
+      description: "", // 分组说明
+      opacity: 30, // 背景透明度
+      backgroundColor: "#8b5cf6", // 背景颜色
+      borderColor: "#8b5cf6", // 边框颜色
+    },
+    style: {
+      bodyStyle: {
+        width: "300px", // 默认宽度
+        height: "200px", // 默认高度
+      },
     },
   },
   // start 和 end 节点没有特有字段，使用通用配置
@@ -431,8 +454,16 @@ function addNodeAtPosition(
       // 保存节点的 inputs/outputs 配置（用于配置面板）
       inputs: nodeMetadata.inputs || [],
       outputs: nodeMetadata.outputs || [],
+      params: nodeMetadata.inputs?.reduce((acc, input) => {
+        acc[input.name] = input.defaultValue;
+        return acc;
+      }, {}),
+      // 保存节点的样式配置
+      style: "style" in nodeMetadata ? nodeMetadata.style : undefined,
     },
   };
+
+  console.log({ newNode });
 
   // 添加到节点数组
   coreNodes.value.push(newNode);
@@ -1075,6 +1106,9 @@ onMounted(() => {
 
   const forLoopPlugin = createForLoopPlugin();
   pluginManager.register(forLoopPlugin);
+
+  const groupPlugin = createGroupPlugin();
+  pluginManager.register(groupPlugin);
 
   console.log("[VueFlowCanvas] 画布已挂载");
   console.log(

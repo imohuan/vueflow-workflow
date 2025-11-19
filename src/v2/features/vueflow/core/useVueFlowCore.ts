@@ -36,7 +36,15 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
 
   // VueFlow 实例
   const vueflow = useVueFlow();
-  const { fitView, project, addNodes, addEdges } = vueflow;
+  const {
+    fitView,
+    project,
+    addNodes,
+    addEdges,
+    updateNode: vueflowUpdateNode,
+    updateNodeInternals,
+    viewport,
+  } = vueflow;
 
   // VueFlow 数据
   const nodes = ref<Node[]>([]) as Ref<Node[]>;
@@ -255,6 +263,20 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
   }
 
   /**
+   * 更新单个节点的属性
+   * 使用 VueFlow 的 updateNode 直接更新，自动触发响应和 Store 同步
+   * @param nodeId 节点 ID
+   * @param updates 要更新的属性对象
+   */
+  function updateNode(nodeId: string, updates: Partial<Node>) {
+    // 使用 VueFlow 的 updateNode 直接更新节点
+    vueflowUpdateNode(nodeId, updates);
+
+    // 通知 VueFlow 节点内部结构已改变
+    updateNodeInternals([nodeId]);
+  }
+
+  /**
    * 清空画布
    */
   function clearCanvas() {
@@ -301,6 +323,7 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
     // 数据
     nodes,
     edges,
+    viewport,
 
     // VueFlow 实例方法
     fitView,
@@ -312,6 +335,7 @@ export function useVueFlowCore(options: UseVueFlowCoreOptions = {}) {
     deleteNode,
     addEdge,
     deleteEdge,
+    updateNode,
     updateEdges,
     updateNodes,
     clearCanvas,

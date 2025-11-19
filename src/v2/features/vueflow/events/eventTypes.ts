@@ -223,6 +223,14 @@ export interface VariableDragEvents {
 }
 
 /**
+ * 分组节点相关事件
+ */
+export interface GroupNodeEvents {
+  /** 分组节点拖拽/resize 结束 */
+  "group-node:drag-end": { nodeId: string };
+}
+
+/**
  * 所有事件类型合并
  */
 export type VueFlowEventMap = NodeEvents &
@@ -232,7 +240,8 @@ export type VueFlowEventMap = NodeEvents &
   HistoryEvents &
   ExecutionEvents &
   CacheEvents &
-  VariableDragEvents;
+  VariableDragEvents &
+  GroupNodeEvents;
 
 /**
  * 事件名称类型

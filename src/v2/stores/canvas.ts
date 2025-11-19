@@ -316,6 +316,7 @@ export const useCanvasStore = defineStore("newCanvas", () => {
     isLoadingNodeList.value = true;
     try {
       const nodes = await vueFlowExecution.getNodeList();
+
       availableNodes.value = nodes;
       nodeListLoadedAt.value = Date.now();
     } catch (error) {

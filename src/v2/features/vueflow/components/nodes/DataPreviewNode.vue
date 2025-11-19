@@ -1,14 +1,14 @@
 <template>
   <div
     ref="nodeRef"
-    :style="nodeStyle"
-    class="relative bg-slate-50 border-2 border-indigo-200 rounded-lg shadow-sm flex flex-col variable-scroll"
+    class="relative bg-slate-50 border-2 border-indigo-200 rounded-lg shadow-sm flex flex-col items-center justify-center variable-scroll w-full h-full"
     :class="{
       'border-indigo-500 shadow-md': selected,
       'bg-indigo-50': isLoading,
       'bg-red-50 border-red-300': hasError,
       'transition-all duration-200': !isResizing,
     }"
+    :style="(data as any)?.style.bodyStyle || {}"
   >
     <!-- 输入端口 -->
     <PortHandle
@@ -36,15 +36,12 @@
     <!-- 调整大小手柄 -->
     <ResizeHandle
       ref="resizeHandleRef"
-      :node-data="props.data"
+      :node-id="id"
       :resize-options="{
-        initialWidth: 400,
-        initialHeight: 300,
         minWidth: 300,
         minHeight: 200,
       }"
       :selected="selected"
-      @update:node-style="handleNodeStyleUpdate"
       @update:is-resizing="handleIsResizingUpdate"
     />
 
@@ -193,8 +190,6 @@ import ResizeHandle from "../widgets/ResizeHandle.vue";
 
 interface DataPreviewNodeData {
   data?: any;
-  width?: number;
-  height?: number;
 }
 
 type Props = NodeProps<DataPreviewNodeData>;
@@ -250,24 +245,11 @@ const dataSize = computed(() => {
 const nodeRef: Ref<HTMLElement | null> = ref(null);
 const resizeHandleRef = ref<InstanceType<typeof ResizeHandle> | null>(null);
 
-// 节点样式状态（由 ResizeHandle 内部管理，通过事件同步）
-const nodeStyleState = ref<{ width: string; height: string }>({
-  width: `${props.data.width || 400}px`,
-  height: `${props.data.height || 300}px`,
-});
-
+// 节点样式状态
 const isResizingState = ref(false);
-
-// 计算样式（合并状态）
-const nodeStyle = computed(() => nodeStyleState.value);
 
 // 计算 isResizing
 const isResizing = computed(() => isResizingState.value);
-
-// 处理 nodeStyle 更新（通过事件同步）
-function handleNodeStyleUpdate(style: { width: string; height: string }) {
-  nodeStyleState.value = style;
-}
 
 // 处理 isResizing 更新
 function handleIsResizingUpdate(value: boolean) {

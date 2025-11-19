@@ -18,7 +18,10 @@
     <div class="field-input">
       <!-- 文本输入 - 使用 VariableTextInput -->
       <template
-        v-if="['input', 'textarea'].includes(field.type) || isDragOrHasVariable"
+        v-if="
+          (['input', 'textarea'].includes(field.type) || isDragOrHasVariable) &&
+          field.type !== 'color'
+        "
       >
         <!-- 多行文本 - 使用 VariableTextInput -->
         <VariableTextInput
@@ -44,6 +47,14 @@
         />
       </template>
 
+      <!-- 颜色选择器 -->
+      <n-color-picker
+        v-else-if="field.type === 'color'"
+        :value="modelValue"
+        :disabled="field.disabled"
+        @update:value="handleUpdate"
+      />
+
       <!-- 数字输入 -->
       <n-input-number
         v-else-if="field.type === 'number'"
@@ -61,7 +72,7 @@
       <n-select
         v-else-if="field.type === 'select'"
         :value="modelValue"
-        :options="field.options"
+        :options="field.options as any"
         :placeholder="field.placeholder"
         :disabled="field.disabled"
         @update:value="handleUpdate"
@@ -109,14 +120,6 @@
         </n-space>
       </n-radio-group>
 
-      <!-- 颜色选择器 -->
-      <n-color-picker
-        v-else-if="field.type === 'color'"
-        :value="modelValue"
-        :disabled="field.disabled"
-        @update:value="handleUpdate"
-      />
-
       <!-- 文件上传 -->
       <n-upload
         v-else-if="field.type === 'file'"
@@ -163,6 +166,19 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import {
+  NInputNumber,
+  NSelect,
+  NSwitch,
+  NCheckboxGroup,
+  NCheckbox,
+  NRadioGroup,
+  NRadio,
+  NColorPicker,
+  NUpload,
+  NButton,
+  NSpace,
+} from "naive-ui";
 import VariableTextInput from "../variables-inputs/VariableTextInput.vue";
 import type { ConfigField } from "../../typings/config";
 import { containsVariableReference } from "workflow-flow-nodes";

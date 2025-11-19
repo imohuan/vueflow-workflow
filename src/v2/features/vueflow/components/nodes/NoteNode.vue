@@ -1,13 +1,13 @@
 <template>
   <div
     ref="nodeRef"
-    class="note-node"
+    class="note-node w-full h-full"
     :class="{
       'note-node--selected': selected,
       'note-node--editing': isEditing,
       'note-node--resizing': isResizing,
     }"
-    :style="nodeStyle"
+    :style="{ cursor: isEditing ? 'text' : 'default' , ...((data as any)?.style.bodyStyle || {})}"
     @dblclick="handleDoubleClick"
   >
     <!-- 执行状态徽章 -->
@@ -36,15 +36,12 @@
     <!-- 右下角调整大小手柄 -->
     <ResizeHandle
       ref="resizeHandleRef"
-      :node-data="props.data"
+      :node-id="id"
       :resize-options="{
-        initialWidth: 200,
-        initialHeight: 120,
         minWidth: 150,
         minHeight: 80,
       }"
       :selected="selected"
-      @update:node-style="handleNodeStyleUpdate"
       @update:is-resizing="handleIsResizingUpdate"
       class="note-node__resize-handle"
     />
@@ -59,8 +56,6 @@ import ResizeHandle from "../widgets/ResizeHandle.vue";
 
 interface NoteNodeData {
   content?: string;
-  width?: number;
-  height?: number;
 }
 
 type Props = NodeProps<NoteNodeData>;
@@ -76,27 +71,11 @@ const textareaRef: Ref<HTMLTextAreaElement | null> = ref(null);
 const nodeRef: Ref<HTMLElement | null> = ref(null);
 const resizeHandleRef = ref<InstanceType<typeof ResizeHandle> | null>(null);
 
-// 节点样式状态（由 ResizeHandle 内部管理，通过事件同步）
-const nodeStyleState = ref<{ width: string; height: string }>({
-  width: `${props.data.width || 200}px`,
-  height: `${props.data.height || 120}px`,
-});
-
+// 节点样式状态
 const isResizingState = ref(false);
-
-// 计算样式（合并状态）
-const nodeStyle = computed(() => ({
-  ...nodeStyleState.value,
-  cursor: isEditing.value ? "text" : "default",
-}));
 
 // 计算 isResizing
 const isResizing = computed(() => isResizingState.value);
-
-// 处理 nodeStyle 更新（通过事件同步）
-function handleNodeStyleUpdate(style: { width: string; height: string }) {
-  nodeStyleState.value = style;
-}
 
 // 处理 isResizing 更新
 function handleIsResizingUpdate(value: boolean) {

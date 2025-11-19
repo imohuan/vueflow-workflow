@@ -126,7 +126,7 @@ uiStore.activeTab = "node-library";
  */
 function ensureCurrentWorkflow() {
   // 等待 store 数据加载完成（异步初始化）
-  setTimeout(() => {
+  setTimeout(async () => {
     const { currentWorkflow, workflowList, setCurrentWorkflow } = workflowStore;
 
     // currentWorkflow 是 computed，如果为 null 说明：
@@ -146,7 +146,10 @@ function ensureCurrentWorkflow() {
       console.log("[CanvasView] 当前工作流已存在:", currentWorkflow.name);
     }
 
-    fitView({ padding: 0.2, duration: 0 });
+    await nextTick();
+    setTimeout(() => {
+      fitView({ padding: 0.2, duration: 0 });
+    }, 100);
   }, 10); // 等待 store 异步初始化完成
 }
 

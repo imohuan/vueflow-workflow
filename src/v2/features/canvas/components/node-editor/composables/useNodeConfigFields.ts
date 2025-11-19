@@ -13,6 +13,7 @@ function mapNodeTypeToFieldType(nodeType: string): ConfigFieldType["type"] {
     string: "input",
     number: "number",
     boolean: "switch",
+    color: "color",
     // array: "json-editor",
     // object: "json-editor",
     // json: "json-editor",

@@ -568,6 +568,7 @@ function getNodeList(requestId: string) {
         defaultValue: input.defaultValue,
         options: input?.options ?? [], // 传递选项配置
       })),
+      style: node.style,
       outputs: node.outputs.map((output) => ({
         name: output.name,
         type: output.type,

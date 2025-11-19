@@ -1,5 +1,6 @@
 <template>
   <div
+    ref="el"
     class="relative bg-white shadow-sm min-h-24 h-full max-w-[280px]"
     :class="{
       'animate-pulse': data.status === 'running',
@@ -213,6 +214,7 @@ import { eventBusUtils } from "../../events";
 import StandardNodeContent from "./StandardNodeContent.vue";
 import { getNodeIcon } from "./nodeIcons";
 import "../ports/portStyles.css";
+// import { useVueFlowCore } from "../../core/useVueFlowCore";
 
 interface Props {
   /** 节点 ID */
@@ -254,6 +256,8 @@ const props = defineProps<Props>();
 const isRenaming = ref(false);
 const editingLabel = ref("");
 const renameInputRef = ref<any>(null);
+const el = ref<HTMLElement>();
+// const { updateNode, viewport } = useVueFlowCore();
 
 // 获取样式配置（优先使用 data.style，其次从 BaseFlowNode 实例获取）
 const styleConfig = computed<NodeStyleConfig>(() => {
@@ -412,6 +416,20 @@ function handleKeyDown(e: KeyboardEvent) {
 
 // 组件挂载时监听键盘事件
 onMounted(() => {
+  // 获取节点的实际渲染尺寸并更新到 VueFlow
+  // nextTick(() => {
+  //   if (el.value) {
+  //     const rect = el.value.getBoundingClientRect();
+  //     const zoom = viewport.value.zoom || 1;
+  //     // 计算缩放后的实际宽高
+  //     const width = rect.width / zoom;
+  //     const height = rect.height / zoom;
+  //     // 调用 updateNode 一次性完成所有更新
+  //     updateNode(props.id, { width, height });
+  //     console.log("[StandardNode] 初始化节点尺寸:", { width, height, zoom });
+  //   }
+  // });
+
   window.addEventListener("keydown", handleKeyDown);
 });
 

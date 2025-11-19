@@ -338,6 +338,7 @@ export function createWorkflowServer(config: ServerConfig) {
                 type: output.type,
                 description: output.description,
               })),
+              style: node.style,
             }));
 
             sendMessage({

@@ -14,3 +14,4 @@ export { default as CodeNode } from "./CodeNode.vue";
 export { default as PreviewNode } from "./PreviewNode.vue";
 export { default as DataPreviewNode } from "./DataPreviewNode.vue";
 export { default as VariableAggregateNode } from "./VariableAggregateNode.vue";
+export { default as GroupNode } from "./GroupNode.vue";

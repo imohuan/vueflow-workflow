@@ -56,6 +56,7 @@ export class ImagePreviewNode extends BaseFlowNode {
       showIcon: true,
       bodyStyle: {
         minWidth: "300px",
+        minHeight: "200px",
       },
     };
   }

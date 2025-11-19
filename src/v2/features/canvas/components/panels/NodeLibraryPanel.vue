@@ -189,6 +189,7 @@ interface NodeDefinition {
     type: string;
     description?: string;
   }[];
+  style?: any;
 }
 
 // 搜索关键词
@@ -259,6 +260,7 @@ function buildNodeCategories() {
             // 保留 inputs/outputs 配置
             inputs: node.inputs,
             outputs: node.outputs,
+            style: node.style,
           })),
         };
       }
@@ -337,8 +339,25 @@ function handleDragStart(node: NodeDefinition, event: DragEvent) {
   if (!event.dataTransfer) return;
 
   event.dataTransfer.effectAllowed = "copy";
+
+  // 创建可序列化的节点对象（排除 Vue Component 对象）
+  const serializableNode = {
+    id: node.id,
+    name: node.name,
+    description: node.description,
+    category: node.category,
+    tags: node.tags,
+    inputs: node.inputs,
+    outputs: node.outputs,
+    style: node.style,
+    // 不包含 icon（Vue Component 无法序列化）
+  };
+
   // 使用 application/vueflow 数据类型以匹配画布的 drop 处理
-  event.dataTransfer.setData("application/vueflow", JSON.stringify(node));
+  event.dataTransfer.setData(
+    "application/vueflow",
+    JSON.stringify(serializableNode)
+  );
 
   // 设置自定义拖拽预览（预览内容已在 mouseenter 时准备好）
   if (dragPreviewRef.value) {
@@ -346,7 +365,7 @@ function handleDragStart(node: NodeDefinition, event: DragEvent) {
     event.dataTransfer.setDragImage(dragPreviewRef.value, 120, 30);
   }
 
-  console.log("开始拖拽节点:", node);
+  console.log("开始拖拽节点:", serializableNode);
 }
 
 /**
