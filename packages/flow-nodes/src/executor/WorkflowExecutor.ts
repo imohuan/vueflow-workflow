@@ -133,16 +133,30 @@ export class WorkflowExecutor {
         `[WorkflowExecutor] 需要执行的节点数量: ${nodesToExecute.size}`
       );
 
+      // 先构建节点索引，便于查找父节点类型
+      const nodeMap = new Map(workflow.nodes.map((node) => [node.id, node]));
+
       // 识别容器节点（有子节点的节点）
-      const containerNodeIds = this.identifyContainerNodes(workflow.nodes);
+      const containerNodeIds = this.identifyContainerNodes(
+        workflow.nodes,
+        nodeMap
+      );
 
       // 识别容器内的子节点（有 parentNode 的节点）
       const childNodeIds = new Set<string>();
       for (const node of workflow.nodes) {
         const parentId = node.parentNode || node.data?.parentNode;
-        if (parentId && typeof parentId === "string") {
-          childNodeIds.add(node.id);
+        if (!parentId || typeof parentId !== "string") continue;
+
+        const parentNode = nodeMap.get(parentId);
+        if (parentNode?.type === "group") {
+          this.logger.log(
+            `[WorkflowExecutor] 节点 ${node.id} 的父节点 ${parentId} 为 group 类型，按普通节点处理`
+          );
+          continue;
         }
+
+        childNodeIds.add(node.id);
       }
 
       // 排除容器节点和容器内的子节点进行拓扑排序
@@ -1047,17 +1061,30 @@ export class WorkflowExecutor {
    * 识别容器节点
    * 容器节点是那些有其他节点将其作为 parentNode 的节点
    */
-  private identifyContainerNodes(nodes: WorkflowNode[]): Set<string> {
+  private identifyContainerNodes(
+    nodes: WorkflowNode[],
+    nodeMap: Map<string, WorkflowNode>
+  ): Set<string> {
     const containerIds = new Set<string>();
 
     for (const node of nodes) {
       const parentId = node.parentNode || node.data?.parentNode;
-      if (parentId && typeof parentId === "string") {
-        containerIds.add(parentId);
-        this.logger.log(
-          `[WorkflowExecutor] 节点 ${node.id} 的父节点是 ${parentId}（容器节点）`
-        );
+      if (!parentId || typeof parentId !== "string") {
+        continue;
       }
+
+      const parentNode = nodeMap.get(parentId);
+      if (parentNode?.type === "group") {
+        this.logger.log(
+          `[WorkflowExecutor] 节点 ${node.id} 的父节点 ${parentId} 是 group 类型，视为普通节点`
+        );
+        continue;
+      }
+
+      containerIds.add(parentId);
+      this.logger.log(
+        `[WorkflowExecutor] 节点 ${node.id} 的父节点是 ${parentId}（容器节点）`
+      );
     }
 
     this.logger.log(
