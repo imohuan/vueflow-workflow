@@ -8,8 +8,67 @@
  */
 
 import type { VueFlowPlugin, PluginContext } from "./types";
-import type { Node } from "@vue-flow/core";
+import type { ComputedRef } from "vue";
+import type { GraphNode, Node, Rect } from "@vue-flow/core";
+import { getRectOfNodes } from "@vue-flow/core";
 import { debounce } from "lodash-es";
+import { onKeyStroke } from "@vueuse/core";
+import { NODE_SIZE } from "../../../config";
+import { useCanvasStore } from "../../../stores/canvas";
+import type { NodeMetadataItem } from "../executor/types";
+
+interface GroupPluginOptions {
+  enableShortcut?: ComputedRef<boolean>;
+}
+
+const MIN_GROUP_WIDTH = 200;
+const MIN_GROUP_HEIGHT = 200;
+const GROUP_SYNC_DELAY = 150;
+const GROUP_PADDING = {
+  top: NODE_SIZE.headerHeight + 16,
+  right: 24,
+  bottom: 24,
+  left: 24,
+};
+
+function getNodeMetadataByType(nodeType: string): NodeMetadataItem | null {
+  try {
+    const canvasStore = useCanvasStore();
+    const metadata = canvasStore.availableNodes.find(
+      (node) => node.type === nodeType
+    );
+    return metadata ?? null;
+  } catch (error) {
+    console.warn(
+      `[GroupPlugin] 获取节点元数据失败 (${nodeType})`,
+      (error as Error)?.message || error
+    );
+    return null;
+  }
+}
+
+function getDefaultParamsFromMetadata(metadata: NodeMetadataItem | null) {
+  if (!metadata?.inputs?.length) {
+    return {};
+  }
+  return metadata.inputs.reduce<Record<string, any>>((acc, input) => {
+    acc[input.name] = input.defaultValue;
+    return acc;
+  }, {});
+}
+
+function parseDimension(value: unknown): number | null {
+  if (typeof value === "number" && !Number.isNaN(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = parseFloat(value);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
 
 /**
  * 获取节点的边界信息
@@ -20,22 +79,26 @@ function getNodeBounds(node: Node): {
   width: number;
   height: number;
 } {
-  // 处理 Proxy 对象，获取实际的 position 值
-  const position = node.position;
-  const x = typeof position.x === "number" ? position.x : 0;
-  const y = typeof position.y === "number" ? position.y : 0;
+  const nodeAny = node as any;
+  const computedPosition =
+    nodeAny?.computedPosition ?? nodeAny?.positionAbsolute ?? node.position;
 
-  // 获取宽高，优先从 node.data 中读取，然后是 node.width/height，最后使用默认值
-  let width = 300;
-  let height = 200;
+  const x = typeof computedPosition?.x === "number" ? computedPosition.x : 0;
+  const y = typeof computedPosition?.y === "number" ? computedPosition.y : 0;
 
-  // 先尝试从 node.width/height 读取
-  if (typeof node.width === "number") {
-    width = node.width;
-  }
-  if (typeof node.height === "number") {
-    height = node.height;
-  }
+  let width =
+    parseDimension(nodeAny?.dimensions?.width) ??
+    parseDimension(node.width) ??
+    parseDimension(nodeAny?.data?.style?.bodyStyle?.width) ??
+    parseDimension(nodeAny?.data?.width) ??
+    300;
+
+  let height =
+    parseDimension(nodeAny?.dimensions?.height) ??
+    parseDimension(node.height) ??
+    parseDimension(nodeAny?.data?.style?.bodyStyle?.height) ??
+    parseDimension(nodeAny?.data?.height) ??
+    200;
 
   console.log(`[GroupPlugin] getNodeBounds ${node.id}:`, {
     x,
@@ -44,11 +107,225 @@ function getNodeBounds(node: Node): {
     height,
     nodeWidth: node.width,
     nodeHeight: node.height,
+    computedPosition,
     dataWidth: (node.data as any)?.width,
     dataHeight: (node.data as any)?.height,
   });
 
   return { x, y, width, height };
+}
+
+function calculateManualBounds(nodes: Node[]): Rect | null {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  nodes.forEach((node) => {
+    const bounds = getNodeBounds(node);
+    minX = Math.min(minX, bounds.x);
+    minY = Math.min(minY, bounds.y);
+    maxX = Math.max(maxX, bounds.x + bounds.width);
+    maxY = Math.max(maxY, bounds.y + bounds.height);
+  });
+
+  if (
+    !Number.isFinite(minX) ||
+    !Number.isFinite(minY) ||
+    !Number.isFinite(maxX) ||
+    !Number.isFinite(maxY)
+  ) {
+    return null;
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(maxX - minX, 0),
+    height: Math.max(maxY - minY, 0),
+  };
+}
+
+function getSelectionBounds(nodes: GraphNode[]): Rect | null {
+  if (!nodes.length) {
+    return null;
+  }
+
+  try {
+    const rect = getRectOfNodes(nodes);
+    if (rect && Number.isFinite(rect.width) && Number.isFinite(rect.height)) {
+      return rect;
+    }
+  } catch (error) {
+    console.warn("[GroupPlugin] 无法通过 getRectOfNodes 计算选区", error);
+  }
+
+  return calculateManualBounds(nodes);
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  const tagName = target.tagName?.toLowerCase();
+  if (!tagName) return false;
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  return (
+    tagName === "input" ||
+    tagName === "textarea" ||
+    tagName === "select" ||
+    target.getAttribute("role") === "textbox"
+  );
+}
+
+function buildGroupNode(bounds: Rect): Node {
+  const groupMetadata = getNodeMetadataByType("group");
+  const metadataParams = getDefaultParamsFromMetadata(groupMetadata);
+
+  const expandedBounds = {
+    x: bounds.x - GROUP_PADDING.left,
+    y: bounds.y - GROUP_PADDING.top,
+    width: bounds.width + GROUP_PADDING.left + GROUP_PADDING.right,
+    height: bounds.height + GROUP_PADDING.top + GROUP_PADDING.bottom,
+  };
+
+  const normalized = {
+    x: Math.floor(expandedBounds.x),
+    y: Math.floor(expandedBounds.y),
+    width: Math.max(Math.ceil(expandedBounds.width), MIN_GROUP_WIDTH),
+    height: Math.max(Math.ceil(expandedBounds.height), MIN_GROUP_HEIGHT),
+  };
+
+  const id = `group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+  return {
+    id,
+    type: "group",
+    position: {
+      x: normalized.x,
+      y: normalized.y,
+    },
+    width: normalized.width,
+    height: normalized.height,
+    data: {
+      nodeType: "group",
+      label: groupMetadata?.label ?? "分组",
+      description: groupMetadata?.description ?? "",
+      inputs: groupMetadata?.inputs ?? [],
+      outputs: groupMetadata?.outputs ?? [],
+      params:
+        Object.keys(metadataParams).length > 0
+          ? metadataParams
+          : {
+              title: "分组",
+              description: "",
+              opacity: 30,
+              backgroundColor: "#8b5cf6",
+              borderColor: "#8b5cf6",
+            },
+      style: {
+        ...(groupMetadata?.style ?? {}),
+        bodyStyle: {
+          ...(groupMetadata?.style?.bodyStyle ?? {}),
+        },
+      },
+    },
+  } as Node;
+}
+
+function createGroupViaSelection(
+  context: PluginContext,
+  pendingTimers: Set<number>
+): boolean {
+  const selectedNodes = (context.vueflow.getSelectedNodes?.value ??
+    []) as GraphNode[];
+
+  if (!selectedNodes.length) {
+    console.log("[GroupPlugin] Ctrl+G：当前没有选中的节点，跳过创建");
+    return false;
+  }
+
+  const selectionBounds = getSelectionBounds(selectedNodes);
+
+  if (
+    !selectionBounds ||
+    !Number.isFinite(selectionBounds.width) ||
+    !Number.isFinite(selectionBounds.height)
+  ) {
+    console.warn("[GroupPlugin] Ctrl+G：无法获取选区大小，创建失败", {
+      selectionBounds,
+      selectedCount: selectedNodes.length,
+    });
+    return false;
+  }
+
+  const groupNode = buildGroupNode(selectionBounds);
+
+  console.log("[GroupPlugin] Ctrl+G：创建分组节点", {
+    groupId: groupNode.id,
+    selectionBounds,
+    targetWidth: groupNode.width,
+    targetHeight: groupNode.height,
+  });
+
+  context.core.addNode(groupNode);
+  context.vueflow.updateNodeInternals?.([groupNode.id]);
+
+  if (typeof window !== "undefined") {
+    const timerId = window.setTimeout(() => {
+      updateGroupChildren(context, groupNode.id);
+      pendingTimers.delete(timerId);
+    }, GROUP_SYNC_DELAY);
+    pendingTimers.add(timerId);
+  } else {
+    updateGroupChildren(context, groupNode.id);
+  }
+
+  return true;
+}
+
+function isShortcutAvailable(options?: GroupPluginOptions): boolean {
+  if (!options?.enableShortcut) {
+    return true;
+  }
+  return Boolean(options.enableShortcut.value);
+}
+
+function registerCtrlGShortcut(
+  context: PluginContext,
+  options: GroupPluginOptions,
+  pendingTimers: Set<number>
+) {
+  return onKeyStroke(
+    "g",
+    (event) => {
+      if (!isShortcutAvailable(options)) {
+        return;
+      }
+
+      if (!(event.ctrlKey || event.metaKey)) {
+        return;
+      }
+
+      if (isTypingTarget(event.target)) {
+        return;
+      }
+
+      const created = createGroupViaSelection(context, pendingTimers);
+      if (created) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    },
+    {
+      dedupe: true,
+    }
+  );
 }
 
 /**
@@ -223,7 +500,17 @@ function updateGroupChildren(context: PluginContext, groupId: string) {
 /**
  * 创建 Group 插件
  */
-export function createGroupPlugin(): VueFlowPlugin {
+export function createGroupPlugin(
+  options: GroupPluginOptions = {}
+): VueFlowPlugin {
+  type GroupEventCleanup = (() => void) | { off?: () => void } | null;
+
+  let unsubscribeGroupDragEnd: GroupEventCleanup = null;
+  let unsubscribeNodeDragStop: GroupEventCleanup = null;
+  let handleNodeDragStop: ReturnType<typeof debounce> | null = null;
+  let stopCtrlGListener: (() => void) | null = null;
+  const pendingGroupSyncTimers = new Set<number>();
+
   return {
     config: {
       id: "group",
@@ -232,6 +519,19 @@ export function createGroupPlugin(): VueFlowPlugin {
       enabled: true,
       version: "1.0.0",
     },
+
+    shortcuts: [
+      {
+        key: "ctrl+g",
+        description: "根据当前选区创建分组节点",
+        handler: (context) => {
+          if (!isShortcutAvailable(options)) {
+            return;
+          }
+          createGroupViaSelection(context, pendingGroupSyncTimers);
+        },
+      },
+    ],
 
     setup(context: PluginContext) {
       // 监听分组拖拽结束或 resize 结束
@@ -262,25 +562,58 @@ export function createGroupPlugin(): VueFlowPlugin {
       };
 
       // 使用 debounce 优化节点拖拽结束的处理，避免频繁执行
-      const handleNodeDragStop = debounce(checkGroupParentRelations, 50);
+      handleNodeDragStop = debounce(checkGroupParentRelations, 50);
 
       // 使用事件系统监听分组拖拽结束
-      const unsubscribeGroupDragEnd = context.core.events?.on(
+      const groupEventCleanup = context.core.events?.on(
         "group-node:drag-end",
         handleGroupDragEnd
       );
+      unsubscribeGroupDragEnd = (groupEventCleanup ??
+        null) as GroupEventCleanup;
 
       // 监听节点拖拽结束
-      const unsubscribeNodeDragStop =
+      const nodeDragStopCleanup =
         context.vueflow.onNodeDragStop?.(handleNodeDragStop);
+      unsubscribeNodeDragStop = (nodeDragStopCleanup ??
+        null) as GroupEventCleanup;
 
-      return () => {
-        // 清理事件监听器
+      stopCtrlGListener = registerCtrlGShortcut(
+        context,
+        options,
+        pendingGroupSyncTimers
+      );
+
+      console.log("[GroupPlugin] Ctrl+G 快捷键已启用");
+    },
+
+    cleanup() {
+      if (typeof unsubscribeGroupDragEnd === "function") {
+        unsubscribeGroupDragEnd();
+      } else {
         (unsubscribeGroupDragEnd as any)?.off?.();
-        (unsubscribeNodeDragStop as any)?.();
-        // 取消待处理的 debounce 调用
-        handleNodeDragStop.cancel();
-      };
+      }
+      unsubscribeGroupDragEnd = null;
+
+      if (typeof unsubscribeNodeDragStop === "function") {
+        unsubscribeNodeDragStop();
+      } else {
+        (unsubscribeNodeDragStop as any)?.off?.();
+      }
+      unsubscribeNodeDragStop = null;
+
+      handleNodeDragStop?.cancel();
+      handleNodeDragStop = null;
+
+      stopCtrlGListener?.();
+      stopCtrlGListener = null;
+
+      pendingGroupSyncTimers.forEach((timerId) => {
+        clearTimeout(timerId);
+      });
+      pendingGroupSyncTimers.clear();
+
+      console.log("[GroupPlugin] 事件与快捷键监听已清理");
     },
 
     hooks: {

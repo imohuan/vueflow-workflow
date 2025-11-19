@@ -1107,7 +1107,7 @@ onMounted(() => {
   const forLoopPlugin = createForLoopPlugin();
   pluginManager.register(forLoopPlugin);
 
-  const groupPlugin = createGroupPlugin();
+  const groupPlugin = createGroupPlugin({ enableShortcut });
   pluginManager.register(groupPlugin);
 
   console.log("[VueFlowCanvas] 画布已挂载");
