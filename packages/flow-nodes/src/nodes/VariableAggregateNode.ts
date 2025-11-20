@@ -5,6 +5,7 @@ import {
   type NodeExecutionContext,
   type NodeExecutionResult,
 } from "../BaseFlowNode";
+import { isOnlyVariableReference } from "../executor/VariableResolver";
 
 /**
  * 变量聚合节点
@@ -80,10 +81,19 @@ export class VariableAggregateNode extends BaseFlowNode {
         // 获取第一个有数据的值
         let firstValidItem = null;
         for (const item of children) {
-          if (item !== null && item !== undefined && item !== "") {
-            firstValidItem = item;
-            break;
+          // 检查是否为 null、undefined 或空字符串
+          if (item === null || item === undefined || item === "") {
+            continue;
           }
+
+          // 如果是字符串且只包含变量引用，视为空
+          if (typeof item === "string" && isOnlyVariableReference(item)) {
+            continue;
+          }
+
+          // 找到有效值
+          firstValidItem = item;
+          break;
         }
 
         // 保存聚合结果

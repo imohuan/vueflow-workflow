@@ -40,8 +40,9 @@ export {
   type NodeOutputExtractor,
   tokenRegex,
   containsVariableReference,
+  isOnlyVariableReference,
   buildVariableContext,
   buildVariableContextFromExecutionContext,
   resolveConfigWithVariables,
-  resolveTemplateString
+  resolveTemplateString,
 } from "./VariableResolver";

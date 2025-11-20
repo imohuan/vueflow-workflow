@@ -718,6 +718,35 @@ export function containsVariableReference(str: string): boolean {
 }
 
 /**
+ * 检测字符串是否只包含变量引用（没有其他内容）
+ * 用于判断字符串是否应该被视为空值
+ *
+ * @param str - 要检测的字符串
+ * @returns 如果字符串只包含变量引用和空白字符，返回 true
+ */
+export function isOnlyVariableReference(str: string): boolean {
+  if (typeof str !== "string") {
+    return false;
+  }
+
+  // 获取所有变量引用匹配
+  const matches = [...str.matchAll(tokenRegex)];
+
+  if (matches.length === 0) {
+    return false;
+  }
+
+  // 移除所有变量引用，检查剩余内容
+  let remaining = str;
+  matches.forEach(([full]) => {
+    remaining = remaining.replace(full, "");
+  });
+
+  // 如果移除变量引用后只剩下空白字符，则认为只包含变量引用
+  return remaining.trim().length === 0;
+}
+
+/**
  * 解析模板字符串中的变量引用
  * 支持 {{ nodeName.field }} 和 {{ $nodeName.field }} 两种格式
  */
