@@ -374,14 +374,16 @@ export class WorkflowExecutor {
 
     if (strategy === "full") {
       // 全量执行：从开始节点出发，只执行可达的节点
+      // 如果选中的节点只有一个，就把这个节点作为开始节点
       const reachableNodes = this.findReachableNodesFromStart(
         workflow.nodes,
-        workflow.edges
+        workflow.edges,
+        workflow
       );
       return reachableNodes;
     }
 
-    // 选择性执行或单节点执行：需要分析依赖
+    // 单节点执行或选择性执行：需要分析依赖
     const selectedIds = workflow.selectedNodeIds || [];
 
     for (const nodeId of selectedIds) {
@@ -395,6 +397,24 @@ export class WorkflowExecutor {
         workflow.edges
       );
       dependencies.forEach((depId) => result.add(depId));
+
+      // 如果是单节点执行，标记所有依赖节点为强制使用缓存
+      // 这样依赖节点会使用缓存，只有选中的节点会真正执行
+      if (strategy === "single") {
+        for (const depId of dependencies) {
+          const depNode = workflow.nodes.find((n) => n.id === depId);
+          if (depNode) {
+            // 在节点数据中标记为强制使用缓存
+            if (!depNode.data) {
+              depNode.data = {};
+            }
+            depNode.data.forceCacheUsage = true;
+            this.logger.log(
+              `[WorkflowExecutor] 节点 ${depId} 标记为强制使用缓存（单节点执行 ${nodeId} 的依赖）`
+            );
+          }
+        }
+      }
     }
 
     return result;
@@ -406,19 +426,50 @@ export class WorkflowExecutor {
    * 支持自定义执行起点（isExecutionStart 标记的节点）
    *
    * 逻辑：
-   * 1. 仍然从 start 节点开始执行
-   * 2. 如果标记了执行起点，收集该节点前面的所有依赖节点
-   * 3. 这些依赖节点会被标记为强制使用缓存
-   * 4. 只有从执行起点开始的节点才正常执行
+   * 1. 优先查找标记的执行起点（isExecutionStart），如果有则从执行起点开始
+   * 2. 否则查找开始节点（type === "start"）
+   * 3. 如果标记了执行起点，收集该节点前面的所有依赖节点
+   * 4. 这些依赖节点会被标记为强制使用缓存
+   * 5. 只有从执行起点开始的节点才正常执行
    */
   private findReachableNodesFromStart(
     nodes: WorkflowNode[],
-    edges: WorkflowEdge[]
+    edges: WorkflowEdge[],
+    workflow: Workflow
   ): Set<string> {
-    // 查找开始节点（type === "start"）
-    const startNodes = nodes.filter(
-      (node) => node.data?.nodeType === "start" || node.type === "start"
-    );
+    let startNodes: WorkflowNode[] = [];
+
+    // 优先检查：如果选中的节点只有一个，就把这个节点作为开始节点（全量执行时）
+    const selectedIds = workflow.selectedNodeIds || [];
+    if (selectedIds.length === 1) {
+      const selectedNode = nodes.find((node) => node.id === selectedIds[0]);
+      if (selectedNode) {
+        this.logger.log(
+          `[WorkflowExecutor] 检测到单个选中节点 ${selectedNode.id}，将其作为开始节点（全量执行）`
+        );
+        startNodes = [selectedNode];
+      }
+    }
+
+    // 如果没有选中单个节点，则查找标记的执行起点或普通开始节点
+    if (startNodes.length === 0) {
+      // 优先查找标记的执行起点（优先级高于普通开始节点）
+      const executionStartNodes = nodes.filter(
+        (node) => node.data?.isExecutionStart === true
+      );
+
+      if (executionStartNodes.length > 0) {
+        this.logger.log(
+          `[WorkflowExecutor] 发现 ${executionStartNodes.length} 个标记的执行起点`
+        );
+        startNodes = executionStartNodes;
+      } else {
+        // 查找开始节点（type === "start"）
+        startNodes = nodes.filter(
+          (node) => node.data?.nodeType === "start" || node.type === "start"
+        );
+      }
+    }
 
     // 如果没有开始节点，返回空集合（不执行任何节点）
     if (startNodes.length === 0) {
@@ -435,8 +486,59 @@ export class WorkflowExecutor {
       );
     }
 
+    // 判断 startNodes 是否包含标记的执行起点
+    const isExecutionStart =
+      startNodes.length > 0 &&
+      startNodes.some((node) => node.data?.isExecutionStart === true);
+
+    // 收集所有前置依赖节点（用于执行起点场景）
+    const allDependencyIds = new Set<string>();
+
+    // 如果是执行起点，需要收集其前置依赖节点并标记为强制使用缓存
+    if (isExecutionStart) {
+      this.logger.log(`[WorkflowExecutor] 检测到执行起点，收集前置依赖节点`);
+
+      // 收集执行起点前面的所有依赖节点
+      for (const startNode of startNodes) {
+        if (startNode.data?.isExecutionStart === true) {
+          const dependencies = this.findDependencies(
+            startNode.id,
+            nodes,
+            edges
+          );
+
+          // 将依赖节点添加到集合中
+          dependencies.forEach((depId) => allDependencyIds.add(depId));
+
+          // 标记这些依赖节点为强制使用缓存
+          for (const depId of dependencies) {
+            const depNode = nodes.find((n) => n.id === depId);
+            if (depNode) {
+              // 在节点数据中标记为强制使用缓存
+              if (!depNode.data) {
+                depNode.data = {};
+              }
+              depNode.data.forceCacheUsage = true;
+              this.logger.log(
+                `[WorkflowExecutor] 节点 ${depId} 标记为强制使用缓存（${startNode.id} 的前置依赖）`
+              );
+            }
+          }
+        }
+      }
+    }
+
     // 使用 BFS 查找所有可达节点
     const reachable = new Set<string>();
+
+    // 如果是执行起点，先将前置依赖节点加入可达集合（这些节点会使用缓存）
+    if (isExecutionStart) {
+      allDependencyIds.forEach((depId) => reachable.add(depId));
+      this.logger.log(
+        `[WorkflowExecutor] 将 ${allDependencyIds.size} 个前置依赖节点加入执行列表（将使用缓存）`
+      );
+    }
+
     const queue: string[] = startNodes.map((node) => node.id);
 
     // 将开始节点加入可达集合
@@ -453,37 +555,6 @@ export class WorkflowExecutor {
         if (!reachable.has(edge.target)) {
           reachable.add(edge.target);
           queue.push(edge.target);
-        }
-      }
-    }
-
-    // 检查是否有标记的执行起点，如果有则收集其前置依赖节点
-    const executionStartNodes = nodes.filter(
-      (node) => node.data?.isExecutionStart === true
-    );
-
-    if (executionStartNodes.length > 0) {
-      this.logger.log(
-        `[WorkflowExecutor] 发现 ${executionStartNodes.length} 个标记的执行起点`
-      );
-
-      // 收集执行起点前面的所有依赖节点
-      for (const startNode of executionStartNodes) {
-        const dependencies = this.findDependencies(startNode.id, nodes, edges);
-
-        // 标记这些依赖节点为强制使用缓存
-        for (const depId of dependencies) {
-          const depNode = nodes.find((n) => n.id === depId);
-          if (depNode) {
-            // 在节点数据中标记为强制使用缓存
-            if (!depNode.data) {
-              depNode.data = {};
-            }
-            depNode.data.forceCacheUsage = true;
-            this.logger.log(
-              `[WorkflowExecutor] 节点 ${depId} 标记为强制使用缓存（${startNode.id} 的前置依赖）`
-            );
-          }
         }
       }
     }
@@ -793,32 +864,60 @@ export class WorkflowExecutor {
           `[WorkflowExecutor] 节点 ${nodeId} 缓存判断结果: ${shouldUseCache}`
         );
 
-        // 4. 如果节点允许使用缓存，计算配置哈希并检查缓存
+        // 4. 如果节点允许使用缓存，检查缓存
         if (shouldUseCache) {
+          // 计算配置哈希（无论是否强制使用缓存，都需要计算以便保存缓存）
           configHash = nodeInstance.computeConfigHash(inputs, node.data || {});
           this.logger.log(
             `[WorkflowExecutor] 节点 ${nodeId} 配置哈希: ${configHash}`
           );
 
-          // 检查是否有有效缓存
-          if (context.hasValidCache(nodeId, configHash)) {
-            // 使用缓存
-            this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} 使用缓存结果`);
-            const cached = context.getCachedResult(nodeId)!;
-            context.setNodeState(nodeId, "cached", {
-              outputs: cached.outputs,
-              fromCache: true,
-              duration: cached.duration,
-              inputs: cached.inputs,
-            });
-            context.setNodeOutput(nodeId, cached.outputs);
+          // 对于强制使用缓存的节点，不检查 configHash，直接使用最后一次缓存
+          if (forceCacheUsage) {
+            const cached = context.getCachedResult(nodeId);
+            if (cached && cached.status === "success") {
+              // 使用缓存（不检查 configHash）
+              this.logger.log(
+                `[WorkflowExecutor] 节点 ${nodeId} 强制使用缓存结果（忽略配置哈希检查）`
+              );
+              context.setNodeState(nodeId, "cached", {
+                outputs: cached.outputs,
+                fromCache: true,
+                duration: cached.duration,
+                inputs: cached.inputs,
+              });
+              context.setNodeOutput(nodeId, cached.outputs);
 
-            options.onCacheHit?.(nodeId, cached);
-            return;
+              options.onCacheHit?.(nodeId, cached);
+              return;
+            } else {
+              // 强制使用缓存但缓存不存在，执行节点（不是报错）
+              // 注意：configHash 已经计算，执行后可以保存缓存
+              this.logger.log(
+                `[WorkflowExecutor] 节点 ${nodeId} 被标记为强制使用缓存，但缓存不存在，将执行节点以生成缓存`
+              );
+            }
           } else {
-            this.logger.log(
-              `[WorkflowExecutor] 节点 ${nodeId} 无有效缓存，将重新执行`
-            );
+            // 普通缓存检查：检查配置哈希是否匹配
+            if (context.hasValidCache(nodeId, configHash)) {
+              // 使用缓存
+              this.logger.log(`[WorkflowExecutor] 节点 ${nodeId} 使用缓存结果`);
+              const cached = context.getCachedResult(nodeId)!;
+              context.setNodeState(nodeId, "cached", {
+                outputs: cached.outputs,
+                fromCache: true,
+                duration: cached.duration,
+                inputs: cached.inputs,
+              });
+              context.setNodeOutput(nodeId, cached.outputs);
+
+              options.onCacheHit?.(nodeId, cached);
+              return;
+            } else {
+              this.logger.log(
+                `[WorkflowExecutor] 节点 ${nodeId} 无有效缓存，将重新执行`
+              );
+            }
           }
         }
       } else {
