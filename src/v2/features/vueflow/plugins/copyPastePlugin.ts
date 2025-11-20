@@ -3,7 +3,7 @@
  * 支持节点的复制、剪切、粘贴操作
  */
 
-import type { Edge, GraphNode, Node } from "@vue-flow/core";
+import type { Edge, GraphNode, Node, XYPosition } from "@vue-flow/core";
 import type { PluginContext, VueFlowPlugin } from "./types";
 import type { ComputedRef } from "vue";
 import { nextTick } from "vue";
@@ -84,16 +84,39 @@ export function createCopyPastePlugin(
   }
 
   /**
-   * 计算节点的中心点
+   * 获取节点的绝对坐标
+   */
+  function getAbsolutePosition(node: Partial<Node>): XYPosition {
+    const computed = (node as any)?.computedPosition;
+    if (
+      computed &&
+      typeof computed.x === "number" &&
+      typeof computed.y === "number"
+    ) {
+      return { x: computed.x, y: computed.y };
+    }
+
+    const position = node.position;
+    return {
+      x: position?.x ?? 0,
+      y: position?.y ?? 0,
+    };
+  }
+
+  /**
+   * 计算节点的中心点（基于绝对坐标）
    */
   function calculateCenter(nodes: Node[]): { x: number; y: number } {
     if (nodes.length === 0) return { x: 0, y: 0 };
 
     const sum = nodes.reduce(
-      (acc, node) => ({
-        x: acc.x + node.position.x,
-        y: acc.y + node.position.y,
-      }),
+      (acc, node) => {
+        const abs = getAbsolutePosition(node);
+        return {
+          x: acc.x + abs.x,
+          y: acc.y + abs.y,
+        };
+      },
       { x: 0, y: 0 }
     );
 
@@ -149,11 +172,11 @@ export function createCopyPastePlugin(
   /**
    * 粘贴节点
    */
-  function pasteNodes(context: PluginContext) {
+  async function pasteNodes(context: PluginContext) {
     const proceed = (clip: ClipboardData) => {
       // 获取当前鼠标位置并转换为画布坐标
       let pastePosition = { x: 0, y: 0 };
-      
+
       // 获取相对于画布容器的鼠标位置
       const getMousePosition = context.getMousePosition;
       if (getMousePosition && context.vueflow.project) {
@@ -176,12 +199,60 @@ export function createCopyPastePlugin(
 
       const pastedNodeIds: string[] = [];
       const nodeIdMap = new Map<string, string>();
+      const existingNodesMap = new Map(
+        (context.core.nodes.value as Node[]).map((node) => [node.id, node])
+      );
 
+      const absolutePositions = new Map<string, XYPosition>();
       clip.nodes.forEach((node) => {
+        absolutePositions.set(node.id, getAbsolutePosition(node));
         const newId = `node-${Date.now()}-${Math.random()
           .toString(36)
           .substr(2, 9)}`;
         nodeIdMap.set(node.id, newId);
+      });
+
+      const newAbsolutePositions = new Map<string, XYPosition>();
+      clip.nodes.forEach((node) => {
+        const originalAbs = absolutePositions.get(node.id) ?? { x: 0, y: 0 };
+        newAbsolutePositions.set(node.id, {
+          x: originalAbs.x + offsetX,
+          y: originalAbs.y + offsetY,
+        });
+      });
+
+      clip.nodes.forEach((node) => {
+        const newId = nodeIdMap.get(node.id)!;
+        const parentOldId = (node as any).parentNode as string | undefined;
+        const parentNewId = parentOldId
+          ? nodeIdMap.get(parentOldId)
+          : undefined;
+        let finalParentId = parentNewId ?? parentOldId;
+
+        const newAbs = newAbsolutePositions.get(node.id) ?? { x: 0, y: 0 };
+        let relativePosition = { ...newAbs };
+
+        if (finalParentId) {
+          let parentAbs: XYPosition | undefined;
+
+          if (parentNewId && parentOldId) {
+            parentAbs = newAbsolutePositions.get(parentOldId);
+          } else if (parentOldId) {
+            const parentNode = existingNodesMap.get(parentOldId);
+            if (parentNode) {
+              parentAbs = getAbsolutePosition(parentNode);
+            }
+          }
+
+          if (parentAbs) {
+            relativePosition = {
+              x: newAbs.x - parentAbs.x,
+              y: newAbs.y - parentAbs.y,
+            };
+          } else {
+            finalParentId = undefined;
+          }
+        }
 
         const baseLabel = node.data?.label || "节点";
         const uniqueLabel = generateUniqueLabel(
@@ -192,9 +263,10 @@ export function createCopyPastePlugin(
         const newNode: Node = {
           ...node,
           id: newId,
+          parentNode: finalParentId,
           position: {
-            x: node.position.x + offsetX,
-            y: node.position.y + offsetY,
+            x: relativePosition.x,
+            y: relativePosition.y,
           },
           data: {
             ...node.data,
@@ -243,35 +315,51 @@ export function createCopyPastePlugin(
       });
 
       console.log(
-        `[CopyPaste Plugin] 已粘贴 ${pastedNodeIds.length} 个节点和 ${pastedEdgeIds.length} 条连接线 (位置: ${pastePosition.x.toFixed(0)}, ${pastePosition.y.toFixed(0)})`
+        `[CopyPaste Plugin] 已粘贴 ${pastedNodeIds.length} 个节点和 ${
+          pastedEdgeIds.length
+        } 条连接线 (位置: ${pastePosition.x.toFixed(
+          0
+        )}, ${pastePosition.y.toFixed(0)})`
       );
     };
 
-    let data = clipboard;
-    if (!data || data.nodes.length === 0) {
+    /**
+     * 粘贴优先级：
+     * 1. 系统剪贴板（navigator.clipboard）
+     * 2. 本地存储（localStorage）
+     * 3. 内存中的 clipboard 变量
+     */
+
+    let data: ClipboardData | null = null;
+
+    // 1. 优先尝试读取系统剪贴板
+    const fromSys = await readSystemClipboard();
+    if (fromSys && fromSys.nodes && fromSys.nodes.length) {
+      data = fromSys;
+      clipboard = fromSys;
+    }
+
+    // 2. 如果系统剪贴板没有有效数据，再尝试本地存储
+    if (!data || !data.nodes.length) {
       const fromLocal = readLocalClipboard();
       if (fromLocal && fromLocal.nodes && fromLocal.nodes.length) {
         data = fromLocal;
+        clipboard = fromLocal;
       }
     }
 
-    if (!data || data.nodes.length === 0) {
-      readSystemClipboard()
-        .then((fromSys) => {
-          if (fromSys && fromSys.nodes && fromSys.nodes.length) {
-            clipboard = fromSys;
-            proceed(fromSys);
-          } else {
-            console.log("[CopyPaste Plugin] 剪贴板为空");
-          }
-        })
-        .catch(() => {
-          console.log("[CopyPaste Plugin] 剪贴板为空");
-        });
+    // 3. 最后使用内存中的 clipboard 变量
+    if (!data || !data.nodes.length) {
+      if (clipboard && clipboard.nodes && clipboard.nodes.length) {
+        data = clipboard;
+      }
+    }
+
+    if (!data || !data.nodes.length) {
+      console.log("[CopyPaste Plugin] 剪贴板为空");
       return;
     }
 
-    clipboard = data;
     proceed(data);
   }
 
