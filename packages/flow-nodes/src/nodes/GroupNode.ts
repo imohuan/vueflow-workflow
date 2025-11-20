@@ -36,12 +36,6 @@ export class GroupNode extends BaseFlowNode {
         defaultValue: "分组",
       },
       {
-        name: "description",
-        type: "string",
-        description: "分组说明",
-        defaultValue: "",
-      },
-      {
         name: "backgroundColor",
         type: "color",
         description: "背景颜色",
@@ -67,8 +61,8 @@ export class GroupNode extends BaseFlowNode {
       icon: "folder",
       showIcon: true,
       bodyStyle: {
-        minWidth: "300px",
-        minHeight: "200px",
+        minWidth: "200px",
+        minHeight: "150px",
       },
     };
   }

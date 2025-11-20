@@ -92,7 +92,7 @@ export const GROUP_CONTAINER_CONFIG = {
   /** 分组容器最小宽度 */
   minWidth: 200,
   /** 分组容器最小高度 */
-  minHeight: 200,
+  minHeight: 150,
   /** 分组节点刷新 parent 关系的延迟（毫秒） */
   syncDelay: 150,
 } as const;

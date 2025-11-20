@@ -322,7 +322,7 @@ export function createAutoLayoutPlugin(): VueFlowPlugin {
     const fitViewDuration = options.fitViewDuration ?? 400;
 
     const selectedNodes = (vueflow.getSelectedNodes?.value ?? []) as Node[];
-    const partialLayout = selectedNodes.length > 2;
+    const partialLayout = selectedNodes.length > 1;
     const allowedNodeIds = new Set(
       (partialLayout ? selectedNodes : nodes.value).map((n) => n.id)
     );
