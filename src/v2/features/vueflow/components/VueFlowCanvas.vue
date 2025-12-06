@@ -334,12 +334,6 @@ const NODE_TYPE_SPECIFIC_DATA: Record<string, Record<string, any>> = {
       backgroundColor: "#8b5cf6", // 背景颜色
       borderColor: "#8b5cf6", // 边框颜色
     },
-    style: {
-      bodyStyle: {
-        width: "300px", // 默认宽度
-        height: "200px", // 默认高度
-      },
-    },
   },
   // start 和 end 节点没有特有字段，使用通用配置
 };
@@ -437,6 +431,11 @@ function addNodeAtPosition(
   // 生成唯一标签
   const uniqueLabel = generateUniqueLabel(nodeName, coreNodes.value);
 
+  let sizeProps: Pick<Node, "width" | "height"> = {};
+  if (["dataPreview", "preview", "group"].includes(nodeType)) {
+    sizeProps = { width: 300, height: 200 };
+  }
+
   // 创建新的节点对象
   const newNode: Node = {
     id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -461,6 +460,7 @@ function addNodeAtPosition(
       // 保存节点的样式配置
       style: "style" in nodeMetadata ? nodeMetadata.style : undefined,
     },
+    ...sizeProps,
   };
 
   console.log({ newNode });
