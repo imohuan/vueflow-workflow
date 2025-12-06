@@ -366,6 +366,8 @@ async function handleExecute(selectedNodeIds?: string[]) {
         position: node.position
           ? { x: node.position.x, y: node.position.y }
           : undefined,
+        width: node.width,
+        height: node.height,
         parentNode: node.parentNode || node.parentId,
         data: node.data,
       })),

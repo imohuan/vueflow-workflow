@@ -21,6 +21,8 @@ function convertNode(node: Node): WorkflowNode {
     type: node.type || "custom",
     label: node.data?.label || node.label,
     position: node.position,
+    width: node.width as number,
+    height: node.height as number,
     data: node.data || {},
     parentNode: node.parentNode,
   };

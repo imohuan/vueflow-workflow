@@ -19,6 +19,12 @@ export interface WorkflowNode {
   /** 节点位置 */
   position?: { x: number; y: number };
 
+  /** 节点宽度 */
+  width?: number;
+
+  /** 节点高度 */
+  height?: number;
+
   /** 节点数据/配置 */
   data?: Record<string, any>;
 
