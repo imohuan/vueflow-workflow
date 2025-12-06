@@ -43,10 +43,7 @@
     />
 
     <!-- 加载状态 -->
-    <div
-      v-if="isLoading"
-      class="flex flex-col items-center justify-center gap-3 p-5"
-    >
+    <div v-if="isLoading" class="flex flex-col items-center justify-center gap-3 p-5">
       <div
         class="w-6 h-6 border-2 border-indigo-200 border-t-indigo-500 rounded-full animate-spin"
       ></div>
@@ -83,10 +80,7 @@
           >
             {{ dataType }}
           </span>
-          <span
-            v-if="dataSize"
-            class="text-xs px-2 py-0.5 text-gray-700 rounded"
-          >
+          <span v-if="dataSize" class="text-xs px-2 py-0.5 text-gray-700 rounded">
             {{ dataSize }}
           </span>
         </div>
@@ -136,17 +130,12 @@
               :key="index"
               class="flex items-start gap-2 text-xs"
             >
-              <span class="text-gray-400 font-mono min-w-8"
-                >[{{ index }}]:</span
-              >
+              <span class="text-gray-400 font-mono min-w-8">[{{ index }}]:</span>
               <span class="flex-1 text-gray-800 font-mono">
                 {{ formatValue(item) }}
               </span>
             </div>
-            <div
-              v-if="previewData.length > 50"
-              class="text-xs text-gray-400 pt-2"
-            >
+            <div v-if="previewData.length > 50" class="text-xs text-gray-400 pt-2">
               ... 还有 {{ previewData.length - 50 }} 项未显示
             </div>
           </div>
