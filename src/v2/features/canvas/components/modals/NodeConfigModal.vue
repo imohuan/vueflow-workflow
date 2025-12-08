@@ -157,15 +157,12 @@
               <span
                 class="text-xs font-medium font-mono text-slate-700 min-w-[38px] text-center leading-none"
               >
-                {{ currentIterationPage }}/{{
-                  iterationHistory?.totalIterations
-                }}
+                {{ currentIterationPage }}/{{ iterationHistory?.totalIterations }}
               </span>
               <button
                 class="p-0 text-slate-600 hover:text-slate-900 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors"
                 :disabled="
-                  currentIterationPage >=
-                  (iterationHistory?.totalIterations || 0)
+                  currentIterationPage >= (iterationHistory?.totalIterations || 0)
                 "
                 @click="handleNextPage"
                 title="下一次迭代"
@@ -188,30 +185,22 @@
           <div
             class="shrink-0 flex items-center justify-between border-b border-slate-200 px-4 py-3"
           >
-            <ToggleButtonGroup
-              v-model="rightPanelMode"
-              :options="rightPanelOptions"
-            />
+            <ToggleButtonGroup v-model="rightPanelMode" :options="rightPanelOptions" />
           </div>
           <div class="flex-1 overflow-auto variable-scroll">
             <!-- 执行错误时显示错误信息 -->
             <div
-              v-if="
-                executionStatus?.status === 'error' && executionStatus.error
-              "
+              v-if="executionStatus?.status === 'error' && executionStatus.error"
               class="px-4 py-6"
             >
               <div class="rounded-lg border border-red-200 bg-red-50 p-3">
                 <div class="flex items-start gap-2">
-                  <IconErrorCircle
-                    class="h-4 w-4 shrink-0 text-red-500 mt-0.5"
-                  />
+                  <IconErrorCircle class="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
                   <div class="flex-1 min-w-0">
                     <p class="text-xs font-medium text-red-800">执行错误</p>
-                    <pre
-                      class="mt-1 text-xs text-red-700 whitespace-pre-wrap"
-                      >{{ executionStatus.error }}</pre
-                    >
+                    <pre class="mt-1 text-xs text-red-700 whitespace-pre-wrap">{{
+                      executionStatus.error
+                    }}</pre>
                   </div>
                 </div>
               </div>
@@ -235,11 +224,7 @@ import { storeToRefs } from "pinia";
 import { useVueFlow } from "@vue-flow/core";
 import type { Node } from "@vue-flow/core";
 import { useMessage } from "naive-ui";
-import {
-  ModalShell,
-  SplitLayout,
-  ToggleButtonGroup,
-} from "../../../../components/ui";
+import { ModalShell, SplitLayout, ToggleButtonGroup } from "../../../../components/ui";
 import NodeConfigPanel from "../node-editor/NodeConfigPanel.vue";
 import VariablePanel from "../../../../components/variables/VariablePanel.vue";
 import IconEmptyNode from "@/icons/IconEmptyNode.vue";
@@ -251,6 +236,7 @@ import IconEdit from "@/icons/IconEdit.vue";
 import IconArrowLeft from "@/icons/IconArrowLeft.vue";
 import IconArrowRight from "@/icons/IconArrowRight.vue";
 import NodeExecutionStatus from "../status/NodeExecutionStatus.vue";
+import type { ExecutionStatus } from "../status/NodeExecutionStatus.vue";
 import CodeEditor from "@/v2/components/code/CodeEditor.vue";
 import { useUiStore } from "@/v2/stores/ui";
 import { useCanvasStore } from "@/v2/stores/canvas";
@@ -317,9 +303,7 @@ const currentIterationPage = ref(1);
 /** 当前节点的迭代历史 */
 const iterationHistory = computed(() => {
   if (!selectedNodeId.value) return null;
-  const node = canvasStore.nodes.find(
-    (n: any) => n.id === selectedNodeId.value
-  );
+  const node = canvasStore.nodes.find((n: any) => n.id === selectedNodeId.value);
   if (!node) return null;
   return node.data?.iterationHistory;
 });
@@ -339,14 +323,19 @@ const currentIterationData = computed(() => {
 });
 
 /** 当前节点的执行状态（与 NodeResultPreviewPanel.vue 保持一致） */
-const executionStatus = computed(() => {
+const executionStatus = computed<ExecutionStatus | null>(() => {
   const nodeId = selectedNodeId.value;
   if (!nodeId) return null;
 
   // 优先使用迭代历史数据
   if (hasIterationHistory.value && currentIterationData.value) {
+    const status = currentIterationData.value.executionStatus || "success";
+    // 确保状态值符合 ExecutionStatus 类型（过滤掉 "pending" 和 "skipped"）
+    const normalizedStatus: ExecutionStatus["status"] =
+      status === "pending" || status === "skipped" ? null : status;
+
     return {
-      status: currentIterationData.value.executionStatus || "success",
+      status: normalizedStatus,
       result: currentIterationData.value.executionResult,
       error: currentIterationData.value.executionError,
       duration: currentIterationData.value.executionDuration,
@@ -355,7 +344,22 @@ const executionStatus = computed(() => {
   }
 
   // 否则使用 canvasStore 的执行状态数据
-  return canvasStore.getNodeExecutionStatus(nodeId);
+  const storeStatus = canvasStore.getNodeExecutionStatus(nodeId);
+  if (!storeStatus) return null;
+
+  // 规范化状态值
+  const normalizedStatus: ExecutionStatus["status"] =
+    storeStatus.status === "pending" || storeStatus.status === "skipped"
+      ? null
+      : storeStatus.status;
+
+  return {
+    status: normalizedStatus,
+    result: storeStatus.result,
+    error: storeStatus.error,
+    duration: storeStatus.duration,
+    timestamp: storeStatus.timestamp,
+  };
 });
 
 /** 是否有执行结果 */
@@ -406,11 +410,7 @@ const handleEdit = () => {
   // 初始化编辑器内容为当前执行结果的 JSON
   if (executionStatus.value?.result) {
     try {
-      editorContent.value = JSON.stringify(
-        executionStatus.value.result,
-        null,
-        2
-      );
+      editorContent.value = JSON.stringify(executionStatus.value.result, null, 2);
       originalEditorContent.value = editorContent.value;
     } catch (error) {
       console.error("初始化编辑器内容失败:", error);
@@ -429,16 +429,62 @@ const handleSave = () => {
   try {
     // 验证 JSON 格式
     const parsed = JSON.parse(editorContent.value);
-    // 保存成功，更新执行结果
-    if (selectedNode.value) {
-      canvasStore.updateNode(selectedNode.value.id, {
+
+    if (!selectedNode.value) {
+      message.warning("请先选择一个节点");
+      return;
+    }
+
+    const nodeId = selectedNode.value.id;
+    const now = Date.now();
+
+    // 1. 更新 canvasStore 中的执行状态
+    canvasStore.setNodeExecutionStatus(nodeId, {
+      status: "success",
+      result: parsed,
+      timestamp: now,
+    });
+
+    // 2. 如果有迭代历史，更新当前迭代数据中的 executionResult
+    if (
+      hasIterationHistory.value &&
+      iterationHistory.value &&
+      currentIterationData.value
+    ) {
+      const currentPage = currentIterationPage.value;
+      const iterations = [...iterationHistory.value.iterations];
+
+      // 更新当前迭代的数据
+      if (currentPage >= 1 && currentPage <= iterations.length) {
+        iterations[currentPage - 1] = {
+          ...iterations[currentPage - 1],
+          executionResult: parsed,
+          executionTimestamp: now,
+        };
+
+        // 更新节点数据中的迭代历史
+        canvasStore.updateNode(nodeId, {
+          data: {
+            ...selectedNode.value.data,
+            iterationHistory: {
+              ...iterationHistory.value,
+              iterations,
+            },
+          },
+        });
+      }
+    } else {
+      // 3. 如果没有迭代历史，直接更新节点数据
+      canvasStore.updateNode(nodeId, {
         data: {
           ...selectedNode.value.data,
           executionResult: parsed,
-          executionTimestamp: Date.now(),
+          executionTimestamp: now,
+          executionStatus: "success",
         },
       });
     }
+
     originalEditorContent.value = editorContent.value;
     isEditing.value = false;
     message.success("保存成功");
