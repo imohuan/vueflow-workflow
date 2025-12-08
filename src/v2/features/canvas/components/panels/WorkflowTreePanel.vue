@@ -61,9 +61,7 @@
       <!-- 空状态 -->
       <n-empty v-else description="暂无工作流" class="mt-8">
         <template #extra>
-          <n-button size="small" @click="createWorkflow">
-            创建第一个工作流
-          </n-button>
+          <n-button size="small" @click="createWorkflow"> 创建第一个工作流 </n-button>
         </template>
       </n-empty>
     </div>

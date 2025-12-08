@@ -14,6 +14,7 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { getContext } from "../context";
 import type { Workflow, WorkflowMetadata } from "../typings/workflow";
+import type { Node, Edge } from "@vue-flow/core";
 import { debounce } from "lodash-es";
 
 // ============ 类型定义 ============
@@ -31,15 +32,15 @@ export type GlobalVariableType = GlobalVariable["type"];
 export type WorkflowTreeMeta =
   | { kind: "folder"; path: string; children?: WorkflowTreeMeta[] }
   | {
-      kind: "workflow";
-      workflow_id: string;
-      name: string;
-      path: string;
-      description?: string;
-      createdAt?: number;
-      updatedAt?: number;
-      order?: number;
-    };
+    kind: "workflow";
+    workflow_id: string;
+    name: string;
+    path: string;
+    description?: string;
+    createdAt?: number;
+    updatedAt?: number;
+    order?: number;
+  };
 
 // ============ 常量 ============
 
@@ -373,7 +374,8 @@ export const useWorkflowStore = defineStore("workflow", () => {
       if (currentWorkflowId.value) {
         const workflow = await ctx.workflow.get(currentWorkflowId.value);
         if (workflow) {
-          currentWorkflow.value = toV2Workflow(workflow);
+          const v2Workflow = toV2Workflow(workflow);
+          currentWorkflow.value = initializeWorkflow(v2Workflow)
         }
       }
 
@@ -383,6 +385,89 @@ export const useWorkflowStore = defineStore("workflow", () => {
       console.error("[WorkflowStore] 初始化失败:", error);
       initialized.value = true;
     }
+  }
+
+  function initializeWorkflow(workflow: Workflow): Workflow {
+    if (workflow.nodes.length > 0) return workflow;
+
+    // 创建开始和结束节点，居中显示
+    // 节点默认宽度 200px，节点间距 300px
+    const nodeWidth = 200;
+    const nodeSpacing = 300;
+    const centerX = 0; // 画布初始中心点
+    const centerY = 0;
+
+    // 计算开始节点位置（左侧）
+    const startNodeX = centerX - nodeSpacing / 2 - nodeWidth / 2;
+    const startNodeY = centerY;
+
+    // 计算结束节点位置（右侧）
+    const endNodeX = centerX + nodeSpacing / 2 - nodeWidth / 2;
+    const endNodeY = centerY;
+
+    // 创建开始节点
+    const startNodeId = `node-start-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const startNode: Node = {
+      id: startNodeId,
+      type: "start",
+      position: { x: startNodeX, y: startNodeY },
+      data: {
+        nodeType: "start",
+        label: "开始",
+        description: "工作流程的起始节点",
+        noInputs: true,
+        inputs: [],
+        outputs: [
+          {
+            name: "output",
+            type: "any",
+            description: "开始信号",
+          },
+        ],
+        params: {},
+      },
+    };
+
+    // 创建结束节点
+    const endNodeId = `node-end-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const endNode: Node = {
+      id: endNodeId,
+      type: "end",
+      position: { x: endNodeX, y: endNodeY },
+      data: {
+        nodeType: "end",
+        label: "结束",
+        description: "工作流程的结束节点",
+        noOutputs: true,
+        inputs: [
+          {
+            name: "input",
+            type: "any",
+            description: "接收任意输入",
+            required: false,
+          },
+        ],
+        outputs: [],
+        params: {},
+      },
+    };
+
+    // 创建连接开始和结束节点的边
+    const edgeId = `edge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const edge: Edge = {
+      id: edgeId,
+      source: startNodeId,
+      sourceHandle: "output",
+      target: endNodeId,
+      targetHandle: "input",
+      type: "custom",
+    };
+
+    return {
+      ...workflow,
+      nodes: [startNode, endNode],
+      edges: [edge],
+    };
   }
 
   /**
