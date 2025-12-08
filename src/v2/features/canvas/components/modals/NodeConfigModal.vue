@@ -23,7 +23,7 @@
       :show-back-button="true"
       :center-width="500"
       :min-left-width="280"
-      :min-right-width="320"
+      :min-right-width="360"
       back-text="返回工作流"
       @resize="handleResize"
       @back="handleClose"
