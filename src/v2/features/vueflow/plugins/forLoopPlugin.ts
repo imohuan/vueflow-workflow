@@ -155,10 +155,10 @@ export function createForLoopPlugin(): VueFlowPlugin {
     // 判断是否为容器内的边
     const isContainerEdge = Boolean(
       (sourceParent && sourceParent === targetParent) ||
-        (sourceNode?.type === "forLoopContainer" &&
-          targetParent === sourceNode.id) ||
-        (targetNode?.type === "forLoopContainer" &&
-          sourceParent === targetNode.id)
+      (sourceNode?.type === "forLoopContainer" &&
+        targetParent === sourceNode.id) ||
+      (targetNode?.type === "forLoopContainer" &&
+        sourceParent === targetNode.id)
     );
 
     if (isContainerEdge) {
@@ -234,10 +234,10 @@ export function createForLoopPlugin(): VueFlowPlugin {
       nodes.map((n) =>
         n.id === nodeId
           ? {
-              ...n,
-              parentNode: undefined,
-              position: { x: absoluteX, y: absoluteY },
-            }
+            ...n,
+            parentNode: undefined,
+            position: { x: absoluteX, y: absoluteY },
+          }
           : n
       )
     );
@@ -279,11 +279,11 @@ export function createForLoopPlugin(): VueFlowPlugin {
       nodes.map((n) =>
         n.id === nodeId
           ? {
-              ...n,
-              parentNode: containerId,
-              position: { x: relativeX, y: relativeY },
-              // extent: "parent" as const,
-            }
+            ...n,
+            parentNode: containerId,
+            position: { x: relativeX, y: relativeY },
+            // extent: "parent" as const,
+          }
           : n
       )
     );
@@ -323,15 +323,15 @@ export function createForLoopPlugin(): VueFlowPlugin {
         nodes.map((n) =>
           n.id === containerId
             ? {
-                ...n,
-                width: CONTAINER_MIN_WIDTH,
-                height: CONTAINER_MIN_HEIGHT,
-                style: {
-                  ...n.style,
-                  width: `${CONTAINER_MIN_WIDTH}px`,
-                  height: `${CONTAINER_MIN_HEIGHT}px`,
-                },
-              }
+              ...n,
+              width: CONTAINER_MIN_WIDTH,
+              height: CONTAINER_MIN_HEIGHT,
+              style: {
+                ...n.style,
+                width: `${CONTAINER_MIN_WIDTH}px`,
+                height: `${CONTAINER_MIN_HEIGHT}px`,
+              },
+            }
             : n
         )
       );
@@ -373,9 +373,9 @@ export function createForLoopPlugin(): VueFlowPlugin {
     );
     const requiredHeight = Math.max(
       contentHeight +
-        CONTAINER_HEADER_HEIGHT +
-        CONTAINER_PADDING.top +
-        CONTAINER_PADDING.bottom,
+      CONTAINER_HEADER_HEIGHT +
+      CONTAINER_PADDING.top +
+      CONTAINER_PADDING.bottom,
       CONTAINER_MIN_HEIGHT
     );
 
@@ -833,6 +833,10 @@ export function createForLoopPlugin(): VueFlowPlugin {
         // 暴露 updateContainerBounds 函数供其他插件使用
         updateContainerBounds: (containerId: string) => {
           updateContainerBounds(containerId, ctx);
+        },
+        // 暴露 refreshEdgeLayerClasses 函数供其他组件使用
+        refreshEdgeLayerClasses: () => {
+          refreshEdgeLayerClasses(ctx);
         },
       };
 

@@ -53,6 +53,8 @@ export interface ForLoopSharedState {
   containerHighlight: Ref<Record<string, ContainerHighlightType>>;
   /** 更新容器边界 */
   updateContainerBounds: (containerId: string) => void;
+  /** 刷新所有边的层级类 */
+  refreshEdgeLayerClasses: () => void;
 }
 
 /**

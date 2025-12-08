@@ -397,6 +397,7 @@ function getMiniMapNodeStroke(node: Node) {
  * 通用的节点添加函数
  * @param nodeMetadata 节点元数据
  * @param position 节点位置（画布坐标）
+ * @param options 可选参数，包含 parentNodeId
  * @returns 创建的节点对象
  */
 function addNodeAtPosition(
@@ -409,7 +410,8 @@ function addNodeAtPosition(
         inputs?: any[];
         outputs?: any[];
       },
-  position: { x: number; y: number }
+  position: { x: number; y: number },
+  options?: { parentNodeId?: string }
 ): Node {
   const nodeId = "type" in nodeMetadata ? nodeMetadata.type : nodeMetadata.id;
   const nodeName =
@@ -417,10 +419,24 @@ function addNodeAtPosition(
   const nodeDescription = nodeMetadata.description || "";
 
   // 调整位置：使鼠标释放点对应节点顶部标题的中心
-  const adjustedPosition = {
+  let adjustedPosition = {
     x: position.x - NODE_SIZE.defaultWidth / 2, // 水平居中
     y: position.y - NODE_SIZE.headerHeight / 2, // 垂直对齐到标题中心
   };
+
+  // 如果指定了父节点，计算相对位置
+  if (options?.parentNodeId) {
+    const parentNode = coreNodes.value.find(
+      (n) => n.id === options.parentNodeId
+    );
+    if (parentNode) {
+      // 计算相对位置：绝对位置 - 父节点位置
+      adjustedPosition = {
+        x: adjustedPosition.x - parentNode.position.x,
+        y: adjustedPosition.y - parentNode.position.y,
+      };
+    }
+  }
 
   // 确定节点类型（note、start、end、connector、if 使用对应类型，其他使用 custom）
   const nodeType = Object.keys(nodeTypes).includes(nodeId) ? nodeId : "custom";
@@ -441,6 +457,7 @@ function addNodeAtPosition(
     id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     type: nodeType,
     position: adjustedPosition,
+    ...(options?.parentNodeId && { parentNode: options.parentNodeId }),
     data: {
       nodeType: nodeId,
       // 通用字段：从 nodeMetadata 获取
@@ -523,7 +540,7 @@ function addNodeAtPosition(
     newNode.data = {
       ...newNode.data,
       config: {
-        ...(newNode.data.config || {}),
+        ...newNode.data.config,
         containerId: containerId,
         mode: "variable",
         variable: "",
@@ -546,6 +563,38 @@ function addNodeAtPosition(
     "位置:",
     adjustedPosition
   );
+
+  // 如果节点在容器内，更新容器尺寸
+  if (options?.parentNodeId) {
+    const parentNodeId = options.parentNodeId;
+    // 等待 DOM 更新后更新容器尺寸
+    nextTick(async () => {
+      // 先更新节点内部结构，确保节点已渲染
+      vueFlowApi.updateNodeInternals?.([newNode.id]);
+
+      // 等待 DOM 完全更新
+      await nextTick();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const sharedState = pluginManager.getSharedState();
+      const forLoopState = sharedState["for-loop"];
+      console.log({forLoopState});
+
+      if (
+        forLoopState &&
+        typeof forLoopState.updateContainerBounds === "function"
+      ) {
+        forLoopState.updateContainerBounds(parentNodeId);
+        console.log(
+          `[VueFlowCanvas] 已更新容器 ${parentNodeId} 的尺寸`
+        );
+      } else {
+        console.warn(
+          `[VueFlowCanvas] 无法获取 for-loop 插件的 updateContainerBounds 方法`
+        );
+      }
+    });
+  }
 
   // 通过事件系统通知外部
   if (events) {
@@ -620,8 +669,30 @@ async function handleQuickMenuSelectNode({
   // 将屏幕坐标转换为画布坐标（考虑缩放和平移）
   const flowPosition = vueFlowApi.project(screenPosition);
 
+  // 检查开始拖拽的节点是否在批处理容器内
+  let parentNodeId: string | undefined;
+  if (startHandle && startHandle.nodeId) {
+    const startNode = coreNodes.value.find(
+      (n) => n.id === startHandle.nodeId
+    );
+    if (startNode && startNode.parentNode) {
+      // 检查父节点是否是批处理容器
+      const parentContainer = coreNodes.value.find(
+        (n) => n.id === startNode.parentNode && n.type === "forLoopContainer"
+      );
+      if (parentContainer) {
+        parentNodeId = parentContainer.id;
+        console.log(
+          `[VueFlowCanvas] 开始拖拽的节点在批处理容器内，新节点将添加到容器 ${parentNodeId}`
+        );
+      }
+    }
+  }
+
   // 使用通用函数添加节点
-  const newNode = addNodeAtPosition(nodeMetadata, flowPosition);
+  const newNode = addNodeAtPosition(nodeMetadata, flowPosition, {
+    parentNodeId,
+  });
 
   // 如果存在连接开始端口信息，则自动创建从起点到新节点的连接
   if (startHandle && startHandle.nodeId) {
@@ -681,6 +752,20 @@ async function handleQuickMenuSelectNode({
       });
       events.emit("edge:added", { edge: newEdge });
     }
+
+    // 刷新边的层级类（确保容器内的边正确显示）
+    await nextTick();
+    setTimeout(() => {
+      const sharedState = pluginManager.getSharedState();
+      const forLoopState = sharedState["for-loop"];
+      if (
+        forLoopState &&
+        typeof forLoopState.refreshEdgeLayerClasses === "function"
+      ) {
+        forLoopState.refreshEdgeLayerClasses();
+        console.log("[VueFlowCanvas] 已刷新边的层级类");
+      }
+    }, 100);
   }
 }
 
