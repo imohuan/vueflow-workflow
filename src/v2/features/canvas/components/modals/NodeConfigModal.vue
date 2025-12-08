@@ -514,6 +514,7 @@ function handleExecuteNode() {
     message.warning("请先选择一个节点");
     return;
   }
+
   const nodeId = selectedNode.value.id;
   // 设置执行状态
   isExecuting.value = true;
@@ -532,6 +533,8 @@ function handleNodeComplete(payload: ExecutionNodeCompleteEvent) {
     // 切换到输出标签页
     rightPanelMode.value = "output";
     console.log("[NodeConfigModal] 节点执行完成:", payload);
+    // 如果处于编辑状态，更新编辑器内容为最新数据
+    if (isEditing.value) handleEdit();
   }
 }
 
