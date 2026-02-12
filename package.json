@@ -12,6 +12,7 @@
   "dependencies": {
     "@dagrejs/dagre": "^1.1.5",
     "@guolao/vue-monaco-editor": "^1.6.0",
+    "monaco-editor": "^0.54.0",
     "@primevue/icons": "^4.4.1",
     "@types/tinycolor2": "^1.4.6",
     "@vicons/ionicons5": "^0.13.0",
@@ -23,7 +24,6 @@
     "highlight.js": "^11.11.1",
     "lodash-es": "^4.17.21",
     "mitt": "^3.0.1",
-    "monaco-editor": "^0.54.0",
     "naive-ui": "^2.43.1",
     "pinia": "^3.0.3",
     "pinyin-pro": "^3.27.0",
